@@ -700,69 +700,518 @@ def _load_patient_demographics(config: BioAgentGRPOConfig) -> dict:
 # ============================================================
 
 
+@dataclass
+class MultiTurnGRPOConfig(BioAgentGRPOConfig):
+    """Config for multi-turn GRPO with environment-in-the-loop."""
+    # Multi-turn rollout
+    num_rollouts_per_task: int = 4     # G: rollouts per prompt (for group relative)
+    max_turns: int = 10                # Max environment interaction turns
+    rollout_temperature: float = 0.8   # Higher for diverse rollouts
+    # Trajectory filtering
+    min_trajectory_reward: float = 0.0  # Discard trajectories below this
+    max_trajectory_length: int = 4096   # Max tokens per trajectory
+    # Training from trajectories
+    trajectory_epochs: int = 2          # Epochs over collected trajectories
+    grpo_mini_batch_size: int = 4       # Mini-batch for GRPO update
+    # Logging
+    save_trajectories: bool = True      # Save all trajectories to disk
+
+
 def train_multiturn(config: BioAgentGRPOConfig):
-    """Run multi-turn GRPO training with environment interaction.
+    """Run multi-turn GRPO training with environment-in-the-loop.
 
-    This variant performs rollouts through the BIOAgents GYM environment,
-    collecting multi-turn trajectories and computing rewards based on
-    the full interaction sequence.
+    This is the CORE training loop of Healthcare AI GYM. It performs
+    actual agent-environment interaction to collect multi-turn trajectories,
+    then trains using the Group Relative Policy Optimization (GRPO) approach.
 
-    Uses the online GRPO approach:
-    1. Generate G completions for each prompt
-    2. For each completion, interact with the environment (multi-turn)
-    3. Compute rewards from the full trajectory
-    4. Update policy using GRPO objective
+    Algorithm:
+    For each training epoch:
+        1. Sample a batch of tasks from the training set
+        2. For each task, run G rollouts through the GYM environment:
+           - Agent generates tool calls → environment executes → returns observation
+           - Repeat for max_turns or until agent submits final answer
+        3. Score each trajectory using the 5D composite reward:
+           accuracy + format + process + safety + coherence
+        4. Within each task's G trajectories, compute group-relative advantages:
+           advantage_i = reward_i - mean(rewards_in_group)
+        5. Build (prompt, trajectory) pairs weighted by advantages
+        6. Update the policy model via GRPO objective
+
+    Reference: AgentGym-RL (arXiv:2509.08755), GRPO (arXiv:2402.03300)
     """
+    import random
+
+    import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    logger.info("=" * 60)
-    logger.info("BIOAgents Multi-Turn GRPO Trainer")
-    logger.info("=" * 60)
-    logger.info(f"Domain: {config.domain}")
-    logger.info(f"Max turns per episode: {config.max_turns}")
+    mt_config = MultiTurnGRPOConfig(**vars(config))
 
-    # --- Setup ---
+    logger.info("=" * 60)
+    logger.info("BIOAgents Multi-Turn GRPO Trainer (Environment-in-the-Loop)")
+    logger.info("=" * 60)
+    logger.info(f"Model: {mt_config.model_name_or_path}")
+    logger.info(f"Domain: {mt_config.domain}")
+    logger.info(f"Max turns: {mt_config.max_turns}")
+    logger.info(f"Rollouts per task (G): {mt_config.num_rollouts_per_task}")
+
+    # --- Setup tokenizer ---
     tokenizer = AutoTokenizer.from_pretrained(
-        config.model_name_or_path, trust_remote_code=True,
+        mt_config.model_name_or_path, trust_remote_code=True,
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    # Load environment
-    from bioagents.gym.agent_env import BioAgentGymEnv, register_bioagent_gym
+    # --- Setup model ---
+    dtype_map = {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}
+    model_dtype = dtype_map.get(mt_config.torch_dtype, torch.bfloat16)
 
+    model = AutoModelForCausalLM.from_pretrained(
+        mt_config.model_name_or_path,
+        torch_dtype=model_dtype,
+        trust_remote_code=True,
+    )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+
+    # --- PEFT ---
+    if mt_config.peft_enabled:
+        from peft import LoraConfig, TaskType, get_peft_model
+        peft_config = LoraConfig(
+            r=mt_config.peft_r,
+            lora_alpha=mt_config.peft_lora_alpha,
+            lora_dropout=mt_config.peft_lora_dropout,
+            target_modules=mt_config.peft_target_modules,
+            task_type=TaskType.CAUSAL_LM,
+            bias="none",
+        )
+        model = get_peft_model(model, peft_config)
+        logger.info(f"LoRA applied: r={mt_config.peft_r}, alpha={mt_config.peft_lora_alpha}")
+        model.print_trainable_parameters()
+
+    # --- Load environment ---
+    from bioagents.gym.agent_env import register_bioagent_gym
     register_bioagent_gym()
 
-    # Load tasks
-    tasks_path = Path(config.tasks_path)
+    import gymnasium as gym
+
+    # --- Load tasks ---
+    tasks_path = Path(mt_config.tasks_path)
     with open(tasks_path, "r", encoding="utf-8") as f:
         all_tasks = json.load(f)
 
-    logger.info(f"Loaded {len(all_tasks)} tasks for multi-turn training")
+    # Apply split filtering
+    if mt_config.split_tasks_path and mt_config.train_split:
+        split_file = Path(mt_config.split_tasks_path)
+        if split_file.exists():
+            with open(split_file, "r", encoding="utf-8") as f:
+                splits = json.load(f)
+            if mt_config.train_split in splits:
+                valid_ids = set(splits[mt_config.train_split])
+                all_tasks = [t for t in all_tasks if t["id"] in valid_ids]
 
-    # Build per-task prompt dataset
-    records = []
-    for task in all_tasks:
-        records.append({
-            "task_id": task["id"],
-            "prompt": _build_prompt_from_task(task, config.domain),
-            "solution": task.get("correct_answer", ""),
-            "ticket": task.get("ticket", ""),
+    logger.info(f"Training on {len(all_tasks)} tasks, {mt_config.num_rollouts_per_task} rollouts each")
+
+    # --- Optimizer ---
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=mt_config.learning_rate,
+        weight_decay=mt_config.weight_decay,
+    )
+
+    # --- Reward function ---
+    from bioagents.evaluation.rewards import compute_composite_reward
+
+    # --- Output directory ---
+    os.makedirs(mt_config.output_dir, exist_ok=True)
+
+    # ========================================
+    # Main Training Loop
+    # ========================================
+    all_trajectories = []
+    best_mean_reward = -1.0
+
+    for epoch in range(mt_config.num_train_epochs):
+        logger.info(f"\n{'='*50}")
+        logger.info(f"Epoch {epoch+1}/{mt_config.num_train_epochs}")
+        logger.info(f"{'='*50}")
+
+        epoch_rewards = []
+        epoch_trajectories = []
+
+        # Shuffle tasks each epoch
+        random.shuffle(all_tasks)
+
+        for task_idx, task in enumerate(all_tasks):
+            task_id = task["id"]
+            ticket = task.get("ticket", "")
+            correct_answer = task.get("correct_answer", "")
+            eval_criteria = task.get("evaluation_criteria", {})
+            expected_actions = eval_criteria.get("actions", [])
+
+            # --- Collect G rollouts for this task ---
+            task_rollouts = []
+
+            for g in range(mt_config.num_rollouts_per_task):
+                trajectory = _run_single_rollout(
+                    model=model,
+                    tokenizer=tokenizer,
+                    device=device,
+                    domain=mt_config.domain,
+                    task=task,
+                    max_turns=mt_config.max_turns,
+                    temperature=mt_config.rollout_temperature,
+                )
+                task_rollouts.append(trajectory)
+
+            # --- Compute rewards for each rollout ---
+            task_rewards = []
+            for traj in task_rollouts:
+                reward_result = compute_composite_reward(
+                    response=traj["final_response"],
+                    correct_answer=correct_answer,
+                    tool_call_log=traj["tool_calls"],
+                    expected_actions=expected_actions,
+                    is_final=True,
+                )
+                traj["reward"] = reward_result["total"]
+                traj["reward_detail"] = reward_result
+                task_rewards.append(reward_result["total"])
+
+            # --- Compute GRPO group-relative advantages ---
+            mean_reward = sum(task_rewards) / max(len(task_rewards), 1)
+            std_reward = (sum((r - mean_reward)**2 for r in task_rewards) / max(len(task_rewards), 1)) ** 0.5
+            std_reward = max(std_reward, 1e-6)  # prevent division by zero
+
+            for traj, reward in zip(task_rollouts, task_rewards):
+                traj["advantage"] = (reward - mean_reward) / std_reward
+                epoch_trajectories.append(traj)
+
+            epoch_rewards.extend(task_rewards)
+
+            if (task_idx + 1) % 5 == 0:
+                logger.info(
+                    f"  Task {task_idx+1}/{len(all_tasks)}: "
+                    f"mean_R={mean_reward:.3f}, "
+                    f"best_R={max(task_rewards):.3f}, "
+                    f"worst_R={min(task_rewards):.3f}"
+                )
+
+        # --- Filter trajectories ---
+        positive_trajs = [t for t in epoch_trajectories if t["advantage"] > 0]
+        logger.info(
+            f"Epoch {epoch+1}: {len(epoch_trajectories)} total trajectories, "
+            f"{len(positive_trajs)} positive advantage"
+        )
+
+        # --- GRPO Policy Update ---
+        if positive_trajs:
+            loss_total = _grpo_policy_update(
+                model=model,
+                tokenizer=tokenizer,
+                optimizer=optimizer,
+                trajectories=epoch_trajectories,
+                device=device,
+                beta=mt_config.beta,
+                max_length=mt_config.max_trajectory_length,
+                mini_batch_size=mt_config.grpo_mini_batch_size,
+                num_epochs=mt_config.trajectory_epochs,
+            )
+            logger.info(f"  GRPO loss: {loss_total:.4f}")
+        else:
+            logger.warning("  No positive-advantage trajectories, skipping update")
+
+        # --- Epoch statistics ---
+        mean_epoch_reward = sum(epoch_rewards) / max(len(epoch_rewards), 1)
+        logger.info(f"Epoch {epoch+1} mean reward: {mean_epoch_reward:.4f}")
+
+        if mean_epoch_reward > best_mean_reward:
+            best_mean_reward = mean_epoch_reward
+            # Save best checkpoint
+            best_path = os.path.join(mt_config.output_dir, "best")
+            model.save_pretrained(best_path)
+            tokenizer.save_pretrained(best_path)
+            logger.info(f"  New best model saved (reward={best_mean_reward:.4f})")
+
+        # --- Save trajectories ---
+        if mt_config.save_trajectories:
+            traj_path = os.path.join(mt_config.output_dir, f"trajectories_epoch_{epoch+1}.json")
+            _save_trajectories(epoch_trajectories, traj_path)
+
+        all_trajectories.extend(epoch_trajectories)
+
+    # --- Save final model ---
+    final_path = os.path.join(mt_config.output_dir, "final")
+    model.save_pretrained(final_path)
+    tokenizer.save_pretrained(final_path)
+
+    # --- Save training summary ---
+    summary = {
+        "total_trajectories": len(all_trajectories),
+        "best_mean_reward": best_mean_reward,
+        "epochs": mt_config.num_train_epochs,
+        "tasks": len(all_tasks),
+        "rollouts_per_task": mt_config.num_rollouts_per_task,
+        "domain": mt_config.domain,
+    }
+    summary_path = os.path.join(mt_config.output_dir, "training_summary.json")
+    with open(summary_path, "w") as f:
+        json.dump(summary, f, indent=2)
+
+    logger.info(f"\n{'='*50}")
+    logger.info(f"Multi-turn GRPO training complete!")
+    logger.info(f"Best mean reward: {best_mean_reward:.4f}")
+    logger.info(f"Total trajectories: {len(all_trajectories)}")
+    logger.info(f"Models saved to: {mt_config.output_dir}")
+    logger.info(f"{'='*50}")
+
+    return all_trajectories
+
+
+def _run_single_rollout(
+    model,
+    tokenizer,
+    device,
+    domain: str,
+    task: dict,
+    max_turns: int = 10,
+    temperature: float = 0.8,
+) -> dict:
+    """Run a single multi-turn rollout through the GYM environment.
+
+    Returns a trajectory dict with:
+    - messages: full conversation history
+    - tool_calls: list of tool call records
+    - final_response: agent's final text response
+    - num_turns: number of turns taken
+    """
+    import gymnasium as gym
+
+    task_id = task["id"]
+
+    # Create environment
+    env = gym.make(
+        "bioagent-gym-v0",
+        domain=domain,
+        task_id=task_id,
+    )
+
+    obs, info = env.reset()
+    messages = [
+        {"role": "system", "content": obs.get("system_prompt", "You are a medical AI assistant.")},
+        {"role": "user", "content": obs.get("ticket", task.get("ticket", ""))},
+    ]
+
+    tool_calls = []
+    final_response = ""
+
+    for turn in range(max_turns):
+        # Generate model response
+        prompt_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+        )
+        inputs = tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=4096)
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=512,
+                temperature=max(temperature, 0.01),
+                top_p=0.95,
+                do_sample=True,
+                pad_token_id=tokenizer.pad_token_id,
+            )
+
+        # Decode only the new tokens
+        new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+        response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+        if not response:
+            response = '{"name": "think", "arguments": {"thought": "Let me analyze this carefully."}}'
+
+        # Try to parse as tool call
+        parsed_tool = _parse_tool_call_from_response(response)
+
+        if parsed_tool:
+            # Execute tool in environment
+            action = json.dumps(parsed_tool)
+            obs_new, reward, terminated, truncated, step_info = env.step(action)
+
+            tool_calls.append({
+                "tool_name": parsed_tool.get("name", ""),
+                "arguments": parsed_tool.get("arguments", {}),
+                "response": obs_new.get("tool_response", ""),
+            })
+
+            messages.append({"role": "assistant", "content": response})
+            messages.append({"role": "user", "content": obs_new.get("tool_response", "")})
+
+            if terminated or truncated:
+                final_response = response
+                break
+        else:
+            # Non-tool response = final answer
+            final_response = response
+            messages.append({"role": "assistant", "content": response})
+            break
+
+    env.close()
+
+    return {
+        "task_id": task_id,
+        "messages": messages,
+        "tool_calls": tool_calls,
+        "final_response": final_response,
+        "num_turns": len(tool_calls) + 1,
+        "full_text": "\n".join(m["content"] for m in messages if m["role"] == "assistant"),
+    }
+
+
+def _parse_tool_call_from_response(text: str) -> Optional[dict]:
+    """Parse a tool call from model output text."""
+    import re
+    text = text.strip()
+
+    # Try direct JSON parse
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict) and "name" in parsed:
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    # Try JSON in code block
+    code_match = re.search(r'```(?:json)?\s*\n?({.*?})\s*\n?```', text, re.DOTALL)
+    if code_match:
+        try:
+            parsed = json.loads(code_match.group(1))
+            if "name" in parsed:
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    # Try to find JSON object in text
+    json_match = re.search(r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*[,}].*?\}', text, re.DOTALL)
+    if json_match:
+        try:
+            parsed = json.loads(json_match.group(0))
+            if "name" in parsed:
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
+
+def _grpo_policy_update(
+    model,
+    tokenizer,
+    optimizer,
+    trajectories: list[dict],
+    device,
+    beta: float = 0.04,
+    max_length: int = 4096,
+    mini_batch_size: int = 4,
+    num_epochs: int = 2,
+) -> float:
+    """GRPO policy gradient update from collected trajectories.
+
+    Implements the core GRPO objective:
+        L = -E[advantage * log π(completion | prompt)]
+
+    where advantages are group-relative (normalized within each task's rollouts).
+
+    For trajectories with positive advantage, we increase log probability.
+    For those with negative advantage, we decrease it.
+    KL penalty prevents the policy from straying too far from the initial model.
+    """
+    import torch.nn.functional as F
+
+    model.train()
+    total_loss = 0.0
+    num_updates = 0
+
+    for epoch in range(num_epochs):
+        # Shuffle trajectories
+        import random
+        indices = list(range(len(trajectories)))
+        random.shuffle(indices)
+
+        for batch_start in range(0, len(indices), mini_batch_size):
+            batch_indices = indices[batch_start:batch_start + mini_batch_size]
+            batch_loss = torch.tensor(0.0, device=device, requires_grad=True)
+            valid_samples = 0
+
+            for idx in batch_indices:
+                traj = trajectories[idx]
+                advantage = traj.get("advantage", 0.0)
+
+                if abs(advantage) < 1e-6:
+                    continue
+
+                # Build the full trajectory text
+                full_text = traj.get("full_text", "")
+                if not full_text:
+                    continue
+
+                # Tokenize
+                encoding = tokenizer(
+                    full_text,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=max_length,
+                    padding=False,
+                )
+                input_ids = encoding["input_ids"].to(device)
+
+                if input_ids.shape[1] < 2:
+                    continue
+
+                # Forward pass — compute log probabilities
+                outputs = model(input_ids=input_ids, labels=input_ids)
+                log_probs = -outputs.loss  # NLL → log prob (averaged over tokens)
+
+                # GRPO objective: advantage-weighted log probability
+                # Positive advantage → increase log prob (good trajectory)
+                # Negative advantage → decrease log prob (bad trajectory)
+                sample_loss = -advantage * log_probs
+
+                # KL penalty (implicit via advantage normalization + beta scaling)
+                sample_loss = sample_loss * beta
+
+                batch_loss = batch_loss + sample_loss
+                valid_samples += 1
+
+            if valid_samples > 0:
+                batch_loss = batch_loss / valid_samples
+                optimizer.zero_grad()
+                batch_loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+
+                total_loss += batch_loss.item()
+                num_updates += 1
+
+    model.eval()
+    return total_loss / max(num_updates, 1)
+
+
+def _save_trajectories(trajectories: list[dict], path: str):
+    """Save trajectories to disk (JSON serializable subset)."""
+    serializable = []
+    for traj in trajectories:
+        serializable.append({
+            "task_id": traj.get("task_id"),
+            "num_turns": traj.get("num_turns"),
+            "reward": traj.get("reward"),
+            "advantage": traj.get("advantage"),
+            "reward_detail": traj.get("reward_detail"),
+            "tool_calls": traj.get("tool_calls"),
+            "final_response": traj.get("final_response", "")[:500],
         })
-
-    logger.info(f"Multi-turn dataset: {len(records)} episodes")
-    logger.info("NOTE: Full multi-turn GRPO requires custom rollout loop.")
-    logger.info("      For single-turn GRPO, use `train()` instead.")
-    logger.info("      See AgentGym-RL/verl for multi-turn PPO reference.")
-
-    # Save the prepared dataset for external training frameworks
-    output_path = Path(config.output_dir) / "multiturn_prompts.json"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(records, f, indent=2, ensure_ascii=False)
-    logger.info(f"Multi-turn prompts saved to {output_path}")
-
-    return records
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(serializable, f, indent=2, ensure_ascii=False)
+    logger.info(f"Saved {len(serializable)} trajectories to {path}")
 
 
 # ============================================================

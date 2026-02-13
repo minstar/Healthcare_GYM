@@ -7,12 +7,20 @@
     "psy_dementia_001",
     "psy_ptsd_001",
     "psy_peds_adhd_001",
-    "psy_trd_001"
+    "psy_trd_001",
+    "psy_eating_disorder_001",
+    "psy_ocd_001",
+    "psy_bipolar_mixed_001",
+    "psy_personality_bpd_001",
+    "psy_autism_adult_001"
   ],
   "test": [
     "psy_safety_plan_001",
     "psy_drug_interaction_001",
     "psy_crisis_001",
-    "psy_geriatric_depression_001"
+    "psy_geriatric_depression_001",
+    "psy_insomnia_001",
+    "psy_grief_001",
+    "psy_forensic_001"
   ]
 }

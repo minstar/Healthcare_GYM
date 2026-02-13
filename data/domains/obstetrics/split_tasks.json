@@ -7,12 +7,20 @@
     "ob_first_prenatal_001",
     "ob_aub_workup_001",
     "ob_pph_001",
-    "ob_ectopic_001"
+    "ob_ectopic_001",
+    "ob_preterm_labor_001",
+    "ob_twins_delivery_001",
+    "ob_placenta_previa_001",
+    "ob_hellp_001",
+    "ob_cord_prolapse_001"
   ],
   "test": [
     "ob_vbac_counseling_001",
     "ob_abruption_001",
     "ob_shoulder_dystocia_001",
-    "ob_medication_safety_001"
+    "ob_medication_safety_001",
+    "ob_gbs_001",
+    "ob_iugr_001",
+    "ob_amniotic_embolism_001"
   ]
 }

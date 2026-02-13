@@ -1,0 +1,116 @@
+# ============================================================
+# BIOAgents GRPO Training Config — Obstetrics Domain
+# ============================================================
+# Usage:
+#   python bioagents/training/grpo_trainer.py --config configs/grpo_obstetrics.yaml
+#   accelerate launch --config_file configs/accelerate_ds_zero2.yaml \
+#       bioagents/training/grpo_trainer.py --config configs/grpo_obstetrics.yaml
+# ============================================================
+# Domain: Obstetrics
+# Description: GRPO training for obstetrics and maternal-fetal health tasks.
+#              Enhanced safety monitoring for both maternal and fetal safety.
+#              Lower temperature for conservative, safety-focused responses.
+# ============================================================
+
+# --- Model ---
+model:
+  name_or_path: "Qwen/Qwen3-1.7B"           # Base model (swap for 7B/14B)
+  torch_dtype: "bfloat16"
+  attn_implementation: "flash_attention_2"    # or "eager" / "sdpa"
+
+# --- LoRA / PEFT ---
+peft:
+  enabled: true
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  task_type: "CAUSAL_LM"
+  bias: "none"
+
+# --- Dataset ---
+dataset:
+  domain: "obstetrics"
+  tasks_path: "data/domains/obstetrics/tasks.json"
+  split_tasks_path: "data/domains/obstetrics/split_tasks.json"
+  train_split: "train"
+  eval_split: "test"
+  max_prompt_length: 2048
+  max_completion_length: 1024
+
+# --- GRPO Training ---
+training:
+  output_dir: "checkpoints/grpo_obstetrics"
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-6
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  bf16: true
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 50
+  save_total_limit: 3
+  seed: 42
+
+  # GRPO-specific
+  num_generations: 4          # G: number of completions per prompt
+  beta: 0.04                  # KL penalty coefficient
+  temperature: 0.5            # Lower temperature for conservative responses
+  top_p: 0.95
+  top_k: 50
+
+# --- Reward Functions ---
+rewards:
+  functions:
+    - name: "accuracy"
+      weight: 0.35
+    - name: "format"
+      weight: 0.15
+    - name: "process"
+      weight: 0.3
+    - name: "safety"
+      weight: 0.2
+  # BERTScore model for medical domain accuracy
+  bertscore_model: "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"
+
+# --- vLLM Generation (for faster rollout) ---
+vllm:
+  enabled: false               # Set true if vLLM server is running
+  base_url: "http://localhost:8000/v1"
+  gpu_memory_utilization: 0.5
+  tensor_parallel_size: 1
+
+# --- Environment (multi-turn agent interaction) ---
+environment:
+  max_turns: 10
+  use_gym_env: true
+  domains:
+    - "obstetrics"
+
+# --- Logging ---
+logging:
+  project: "bioagents-grpo"
+  run_name: "grpo_obstetrics_qwen3_1.7b"
+  use_wandb: true
+  log_dir: "logs/runs"
+
+# --- Experiment metadata ---
+meta:
+  experiment: "GRPO Obstetrics with Maternal-Fetal Safety"
+  description: >
+    GRPO training on Obstetrics domain with composite reward
+    (accuracy 0.35 + format 0.15 + process 0.3 + safety 0.2).
+    Enhanced safety monitoring (0.2 weight) for both maternal and fetal safety.
+    Lower temperature (0.5) for conservative, safety-focused responses.
+    Uses Qwen3-1.7B base with LoRA (r=16).

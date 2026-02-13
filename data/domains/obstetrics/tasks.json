@@ -980,5 +980,741 @@
         "NL_ASSERTION"
       ]
     }
+  },
+  {
+    "id": "ob_preterm_labor_001",
+    "description": {
+      "purpose": "Manage preterm labor at 32 weeks with tocolysis, antenatal steroids, and neuroprotection",
+      "difficulty": "hard",
+      "category": "preterm_labor",
+      "key_challenges": [
+        "Diagnose true preterm labor vs false labor",
+        "Initiate tocolysis to gain time for corticosteroids",
+        "Administer betamethasone for fetal lung maturity",
+        "Administer magnesium sulfate for neuroprotection",
+        "Coordinate with NICU for potential preterm delivery"
+      ]
+    },
+    "user_scenario": {
+      "persona": "OB/GYN resident managing a patient on labor and delivery",
+      "instructions": "You are evaluating a 29-year-old G1P0 at 32 weeks presenting with regular contractions and cervical change. Determine if this is true preterm labor, initiate appropriate management, and coordinate care for potential preterm delivery."
+    },
+    "ticket": "Patient OB-013 (29F, G1P0, 32w0d) presents with regular contractions q4 min x 2 hours. Cervix dilated to 3cm/70% effaced (was 1cm/30% at clinic visit 1 week ago). Fetal fibronectin positive. Membranes intact. FHR tracing Category I. GBS status unknown. No prior preterm birth history. Vitals stable. Assess for preterm labor, initiate tocolysis, administer antenatal steroids and magnesium sulfate for neuroprotection, and coordinate NICU notification.",
+    "patient_id": "OB-013",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a1",
+          "name": "get_patient_info",
+          "arguments": {
+            "patient_id": "OB-013"
+          },
+          "info": "Retrieve patient demographics and obstetric history"
+        },
+        {
+          "action_id": "a2",
+          "name": "check_cervical_status",
+          "arguments": {
+            "patient_id": "OB-013"
+          },
+          "info": "Confirm cervical dilation and effacement change"
+        },
+        {
+          "action_id": "a3",
+          "name": "get_fetal_monitoring",
+          "arguments": {
+            "patient_id": "OB-013"
+          },
+          "info": "Assess fetal heart rate tracing"
+        },
+        {
+          "action_id": "a4",
+          "name": "get_lab_results",
+          "arguments": {
+            "patient_id": "OB-013"
+          },
+          "info": "Review fetal fibronectin, GBS status, UA, cultures"
+        },
+        {
+          "action_id": "a5",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-013",
+            "medication": "betamethasone",
+            "dose": "12mg IM x 2 doses 24h apart"
+          },
+          "info": "Administer antenatal corticosteroids for fetal lung maturity"
+        },
+        {
+          "action_id": "a6",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-013",
+            "medication": "magnesium sulfate",
+            "dose": "4g IV bolus then 1g/hr"
+          },
+          "info": "Administer magnesium sulfate for fetal neuroprotection (<32 weeks)"
+        },
+        {
+          "action_id": "a7",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-013",
+            "medication": "nifedipine",
+            "dose": "20mg PO loading then 10-20mg q4-6h"
+          },
+          "info": "Initiate tocolysis to delay delivery for steroid benefit"
+        }
+      ],
+      "nl_assertions": [
+        "Agent confirmed true preterm labor based on regular contractions with documented cervical change and positive fetal fibronectin",
+        "Agent administered betamethasone for fetal lung maturation at 32 weeks",
+        "Agent initiated magnesium sulfate for neuroprotection (less than 32 weeks gestation)",
+        "Agent initiated tocolysis (nifedipine or indomethacin) to gain time for steroid administration",
+        "Agent ordered GBS culture given unknown status and initiated empiric antibiotics for GBS prophylaxis",
+        "Agent notified NICU for potential preterm delivery",
+        "Agent monitored for tocolytic side effects and maternal vitals",
+        "Agent planned serial cervical assessments and continuous fetal monitoring"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "ob_twins_delivery_001",
+    "description": {
+      "purpose": "Manage dichorionic-diamniotic twin pregnancy with discordant growth",
+      "difficulty": "hard",
+      "category": "multiple_gestation",
+      "key_challenges": [
+        "Identify growth discordance and its clinical significance",
+        "Determine chorionicity and its implications for monitoring",
+        "Plan delivery timing and mode for discordant twins",
+        "Monitor for twin-specific complications (sIUGR, preeclampsia risk)",
+        "Coordinate multidisciplinary team for twin delivery"
+      ]
+    },
+    "user_scenario": {
+      "persona": "MFM specialist in high-risk obstetric clinic",
+      "instructions": "You are managing a 33-year-old G2P1 at 34 weeks with DCDA twins showing significant growth discordance. Twin B is measuring below the 10th percentile with abnormal Doppler studies. Assess the growth discordance, plan surveillance, and determine delivery timing."
+    },
+    "ticket": "Patient OB-014 (33F, G2P1, 34w) with DCDA twins conceived via IVF. Growth ultrasound shows Twin A EFW 2.3kg (50th percentile) and Twin B EFW 1.6kg (5th percentile) — 30% discordance. Twin B has elevated UA Doppler S/D ratio (absent end-diastolic flow). Twin A Dopplers normal. AFI Twin A normal, Twin B borderline low. NST: Twin A reactive, Twin B with minimal variability. Maternal BP trending up 138/88 (baseline 110/70). Preeclampsia labs pending.",
+    "patient_id": "OB-014",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a1",
+          "name": "get_patient_info",
+          "arguments": {
+            "patient_id": "OB-014"
+          },
+          "info": "Review obstetric history and twin chorionicity"
+        },
+        {
+          "action_id": "a2",
+          "name": "get_ultrasound_results",
+          "arguments": {
+            "patient_id": "OB-014"
+          },
+          "info": "Review growth parameters, Doppler studies, and amniotic fluid for both twins"
+        },
+        {
+          "action_id": "a3",
+          "name": "get_fetal_monitoring",
+          "arguments": {
+            "patient_id": "OB-014"
+          },
+          "info": "Assess NST for both twins"
+        },
+        {
+          "action_id": "a4",
+          "name": "get_lab_results",
+          "arguments": {
+            "patient_id": "OB-014"
+          },
+          "info": "Review preeclampsia labs (CBC, CMP, LDH, uric acid, urine protein)"
+        },
+        {
+          "action_id": "a5",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-014",
+            "medication": "betamethasone",
+            "dose": "12mg IM"
+          },
+          "info": "Administer antenatal corticosteroids given likely early delivery"
+        },
+        {
+          "action_id": "a6",
+          "name": "submit_plan",
+          "arguments": {
+            "patient_id": "OB-014",
+            "plan": "delivery planning for discordant twins"
+          },
+          "info": "Plan delivery timing and mode based on Twin B status"
+        }
+      ],
+      "nl_assertions": [
+        "Agent identified significant growth discordance (>20%) between twins",
+        "Agent recognized absent end-diastolic flow in Twin B as concerning for severe IUGR",
+        "Agent assessed Twin B minimal variability on NST as non-reassuring",
+        "Agent recognized rising maternal BP as possible developing preeclampsia",
+        "Agent recommended antenatal corticosteroids given gestational age and likely early delivery",
+        "Agent discussed delivery timing (34 weeks with AEDF is indication for delivery consideration)",
+        "Agent planned cesarean delivery given IUGR Twin B with abnormal Dopplers",
+        "Agent coordinated NICU notification for delivery of growth-restricted twin"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "ob_placenta_previa_001",
+    "description": {
+      "purpose": "Manage placenta previa with acute vaginal bleeding and plan cesarean delivery",
+      "difficulty": "hard",
+      "category": "antepartum_hemorrhage",
+      "key_challenges": [
+        "Recognize clinical presentation of placenta previa bleeding",
+        "Avoid digital cervical exam in known previa",
+        "Determine need for emergent vs scheduled cesarean",
+        "Manage maternal hemodynamic status",
+        "Plan for potential placenta accreta spectrum"
+      ]
+    },
+    "user_scenario": {
+      "persona": "OB/GYN attending managing a patient on L&D",
+      "instructions": "You are evaluating a 34-year-old G3P2 at 33 weeks with known complete placenta previa presenting with painless vaginal bleeding. She has two prior cesarean deliveries. Manage the acute bleeding episode, assess for accreta, and plan delivery."
+    },
+    "ticket": "Patient OB-015 (34F, G3P2, 33w) with known complete placenta previa diagnosed at 20-week anatomy scan (confirmed persistent at 28w). Presents with painless bright red vaginal bleeding estimated 300mL. Two prior low-transverse cesareans. Vitals: HR 98, BP 108/68. FHR Category I. Ultrasound shows anterior placenta previa with possible myometrial thinning at prior cesarean scar. No contractions. Type and screen on file. Evaluate bleeding, assess for placenta accreta spectrum, stabilize, and plan delivery.",
+    "patient_id": "OB-015",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a1",
+          "name": "get_patient_info",
+          "arguments": {
+            "patient_id": "OB-015"
+          },
+          "info": "Review obstetric history including prior cesareans"
+        },
+        {
+          "action_id": "a2",
+          "name": "get_ultrasound_results",
+          "arguments": {
+            "patient_id": "OB-015"
+          },
+          "info": "Review placental location and evaluate for accreta spectrum findings"
+        },
+        {
+          "action_id": "a3",
+          "name": "get_fetal_monitoring",
+          "arguments": {
+            "patient_id": "OB-015"
+          },
+          "info": "Assess fetal heart rate tracing"
+        },
+        {
+          "action_id": "a4",
+          "name": "get_lab_results",
+          "arguments": {
+            "patient_id": "OB-015"
+          },
+          "info": "Check CBC, type and crossmatch, coagulation studies"
+        },
+        {
+          "action_id": "a5",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-015",
+            "medication": "betamethasone",
+            "dose": "12mg IM"
+          },
+          "info": "Administer antenatal corticosteroids at 33 weeks"
+        },
+        {
+          "action_id": "a6",
+          "name": "order_blood_products",
+          "arguments": {
+            "patient_id": "OB-015",
+            "products": "type_and_crossmatch_4_units"
+          },
+          "info": "Crossmatch blood products for potential hemorrhage"
+        }
+      ],
+      "nl_assertions": [
+        "Agent recognized painless vaginal bleeding as classic presentation of placenta previa",
+        "Agent avoided digital cervical examination in setting of known previa",
+        "Agent assessed hemodynamic stability and estimated blood loss",
+        "Agent identified high risk for placenta accreta spectrum (previa + 2 prior cesareans + anterior placenta on scar)",
+        "Agent recommended MRI for further accreta evaluation if not yet performed",
+        "Agent administered betamethasone for fetal lung maturity at 33 weeks",
+        "Agent crossmatched blood products and planned for potential massive hemorrhage",
+        "Agent planned cesarean delivery at 36-37 weeks if stable, with multidisciplinary team (GYN oncology, interventional radiology)"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "ob_hellp_001",
+    "description": {
+      "purpose": "Diagnose and manage HELLP syndrome with liver dysfunction and thrombocytopenia",
+      "difficulty": "expert",
+      "category": "hypertensive_disorders",
+      "key_challenges": [
+        "Recognize HELLP syndrome diagnostic criteria",
+        "Differentiate from other thrombotic microangiopathies (TTP, HUS, AFLP)",
+        "Manage maternal complications (hepatic rupture risk, DIC)",
+        "Determine delivery timing regardless of gestational age",
+        "Monitor for postpartum worsening"
+      ]
+    },
+    "user_scenario": {
+      "persona": "OB/GYN attending managing a critically ill patient on L&D",
+      "instructions": "You are evaluating a 31-year-old G2P1 at 30 weeks presenting with epigastric pain, nausea, and malaise. Labs reveal evidence of HELLP syndrome. Confirm the diagnosis, initiate stabilization, and plan delivery."
+    },
+    "ticket": "Patient OB-016 (31F, G2P1, 30w) presents with 2-day history of worsening epigastric pain radiating to right shoulder, nausea, vomiting, and malaise. BP 152/96. Labs: Plt 45K, AST 520, ALT 480, LDH 1,100, total bilirubin 2.8, haptoglobin <10, peripheral smear with schistocytes, fibrinogen 180, creatinine 1.4. Urine protein 2+. FHR Category II with intermittent variable decelerations. Prior pregnancy complicated by gestational hypertension. Diagnose HELLP syndrome, initiate magnesium sulfate, administer corticosteroids, prepare for delivery.",
+    "patient_id": "OB-016",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a1",
+          "name": "get_patient_info",
+          "arguments": {
+            "patient_id": "OB-016"
+          },
+          "info": "Review patient history and presentation"
+        },
+        {
+          "action_id": "a2",
+          "name": "get_lab_results",
+          "arguments": {
+            "patient_id": "OB-016"
+          },
+          "info": "Review complete labs including CBC, LFTs, LDH, haptoglobin, smear, coagulation, renal function"
+        },
+        {
+          "action_id": "a3",
+          "name": "get_fetal_monitoring",
+          "arguments": {
+            "patient_id": "OB-016"
+          },
+          "info": "Assess fetal status on monitoring"
+        },
+        {
+          "action_id": "a4",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-016",
+            "medication": "magnesium sulfate",
+            "dose": "4g IV bolus then 2g/hr"
+          },
+          "info": "Initiate seizure prophylaxis"
+        },
+        {
+          "action_id": "a5",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-016",
+            "medication": "betamethasone",
+            "dose": "12mg IM"
+          },
+          "info": "Administer antenatal corticosteroids"
+        },
+        {
+          "action_id": "a6",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-016",
+            "medication": "labetalol",
+            "dose": "20mg IV"
+          },
+          "info": "Manage hypertension"
+        },
+        {
+          "action_id": "a7",
+          "name": "order_blood_products",
+          "arguments": {
+            "patient_id": "OB-016",
+            "products": "platelets_and_crossmatch"
+          },
+          "info": "Order platelet transfusion and crossmatch for delivery"
+        }
+      ],
+      "nl_assertions": [
+        "Agent diagnosed HELLP syndrome based on classic triad: Hemolysis (schistocytes, elevated LDH, low haptoglobin), Elevated Liver enzymes, Low Platelets",
+        "Agent differentiated HELLP from TTP/HUS and acute fatty liver of pregnancy",
+        "Agent recognized right shoulder pain as possible hepatic capsule distension (subcapsular hematoma risk)",
+        "Agent initiated magnesium sulfate for seizure prophylaxis",
+        "Agent administered betamethasone for fetal lung maturity",
+        "Agent planned delivery within 24-48 hours regardless of gestational age given severe HELLP",
+        "Agent ordered platelet transfusion for count <50K prior to delivery (threshold for cesarean)",
+        "Agent monitored for DIC (low fibrinogen 180) and planned serial coagulation studies"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "ob_cord_prolapse_001",
+    "description": {
+      "purpose": "Emergency management of umbilical cord prolapse with fetal bradycardia",
+      "difficulty": "expert",
+      "category": "obstetric_emergency",
+      "key_challenges": [
+        "Immediate recognition of cord prolapse",
+        "Manual elevation of presenting part to relieve cord compression",
+        "Emergent cesarean delivery activation",
+        "Maternal positioning to relieve cord compression",
+        "Rapid coordination of surgical and neonatal teams"
+      ]
+    },
+    "user_scenario": {
+      "persona": "OB/GYN resident on labor and delivery",
+      "instructions": "You are called urgently to a labor room where a nurse reports sudden fetal bradycardia after spontaneous rupture of membranes. On exam, you palpate a pulsating cord at the introitus. Manage this obstetric emergency."
+    },
+    "ticket": "EMERGENT: Patient OB-017 (27F, G2P1, 37w) had spontaneous rupture of membranes 3 minutes ago during active labor (5cm dilated). Nurse reports sudden FHR drop to 70 bpm sustained. On vaginal exam, pulsating umbilical cord is palpated below the presenting part (vertex at -2 station). Cord is visible at the introitus. Prior uncomplicated SVD. No known anomalies. Manage this cord prolapse emergency with immediate interventions.",
+    "patient_id": "OB-017",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a1",
+          "name": "get_fetal_monitoring",
+          "arguments": {
+            "patient_id": "OB-017"
+          },
+          "info": "Confirm fetal bradycardia"
+        },
+        {
+          "action_id": "a2",
+          "name": "perform_intervention",
+          "arguments": {
+            "intervention": "manual_elevation_presenting_part",
+            "patient_id": "OB-017"
+          },
+          "info": "Immediately elevate presenting part off the cord with examining hand"
+        },
+        {
+          "action_id": "a3",
+          "name": "activate_emergency",
+          "arguments": {
+            "patient_id": "OB-017",
+            "type": "emergent_cesarean"
+          },
+          "info": "Call for emergent cesarean delivery (category 1)"
+        },
+        {
+          "action_id": "a4",
+          "name": "notify_team",
+          "arguments": {
+            "teams": ["anesthesia", "NICU", "OR_staff"]
+          },
+          "info": "Notify all teams for emergent delivery"
+        },
+        {
+          "action_id": "a5",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-017",
+            "medication": "terbutaline",
+            "dose": "0.25mg subcutaneous"
+          },
+          "info": "Administer tocolytic to reduce contractions compressing cord"
+        }
+      ],
+      "nl_assertions": [
+        "Agent immediately placed hand in vagina to elevate presenting part off the cord and maintained elevation continuously",
+        "Agent called for emergent cesarean delivery without delay (goal: delivery within minutes)",
+        "Agent positioned patient in steep Trendelenburg or knee-chest position to reduce cord compression",
+        "Agent did NOT attempt to replace the cord into the uterus (contraindicated)",
+        "Agent considered terbutaline to inhibit contractions further compressing the cord",
+        "Agent kept cord moist with warm saline-soaked gauze if exposed",
+        "Agent notified NICU and anesthesia for emergent delivery",
+        "Agent maintained continuous fetal monitoring to assess response to interventions"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "ob_gbs_001",
+    "description": {
+      "purpose": "Manage GBS-positive labor with appropriate intrapartum antibiotic prophylaxis and penicillin allergy",
+      "difficulty": "moderate",
+      "category": "infectious_disease",
+      "key_challenges": [
+        "Select appropriate GBS antibiotic with penicillin allergy",
+        "Determine allergy severity to guide antibiotic choice",
+        "Time antibiotic administration relative to delivery",
+        "Assess neonatal GBS risk with inadequate prophylaxis",
+        "Coordinate with pediatrics for neonatal monitoring"
+      ]
+    },
+    "user_scenario": {
+      "persona": "OB/GYN resident managing a laboring patient",
+      "instructions": "You are managing a 30-year-old G1P0 at 38 weeks in active labor who is GBS positive and reports a penicillin allergy. Determine the appropriate antibiotic regimen and manage her labor with attention to adequacy of prophylaxis timing."
+    },
+    "ticket": "Patient OB-018 (30F, G1P0, 38w) in active labor at 6cm, contractions q3min. GBS positive on 36-week culture. Reports penicillin allergy — 'rash as a child' (no documentation of anaphylaxis, no hives or respiratory symptoms). Membranes ruptured 2 hours ago, clear fluid. FHR Category I. Maternal temp 37.0°C. No prior antibiotic sensitivity testing available. Determine penicillin allergy severity classification, select appropriate GBS prophylaxis, and plan neonatal monitoring.",
+    "patient_id": "OB-018",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a1",
+          "name": "get_patient_info",
+          "arguments": {
+            "patient_id": "OB-018"
+          },
+          "info": "Review patient history and allergy details"
+        },
+        {
+          "action_id": "a2",
+          "name": "get_lab_results",
+          "arguments": {
+            "patient_id": "OB-018"
+          },
+          "info": "Review GBS culture results and any antibiotic sensitivity data"
+        },
+        {
+          "action_id": "a3",
+          "name": "check_cervical_status",
+          "arguments": {
+            "patient_id": "OB-018"
+          },
+          "info": "Assess labor progress to estimate time to delivery"
+        },
+        {
+          "action_id": "a4",
+          "name": "get_fetal_monitoring",
+          "arguments": {
+            "patient_id": "OB-018"
+          },
+          "info": "Confirm reassuring fetal status"
+        },
+        {
+          "action_id": "a5",
+          "name": "check_ob_protocol",
+          "arguments": {
+            "protocol": "GBS_prophylaxis_penicillin_allergy"
+          },
+          "info": "Review GBS antibiotic selection algorithm for penicillin-allergic patients"
+        },
+        {
+          "action_id": "a6",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-018",
+            "medication": "cefazolin",
+            "dose": "2g IV loading then 1g q8h"
+          },
+          "info": "Administer cefazolin for low-risk penicillin allergy"
+        }
+      ],
+      "nl_assertions": [
+        "Agent classified penicillin allergy as low-risk (childhood rash without anaphylaxis features)",
+        "Agent selected cefazolin as appropriate for low-risk penicillin allergy (cross-reactivity <2%)",
+        "Agent recognized that cefazolin is preferred over clindamycin/vancomycin for low-risk allergies per CDC guidelines",
+        "Agent noted that adequate prophylaxis requires at least 4 hours of antibiotics before delivery",
+        "Agent assessed timing of ROM and calculated duration of ruptured membranes",
+        "Agent planned to notify pediatrics if prophylaxis is inadequate (<4 hours before delivery)",
+        "Agent monitored maternal temperature for signs of chorioamnionitis",
+        "Agent documented allergy assessment and antibiotic selection rationale"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "ob_iugr_001",
+    "description": {
+      "purpose": "Monitor and manage intrauterine growth restriction with abnormal Doppler studies",
+      "difficulty": "hard",
+      "category": "fetal_surveillance",
+      "key_challenges": [
+        "Classify IUGR severity using Doppler staging",
+        "Determine appropriate surveillance frequency",
+        "Balance prematurity risks against in-utero compromise",
+        "Identify optimal delivery timing based on Doppler progression",
+        "Evaluate for underlying etiology"
+      ]
+    },
+    "user_scenario": {
+      "persona": "MFM specialist in high-risk obstetrics clinic",
+      "instructions": "You are managing a 26-year-old G1P0 at 28 weeks with IUGR detected on growth ultrasound. The fetus is measuring below the 3rd percentile with elevated umbilical artery Doppler indices. Determine the severity, plan surveillance, and establish delivery criteria."
+    },
+    "ticket": "Patient OB-019 (26F, G1P0, 28w) referred from general OB for small-for-gestational-age fetus. Growth ultrasound: EFW 780g (<3rd percentile), abdominal circumference <3rd percentile, head-sparing pattern. UA Doppler: elevated S/D ratio with reduced end-diastolic flow (not absent). MCA Doppler: elevated peak systolic velocity (brain sparing). AFI 6.2 (low-normal). Maternal labs normal including preeclampsia screen. No maternal hypertension. Uterine artery Dopplers bilateral notching. Anatomy survey previously normal. Plan surveillance strategy and delivery timing.",
+    "patient_id": "OB-019",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a1",
+          "name": "get_patient_info",
+          "arguments": {
+            "patient_id": "OB-019"
+          },
+          "info": "Review patient history and risk factors for IUGR"
+        },
+        {
+          "action_id": "a2",
+          "name": "get_ultrasound_results",
+          "arguments": {
+            "patient_id": "OB-019"
+          },
+          "info": "Review growth parameters, Doppler studies, and amniotic fluid"
+        },
+        {
+          "action_id": "a3",
+          "name": "get_fetal_monitoring",
+          "arguments": {
+            "patient_id": "OB-019"
+          },
+          "info": "Review NST and biophysical profile"
+        },
+        {
+          "action_id": "a4",
+          "name": "get_lab_results",
+          "arguments": {
+            "patient_id": "OB-019"
+          },
+          "info": "Review maternal labs and preeclampsia screen"
+        },
+        {
+          "action_id": "a5",
+          "name": "order_medication",
+          "arguments": {
+            "patient_id": "OB-019",
+            "medication": "betamethasone",
+            "dose": "12mg IM x 2 doses 24h apart"
+          },
+          "info": "Administer antenatal corticosteroids given high risk of preterm delivery"
+        },
+        {
+          "action_id": "a6",
+          "name": "submit_plan",
+          "arguments": {
+            "patient_id": "OB-019",
+            "plan": "IUGR surveillance and delivery timing"
+          },
+          "info": "Establish Doppler-based surveillance and delivery criteria"
+        }
+      ],
+      "nl_assertions": [
+        "Agent classified as early-onset IUGR (<32 weeks) with abnormal Dopplers requiring intensive surveillance",
+        "Agent identified head-sparing asymmetric IUGR pattern suggesting placental insufficiency",
+        "Agent recognized brain-sparing (elevated MCA PSV) as fetal compensatory redistribution",
+        "Agent established Doppler-based surveillance schedule (UA and MCA Dopplers 2-3x per week)",
+        "Agent administered betamethasone for fetal lung maturation at 28 weeks",
+        "Agent defined delivery criteria: absent or reversed end-diastolic flow in UA, abnormal ductus venosus, BPP ≤4",
+        "Agent planned delivery by 34-37 weeks depending on Doppler progression per TRUFFLE criteria",
+        "Agent evaluated for IUGR etiology including uterine artery Doppler abnormalities and placental insufficiency"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "ob_amniotic_embolism_001",
+    "description": {
+      "purpose": "Emergency management of amniotic fluid embolism with cardiovascular collapse and DIC",
+      "difficulty": "expert",
+      "category": "obstetric_emergency",
+      "key_challenges": [
+        "Rapid recognition of amniotic fluid embolism presentation",
+        "Immediate cardiopulmonary resuscitation if needed",
+        "Management of DIC with massive hemorrhage",
+        "Multidisciplinary critical care coordination",
+        "Understanding high mortality and morbidity"
+      ]
+    },
+    "user_scenario": {
+      "persona": "OB/GYN attending and critical care team responding to a code",
+      "instructions": "A 36-year-old G3P2 at 39 weeks in active labor suddenly develops acute respiratory distress, hypotension, and altered consciousness during pushing. She rapidly progresses to cardiovascular collapse and coagulopathy. Manage this suspected amniotic fluid embolism."
+    },
+    "ticket": "EMERGENT: Patient OB-020 (36F, G3P2, 39w) was pushing in active labor when she suddenly complained of dyspnea and chest tightness, then became acutely hypotensive (BP 60/30) and unresponsive. SpO2 dropped to 78% on room air. Tonic-clonic seizure activity observed. FHR: prolonged bradycardia to 60 bpm. Within minutes, profuse vaginal hemorrhage with dark non-clotting blood noted. Labs drawn urgently: fibrinogen <60, platelets 42K, PT/INR markedly elevated. This is a suspected amniotic fluid embolism. Initiate emergency management.",
+    "patient_id": "OB-020",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a1",
+          "name": "activate_emergency",
+          "arguments": {
+            "patient_id": "OB-020",
+            "type": "code_blue_obstetric"
+          },
+          "info": "Activate obstetric code and call for multidisciplinary response"
+        },
+        {
+          "action_id": "a2",
+          "name": "perform_intervention",
+          "arguments": {
+            "intervention": "CPR_and_ACLS",
+            "patient_id": "OB-020"
+          },
+          "info": "Initiate CPR/ACLS if pulseless, left uterine displacement, intubation"
+        },
+        {
+          "action_id": "a3",
+          "name": "activate_emergency",
+          "arguments": {
+            "patient_id": "OB-020",
+            "type": "emergent_cesarean"
+          },
+          "info": "Perform perimortem cesarean (if cardiac arrest, within 4-5 minutes)"
+        },
+        {
+          "action_id": "a4",
+          "name": "order_blood_products",
+          "arguments": {
+            "patient_id": "OB-020",
+            "products": "massive_transfusion_protocol"
+          },
+          "info": "Activate massive transfusion protocol for DIC and hemorrhage"
+        },
+        {
+          "action_id": "a5",
+          "name": "notify_team",
+          "arguments": {
+            "teams": ["anesthesia", "critical_care", "NICU", "blood_bank", "hematology"]
+          },
+          "info": "Mobilize all needed teams for critical emergency"
+        },
+        {
+          "action_id": "a6",
+          "name": "get_lab_results",
+          "arguments": {
+            "patient_id": "OB-020"
+          },
+          "info": "Review coagulation studies confirming DIC"
+        }
+      ],
+      "nl_assertions": [
+        "Agent immediately recognized the triad of amniotic fluid embolism: acute hypoxia/respiratory failure, cardiovascular collapse, and DIC",
+        "Agent activated obstetric code team and initiated ACLS/CPR protocols with left uterine displacement",
+        "Agent recognized need for emergent delivery to improve maternal resuscitation (perimortem cesarean if cardiac arrest)",
+        "Agent activated massive transfusion protocol with 1:1:1 ratio (RBCs:FFP:platelets)",
+        "Agent managed DIC with cryoprecipitate for fibrinogen replacement (target >200 mg/dL)",
+        "Agent initiated vasopressor support for refractory hypotension",
+        "Agent coordinated transfer to ICU for ongoing critical care",
+        "Agent recognized high mortality of AFE and communicated prognosis to family"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
   }
 ]

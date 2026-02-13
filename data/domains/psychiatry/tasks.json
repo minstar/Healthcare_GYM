@@ -420,5 +420,292 @@
       ],
       "reward_basis": ["ACTION", "NL_ASSERTION"]
     }
+  },
+  {
+    "id": "psy_eating_disorder_001",
+    "description": {
+      "purpose": "Comprehensive assessment of anorexia nervosa with critical BMI and refeeding syndrome risk",
+      "difficulty": "hard",
+      "key_challenges": ["Medical stabilization of severely malnourished patient", "Refeeding syndrome prevention", "Multidisciplinary coordination", "Assessing motivation for treatment"]
+    },
+    "user_scenario": {
+      "persona": "A psychiatry attending on the consultation-liaison service",
+      "instructions": "Evaluate this patient admitted to medicine with severe anorexia nervosa. Assess medical acuity, refeeding risk, psychiatric comorbidities, and develop a comprehensive treatment plan coordinating with the medical team."
+    },
+    "ticket": "PSY-013 (Emma Larson, 23F) admitted to medicine with BMI 14.2, bradycardia (HR 42), and electrolyte abnormalities (K 2.9, Phos 1.8, Mg 1.4). Restricting type anorexia nervosa diagnosed at age 16, three prior residential treatment admissions. Currently denies illness severity, says she 'just wants to be healthy.' Amenorrhea x 18 months. Purging behaviors denied but lanugo and parotid enlargement noted.",
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "get_presentation", "name": "get_patient_presentation", "arguments": {"patient_id": "PSY-013"}, "info": "Review current medical and psychiatric presentation"},
+        {"action_id": "get_history", "name": "get_psychiatric_history", "arguments": {"patient_id": "PSY-013"}, "info": "Review eating disorder treatment history"},
+        {"action_id": "do_mse", "name": "perform_mental_status_exam", "arguments": {"patient_id": "PSY-013"}, "info": "Perform MSE with focus on body image distortion and insight"},
+        {"action_id": "labs", "name": "order_laboratory_tests", "arguments": {"patient_id": "PSY-013", "tests": ["BMP", "phosphorus", "magnesium", "CBC", "prealbumin", "ECG", "liver_function"]}, "info": "Order labs for refeeding risk assessment"},
+        {"action_id": "get_meds", "name": "get_current_medications", "arguments": {"patient_id": "PSY-013"}, "info": "Review current medications"},
+        {"action_id": "suicide_risk", "name": "assess_suicide_risk", "arguments": {"patient_id": "PSY-013"}, "info": "Assess suicide risk in context of chronic illness"},
+        {"action_id": "screening", "name": "administer_eat26", "arguments": {"patient_id": "PSY-013"}, "info": "Administer EAT-26 eating disorder screening"},
+        {"action_id": "guidelines", "name": "review_treatment_guidelines", "arguments": {"condition": "anorexia_nervosa"}, "info": "Review APA eating disorder treatment guidelines"}
+      ],
+      "nl_assertions": [
+        "Agent identified critical BMI (<15) requiring medical stabilization",
+        "Agent assessed refeeding syndrome risk and recommended slow caloric advancement with phosphorus monitoring",
+        "Agent recommended electrolyte repletion before and during refeeding (phosphorus, potassium, magnesium)",
+        "Agent ordered ECG monitoring for QTc prolongation and bradycardia",
+        "Agent assessed for purging behaviors despite patient denial (parotid enlargement, lanugo)",
+        "Agent evaluated motivation and insight using stages of change model",
+        "Agent recommended multidisciplinary team (psychiatry, medicine, dietitian, therapy)",
+        "Agent discussed appropriate level of care post-stabilization (residential vs partial hospitalization)"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION"]
+    }
+  },
+  {
+    "id": "psy_ocd_001",
+    "description": {
+      "purpose": "Evaluation of OCD with contamination obsessions and Yale-Brown scoring for severity",
+      "difficulty": "moderate",
+      "key_challenges": ["Systematic OCD assessment using Y-BOCS", "Differentiating OCD from OCPD and anxiety disorders", "ERP therapy referral and SSRI optimization", "Functional impairment assessment"]
+    },
+    "user_scenario": {
+      "persona": "A psychiatry resident in outpatient clinic",
+      "instructions": "Evaluate this patient referred for worsening intrusive thoughts and rituals interfering with daily functioning. Perform a systematic OCD assessment including Y-BOCS scoring and develop a treatment plan."
+    },
+    "ticket": "PSY-014 (David Park, 31M) referred by PCP for worsening contamination fears over 2 years. Spends 4+ hours daily on handwashing rituals, skin raw and cracked. Unable to touch doorknobs, avoids public spaces. Recently lost job due to inability to use shared equipment. On fluoxetine 20mg x 6 months with minimal improvement. No prior psychiatric treatment. Recognizes behavior is excessive but cannot stop.",
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "get_presentation", "name": "get_patient_presentation", "arguments": {"patient_id": "PSY-014"}, "info": "Review OCD symptom presentation"},
+        {"action_id": "get_history", "name": "get_psychiatric_history", "arguments": {"patient_id": "PSY-014"}, "info": "Review psychiatric history"},
+        {"action_id": "do_mse", "name": "perform_mental_status_exam", "arguments": {"patient_id": "PSY-014"}, "info": "Perform MSE"},
+        {"action_id": "ybocs", "name": "administer_ybocs", "arguments": {"patient_id": "PSY-014"}, "info": "Administer Yale-Brown Obsessive Compulsive Scale"},
+        {"action_id": "gad7", "name": "administer_gad7", "arguments": {"patient_id": "PSY-014"}, "info": "Screen for comorbid anxiety"},
+        {"action_id": "phq9", "name": "administer_phq9", "arguments": {"patient_id": "PSY-014"}, "info": "Screen for comorbid depression"},
+        {"action_id": "get_meds", "name": "get_current_medications", "arguments": {"patient_id": "PSY-014"}, "info": "Review current medication trial"},
+        {"action_id": "guidelines", "name": "review_treatment_guidelines", "arguments": {"condition": "OCD"}, "info": "Review APA OCD treatment guidelines"}
+      ],
+      "nl_assertions": [
+        "Agent administered Y-BOCS and identified severe OCD (score likely 24-32 range)",
+        "Agent identified contamination obsessions with washing/cleaning compulsions",
+        "Agent assessed functional impairment (occupational, social, daily living)",
+        "Agent recognized subtherapeutic SSRI dose for OCD (fluoxetine 20mg; OCD requires higher doses 40-80mg)",
+        "Agent recommended increasing fluoxetine to therapeutic OCD dose or switching to alternative SSRI",
+        "Agent recommended Exposure and Response Prevention (ERP) as first-line psychotherapy",
+        "Agent assessed insight level (good insight present — recognizes behavior is excessive)",
+        "Agent screened for comorbid conditions (depression, anxiety, tic disorders)"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION"]
+    }
+  },
+  {
+    "id": "psy_bipolar_mixed_001",
+    "description": {
+      "purpose": "Management of a mixed bipolar episode with medication optimization and safety concerns",
+      "difficulty": "hard",
+      "key_challenges": ["Identifying mixed features in bipolar disorder", "Medication management avoiding antidepressant monotherapy", "Suicide risk assessment in mixed states", "Selecting mood stabilizers effective for mixed episodes"]
+    },
+    "user_scenario": {
+      "persona": "A psychiatry attending in an inpatient unit",
+      "instructions": "Evaluate this patient admitted with a bipolar mixed episode presenting with both manic and depressive symptoms simultaneously. Assess safety, optimize medications, and develop a stabilization plan."
+    },
+    "ticket": "PSY-015 (Angela Reeves, 40F) admitted to inpatient psychiatry after PCP raised alarm. Bipolar I diagnosis since age 25. Currently presents with racing thoughts, pressured speech, decreased sleep (2 hrs/night), AND profound hopelessness, crying spells, active suicidal ideation with plan to overdose. Currently on lamotrigine 200mg and was recently started on fluoxetine 20mg by PCP 3 weeks ago. Last manic episode 2 years ago.",
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "get_presentation", "name": "get_patient_presentation", "arguments": {"patient_id": "PSY-015"}, "info": "Review mixed episode presentation"},
+        {"action_id": "get_history", "name": "get_psychiatric_history", "arguments": {"patient_id": "PSY-015"}, "info": "Review bipolar disorder history and episode pattern"},
+        {"action_id": "do_mse", "name": "perform_mental_status_exam", "arguments": {"patient_id": "PSY-015"}, "info": "Perform MSE documenting both manic and depressive features"},
+        {"action_id": "suicide_risk", "name": "assess_suicide_risk", "arguments": {"patient_id": "PSY-015"}, "info": "MANDATORY: Assess suicide risk (mixed states are highest risk)"},
+        {"action_id": "ymrs", "name": "administer_ymrs", "arguments": {"patient_id": "PSY-015"}, "info": "Administer YMRS for manic symptom severity"},
+        {"action_id": "phq9", "name": "administer_phq9", "arguments": {"patient_id": "PSY-015"}, "info": "Administer PHQ-9 for depressive symptom severity"},
+        {"action_id": "get_meds", "name": "get_current_medications", "arguments": {"patient_id": "PSY-015"}, "info": "Review current medications"},
+        {"action_id": "guidelines", "name": "review_treatment_guidelines", "arguments": {"condition": "bipolar_mixed"}, "info": "Review bipolar mixed episode treatment guidelines"}
+      ],
+      "nl_assertions": [
+        "Agent identified mixed features (concurrent manic and depressive symptoms)",
+        "Agent recognized that mixed states carry the highest suicide risk in bipolar disorder",
+        "Agent identified the SSRI (fluoxetine) as potential precipitant of mixed episode",
+        "Agent recommended discontinuing fluoxetine (antidepressant monotherapy contraindicated in bipolar)",
+        "Agent recommended adding an atypical antipsychotic effective for mixed episodes (e.g., olanzapine, quetiapine, or aripiprazole)",
+        "Agent implemented suicide precautions and safety planning",
+        "Agent maintained lamotrigine and considered dose adjustment",
+        "Agent planned close monitoring for treatment response and side effects"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION"]
+    }
+  },
+  {
+    "id": "psy_personality_bpd_001",
+    "description": {
+      "purpose": "Crisis intervention for borderline personality disorder with self-harm and emergency department presentation",
+      "difficulty": "hard",
+      "key_challenges": ["Distinguishing suicidal intent from non-suicidal self-injury", "Managing countertransference", "Avoiding unnecessary hospitalization while ensuring safety", "DBT skills coaching", "Setting appropriate boundaries"]
+    },
+    "user_scenario": {
+      "persona": "An emergency psychiatry fellow evaluating a frequent ED presenter",
+      "instructions": "Evaluate this patient presenting to the ED after superficial self-cutting following a relationship conflict. She has a known diagnosis of BPD and has presented to the ED 8 times in the past year. Balance safety assessment with appropriate disposition and therapeutic limit-setting."
+    },
+    "ticket": "PSY-016 (Jessica Tran, 27F) presents to ED after superficial cutting on forearms (12 parallel cuts, none requiring sutures). Triggered by boyfriend threatening breakup. Known BPD, in DBT program for 4 months. 8 ED visits in past year for self-harm. Currently tearful, stating 'I want to die' but on further evaluation describes overwhelming emotional pain rather than wish to end life. No prior suicide attempts. Has safety plan from DBT therapist.",
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "get_presentation", "name": "get_patient_presentation", "arguments": {"patient_id": "PSY-016"}, "info": "Review current presentation and self-harm details"},
+        {"action_id": "get_history", "name": "get_psychiatric_history", "arguments": {"patient_id": "PSY-016"}, "info": "Review psychiatric history and prior ED visits"},
+        {"action_id": "do_mse", "name": "perform_mental_status_exam", "arguments": {"patient_id": "PSY-016"}, "info": "Perform MSE with focus on affect regulation and suicidal ideation vs NSSI"},
+        {"action_id": "suicide_risk", "name": "assess_suicide_risk", "arguments": {"patient_id": "PSY-016"}, "info": "Differentiate suicidal ideation from non-suicidal self-injury"},
+        {"action_id": "get_meds", "name": "get_current_medications", "arguments": {"patient_id": "PSY-016"}, "info": "Review current medications"},
+        {"action_id": "safety_plan", "name": "review_existing_safety_plan", "arguments": {"patient_id": "PSY-016"}, "info": "Review and reinforce existing DBT safety plan"},
+        {"action_id": "guidelines", "name": "review_treatment_guidelines", "arguments": {"condition": "BPD"}, "info": "Review BPD management guidelines"}
+      ],
+      "nl_assertions": [
+        "Agent differentiated non-suicidal self-injury from suicide attempt",
+        "Agent assessed lethality of self-harm (superficial cuts, low medical severity)",
+        "Agent identified interpersonal trigger (relationship conflict) consistent with BPD pattern",
+        "Agent reviewed and reinforced existing DBT safety plan rather than creating entirely new one",
+        "Agent recommended continued DBT as evidence-based treatment for BPD",
+        "Agent avoided unnecessary inpatient admission (can be iatrogenic in BPD)",
+        "Agent coordinated with outpatient DBT therapist for follow-up",
+        "Agent addressed emotional dysregulation with validation and distress tolerance skills"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION"]
+    }
+  },
+  {
+    "id": "psy_autism_adult_001",
+    "description": {
+      "purpose": "Assessment of adult autism spectrum disorder with late diagnosis and comorbid psychiatric conditions",
+      "difficulty": "moderate",
+      "key_challenges": ["Late-diagnosis ASD presentation in adults", "Masking and compensatory strategies", "Differentiating ASD from social anxiety and avoidant personality", "Comorbid depression assessment", "Accommodation and support planning"]
+    },
+    "user_scenario": {
+      "persona": "A psychiatrist in an adult neurodevelopmental assessment clinic",
+      "instructions": "Evaluate this adult presenting for possible autism spectrum disorder assessment. She has never been formally evaluated despite lifelong social difficulties. Conduct a comprehensive assessment differentiating ASD from other conditions and develop a support plan."
+    },
+    "ticket": "PSY-017 (Rachel Foster, 34F) self-referred after reading about autism in women. Reports lifelong difficulties with social reciprocity, intense special interests (entomology), sensory sensitivities (cannot tolerate certain fabrics, loud environments), rigid routines, and chronic exhaustion from 'masking' at work. Successfully employed as a lab technician but struggling with team meetings and workplace social demands. Previously diagnosed with social anxiety disorder and depression. On escitalopram 10mg.",
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "get_presentation", "name": "get_patient_presentation", "arguments": {"patient_id": "PSY-017"}, "info": "Review current concerns and self-identified features"},
+        {"action_id": "get_history", "name": "get_psychiatric_history", "arguments": {"patient_id": "PSY-017"}, "info": "Review developmental and psychiatric history"},
+        {"action_id": "do_mse", "name": "perform_mental_status_exam", "arguments": {"patient_id": "PSY-017"}, "info": "Perform MSE with attention to social communication and restricted/repetitive behaviors"},
+        {"action_id": "aq10", "name": "administer_autism_screening", "arguments": {"patient_id": "PSY-017"}, "info": "Administer AQ-10 or AQ-50 autism screening questionnaire"},
+        {"action_id": "developmental", "name": "obtain_developmental_history", "arguments": {"patient_id": "PSY-017"}, "info": "Obtain developmental history including childhood milestones and informant report"},
+        {"action_id": "phq9", "name": "administer_phq9", "arguments": {"patient_id": "PSY-017"}, "info": "Screen for comorbid depression"},
+        {"action_id": "get_meds", "name": "get_current_medications", "arguments": {"patient_id": "PSY-017"}, "info": "Review current medications"},
+        {"action_id": "guidelines", "name": "review_treatment_guidelines", "arguments": {"condition": "ASD_adult"}, "info": "Review adult ASD assessment and support guidelines"}
+      ],
+      "nl_assertions": [
+        "Agent assessed DSM-5 criteria for ASD (social communication deficits and restricted/repetitive behaviors)",
+        "Agent recognized female presentation of autism including masking and camouflaging",
+        "Agent obtained developmental history and sought informant report (parents or early records)",
+        "Agent differentiated ASD from social anxiety disorder (lifelong vs onset pattern)",
+        "Agent acknowledged autistic burnout from chronic masking as contributor to depression",
+        "Agent discussed formal diagnostic assessment options (ADOS-2, ADI-R referral)",
+        "Agent recommended workplace accommodations and occupational support",
+        "Agent addressed comorbid depression management in context of possible ASD"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION"]
+    }
+  },
+  {
+    "id": "psy_insomnia_001",
+    "description": {
+      "purpose": "Evaluation and management of chronic insomnia disorder with CBT-I approach",
+      "difficulty": "moderate",
+      "key_challenges": ["Sleep hygiene and behavioral assessment", "CBT-I as first-line treatment", "Judicious use of sleep medications", "Identifying and managing sleep-disrupting comorbidities", "Tapering existing benzodiazepine receptor agonist"]
+    },
+    "user_scenario": {
+      "persona": "A psychiatrist in a sleep and behavioral health clinic",
+      "instructions": "Evaluate this patient with chronic insomnia who has become dependent on zolpidem. Perform a comprehensive sleep assessment, introduce CBT-I principles, and develop a plan to address both the insomnia and the medication dependence."
+    },
+    "ticket": "PSY-018 (Thomas Grant, 52M) referred for chronic insomnia of 3 years duration. Reports difficulty with both sleep onset (45-60 min) and maintenance (wakes 2-3 times nightly). Using zolpidem 10mg nightly for 2 years, now taking double dose on some nights. Spends excessive time in bed (10pm-8am), watches TV in bedroom, drinks 4 cups of coffee daily (last at 4pm). Works rotating shift schedule. Reports daytime fatigue affecting work performance. Screened negative for OSA.",
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "get_presentation", "name": "get_patient_presentation", "arguments": {"patient_id": "PSY-018"}, "info": "Review insomnia presentation and sleep patterns"},
+        {"action_id": "get_history", "name": "get_psychiatric_history", "arguments": {"patient_id": "PSY-018"}, "info": "Review psychiatric and medical history"},
+        {"action_id": "do_mse", "name": "perform_mental_status_exam", "arguments": {"patient_id": "PSY-018"}, "info": "Perform MSE"},
+        {"action_id": "sleep_diary", "name": "review_sleep_diary", "arguments": {"patient_id": "PSY-018"}, "info": "Review 2-week sleep diary for patterns"},
+        {"action_id": "isi", "name": "administer_insomnia_severity_index", "arguments": {"patient_id": "PSY-018"}, "info": "Administer Insomnia Severity Index"},
+        {"action_id": "phq9", "name": "administer_phq9", "arguments": {"patient_id": "PSY-018"}, "info": "Screen for depression as comorbidity"},
+        {"action_id": "get_meds", "name": "get_current_medications", "arguments": {"patient_id": "PSY-018"}, "info": "Review current medications including zolpidem use pattern"},
+        {"action_id": "guidelines", "name": "review_treatment_guidelines", "arguments": {"condition": "chronic_insomnia"}, "info": "Review AASM insomnia treatment guidelines"}
+      ],
+      "nl_assertions": [
+        "Agent identified chronic insomnia disorder meeting diagnostic criteria (>3 months, >3 nights/week)",
+        "Agent recommended CBT-I as first-line treatment over medication",
+        "Agent identified maladaptive sleep behaviors (excessive time in bed, TV in bedroom, late caffeine)",
+        "Agent introduced stimulus control (bed for sleep/sex only, leave bed if awake >20 min)",
+        "Agent introduced sleep restriction therapy (limit time in bed to actual sleep time)",
+        "Agent addressed zolpidem tolerance/escalation and recommended gradual taper plan",
+        "Agent addressed shift work as perpetuating factor for insomnia",
+        "Agent provided sleep hygiene education (caffeine cutoff, consistent wake time, screen reduction)"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION"]
+    }
+  },
+  {
+    "id": "psy_grief_001",
+    "description": {
+      "purpose": "Differentiating prolonged grief disorder from major depressive disorder after spousal loss",
+      "difficulty": "moderate",
+      "key_challenges": ["Distinguishing normal grief from pathological grief", "Differentiating PGD from MDD", "Cultural sensitivity in grief assessment", "Appropriate treatment selection", "Avoiding premature medicalization of grief"]
+    },
+    "user_scenario": {
+      "persona": "A psychiatrist in outpatient clinic",
+      "instructions": "Evaluate this patient referred 14 months after the death of her husband. The PCP is unsure whether this is complicated grief, major depression, or both. Conduct a thorough assessment to differentiate and develop an appropriate treatment plan."
+    },
+    "ticket": "PSY-019 (Maria Santos, 62F) referred by PCP 14 months after husband's sudden death from MI. Reports persistent intense yearning for husband, inability to accept his death, avoidance of reminders (hasn't entered his study, moved his belongings), feeling life has no meaning without him. Also reports poor appetite, weight loss of 15 lbs, insomnia, and passive SI ('I wish I could join him'). Socially isolated from friends and family. Previously well-functioning, no prior psychiatric history. PCP started sertraline 50mg 2 months ago with no improvement.",
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "get_presentation", "name": "get_patient_presentation", "arguments": {"patient_id": "PSY-019"}, "info": "Review grief-related presentation and timeline"},
+        {"action_id": "get_history", "name": "get_psychiatric_history", "arguments": {"patient_id": "PSY-019"}, "info": "Review psychiatric history and premorbid functioning"},
+        {"action_id": "do_mse", "name": "perform_mental_status_exam", "arguments": {"patient_id": "PSY-019"}, "info": "Perform MSE with focus on grief-specific features vs depressive features"},
+        {"action_id": "pgd_screen", "name": "screen_prolonged_grief", "arguments": {"patient_id": "PSY-019"}, "info": "Administer Prolonged Grief Disorder screening (PG-13 or ICG)"},
+        {"action_id": "phq9", "name": "administer_phq9", "arguments": {"patient_id": "PSY-019"}, "info": "Screen for comorbid major depression"},
+        {"action_id": "suicide_risk", "name": "assess_suicide_risk", "arguments": {"patient_id": "PSY-019"}, "info": "Assess suicide risk given passive SI and recent bereavement"},
+        {"action_id": "social", "name": "get_social_history", "arguments": {"patient_id": "PSY-019"}, "info": "Assess social support network and isolation level"},
+        {"action_id": "guidelines", "name": "review_treatment_guidelines", "arguments": {"condition": "prolonged_grief"}, "info": "Review prolonged grief disorder treatment guidelines"}
+      ],
+      "nl_assertions": [
+        "Agent differentiated prolonged grief disorder from major depressive disorder using DSM-5-TR criteria",
+        "Agent identified key PGD features (intense yearning, identity disruption, avoidance of reminders, >12 months duration)",
+        "Agent assessed for comorbid MDD which can co-occur with PGD",
+        "Agent recognized that standard antidepressants alone are often insufficient for PGD",
+        "Agent recommended grief-focused psychotherapy (Complicated Grief Treatment or Prolonged Grief Disorder Therapy)",
+        "Agent assessed passive suicidal ideation in context of bereavement and age-related risk",
+        "Agent addressed social isolation and recommended gradual re-engagement with support network",
+        "Agent applied cultural sensitivity in assessing grief norms and expectations"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION"]
+    }
+  },
+  {
+    "id": "psy_forensic_001",
+    "description": {
+      "purpose": "Forensic psychiatry competency-to-stand-trial evaluation",
+      "difficulty": "expert",
+      "key_challenges": ["Applying Dusky standard for competency", "Differentiating malingering from genuine psychiatric illness", "Structured competency assessment", "Formulating restoration recommendations", "Maintaining objectivity in forensic role"]
+    },
+    "user_scenario": {
+      "persona": "A forensic psychiatrist retained by the court",
+      "instructions": "You have been ordered by the court to evaluate this defendant's competency to stand trial. He is charged with aggravated assault and his defense attorney has raised competency concerns. Conduct a systematic forensic evaluation and formulate your opinion."
+    },
+    "ticket": "PSY-020 (Victor Hayes, 38M) incarcerated defendant charged with aggravated assault. Defense attorney reports client unable to meaningfully participate in his defense — disorganized speech, paranoid beliefs about his attorney conspiring with prosecution. Jail records show intermittent medication compliance with olanzapine. Prior diagnosis of schizoaffective disorder. Two prior competency evaluations — found incompetent once (2019), restored after 4 months treatment. Court requests evaluation under Dusky standard.",
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "get_presentation", "name": "get_patient_presentation", "arguments": {"patient_id": "PSY-020"}, "info": "Review current presentation and behavioral observations"},
+        {"action_id": "get_history", "name": "get_psychiatric_history", "arguments": {"patient_id": "PSY-020"}, "info": "Review psychiatric history and prior competency evaluations"},
+        {"action_id": "do_mse", "name": "perform_mental_status_exam", "arguments": {"patient_id": "PSY-020"}, "info": "Perform MSE with focus on thought process, paranoia, and cognitive function"},
+        {"action_id": "competency_eval", "name": "administer_competency_assessment", "arguments": {"patient_id": "PSY-020"}, "info": "Administer MacCAT-CA or equivalent structured competency instrument"},
+        {"action_id": "malingering_screen", "name": "screen_for_malingering", "arguments": {"patient_id": "PSY-020"}, "info": "Administer SIRS-2 or M-FAST to assess for malingering"},
+        {"action_id": "get_meds", "name": "get_current_medications", "arguments": {"patient_id": "PSY-020"}, "info": "Review medication compliance and treatment in jail"},
+        {"action_id": "collateral", "name": "review_collateral_records", "arguments": {"patient_id": "PSY-020"}, "info": "Review jail records, prior evaluations, attorney observations"},
+        {"action_id": "guidelines", "name": "review_forensic_guidelines", "arguments": {"standard": "Dusky"}, "info": "Review Dusky competency standard and legal framework"}
+      ],
+      "nl_assertions": [
+        "Agent applied Dusky standard (rational understanding, factual understanding, ability to assist attorney)",
+        "Agent administered structured competency assessment instrument (MacCAT-CA or equivalent)",
+        "Agent screened for malingering given forensic context",
+        "Agent assessed factual understanding of charges and legal proceedings",
+        "Agent assessed rational understanding (not impaired by delusional beliefs about attorney)",
+        "Agent assessed ability to consult with and assist defense counsel",
+        "Agent considered medication noncompliance as contributor to current presentation",
+        "Agent provided competency restoration recommendations if found incompetent (court-ordered treatment, medication compliance)"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION"]
+    }
   }
 ]

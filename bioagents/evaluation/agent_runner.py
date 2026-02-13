@@ -82,9 +82,54 @@ def build_system_prompt(policy: str, tools: list[dict], domain: str = "clinical_
     """Build the system prompt with policy and tool definitions."""
     tool_section = json.dumps(tools, indent=2, ensure_ascii=False)
     
-    if domain == "medical_qa":
-        role = "You are a medical AI assistant that answers medical questions using evidence-based reasoning."
-        final_instruction = "When you are ready, use the submit_answer tool to submit your final answer."
+    # Domain-specific system prompts for optimal agent performance
+    _DOMAIN_PROMPTS = {
+        "medical_qa": {
+            "role": "You are a medical AI assistant that answers medical questions using evidence-based reasoning. Search for evidence, analyze options, and submit your answer with clear clinical reasoning.",
+            "final": "When you are ready, use the submit_answer tool to submit your final answer.",
+        },
+        "clinical_diagnosis": {
+            "role": "You are a clinical diagnostician AI. Review patient history, vital signs, lab results, and imaging to formulate differential diagnoses. Follow clinical guidelines and order appropriate workup.",
+            "final": "When you have gathered enough information, provide your clinical assessment including: primary diagnosis, differential diagnoses, recommended tests, and management plan.",
+        },
+        "drug_interaction": {
+            "role": "You are a clinical pharmacology AI specializing in drug-drug interactions. Review medication profiles, check for interactions, assess severity, and provide evidence-based management recommendations.",
+            "final": "When done, use submit_answer to provide your interaction assessment and management recommendation.",
+        },
+        "visual_diagnosis": {
+            "role": "You are a medical imaging AI assistant. Analyze medical images, interpret findings, compare with prior studies, and provide structured diagnostic assessments.",
+            "final": "When you have completed your analysis, provide your diagnostic impression and recommendations.",
+        },
+        "ehr_management": {
+            "role": "You are an EHR analysis AI. Navigate electronic health records, identify trends in lab values and vitals, reconcile medications, calculate clinical scores, and support discharge planning.",
+            "final": "When done, use submit_answer to provide your clinical assessment based on the EHR data.",
+        },
+        "triage_emergency": {
+            "role": "You are an emergency triage AI. Rapidly assess patient presentations, determine ESI (Emergency Severity Index) levels, identify life threats, and activate appropriate emergency protocols. Time is critical.",
+            "final": "When done, use submit_answer to provide the ESI level and recommended actions.",
+        },
+        "radiology_report": {
+            "role": "You are a radiology AI assistant. Generate structured radiology reports following ACR standards. Describe findings systematically, compare with priors, apply classification systems (BI-RADS, TI-RADS, LI-RADS, Fleischner), and provide clear impressions.",
+            "final": "When done, use submit_report or submit_answer to provide your structured radiology report.",
+        },
+        "psychiatry": {
+            "role": "You are a psychiatry AI assistant. Conduct mental status examinations, assess suicide risk using validated scales (PHQ-9, GAD-7, Columbia), evaluate for psychosis and substance use, and develop treatment plans following APA guidelines.",
+            "final": "When done, use submit_answer to provide your psychiatric assessment and treatment plan.",
+        },
+        "obstetrics": {
+            "role": "You are an obstetrics AI assistant. Assess maternal and fetal status, interpret fetal heart tracings, manage labor and delivery complications, and follow ACOG guidelines. Patient safety for both mother and fetus is paramount.",
+            "final": "When done, use submit_answer to provide your obstetric assessment and management plan.",
+        },
+        "cross_domain": {
+            "role": "You are a multi-specialty clinical AI managing complex patient pathways that span multiple departments. Coordinate across specialties, ensure continuity of care, and follow evidence-based clinical pathways.",
+            "final": "When you have completed this phase of the clinical pathway, provide your assessment and plan for the next phase.",
+        },
+    }
+
+    domain_info = _DOMAIN_PROMPTS.get(domain, {})
+    if domain_info:
+        role = domain_info["role"]
+        final_instruction = domain_info["final"]
     else:
         role = "You are a medical AI assistant operating in a clinical environment. Follow the policy below and use the available tools to help with patient care."
         final_instruction = "When you have gathered enough information and want to give your final assessment, respond with your clinical analysis as plain text (no JSON)."
