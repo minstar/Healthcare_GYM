@@ -267,7 +267,71 @@ class AgentRunner:
         logger.info("vLLM model loaded successfully")
     
     def _load_transformers(self):
-        """Load model with HuggingFace transformers."""
+        """Load model with HuggingFace transformers using ModelProfile.
+
+        The ModelProfile system auto-detects:
+        - Correct model class (AutoModelForCausalLM vs Qwen2_5_VLForConditionalGeneration etc.)
+        - Whether a processor is needed (VL models)
+        - Supported modalities and domains
+        - Loading kwargs (use_cache, etc.)
+
+        This eliminates manual model-type branching and makes adding
+        new model architectures a one-line registry entry.
+        """
+        import torch
+        from transformers import AutoTokenizer
+
+        model_path = self.config.model_name_or_path
+        logger.info(f"Loading {model_path} with transformers (via ModelProfile)")
+
+        # Use ModelProfile for auto-detection
+        from bioagents.gym.model_profile import ModelProfiler
+        profile = ModelProfiler.profile(model_path)
+
+        if not profile.is_valid:
+            logger.error(
+                f"Model profile invalid: {profile.validation_errors}. "
+                f"Falling back to legacy loading."
+            )
+            self._load_transformers_legacy()
+            return
+
+        logger.info(
+            f"Model profiled: {profile.model_name} "
+            f"(type={profile.model_type}, arch={profile.architecture}, "
+            f"VL={profile.is_vl_model}, class={profile.model_class})"
+        )
+
+        self._is_vl_model = profile.is_vl_model
+        self._model_profile = profile
+
+        # Load tokenizer / processor using profile instructions
+        if profile.requires_processor:
+            self.processor = profile.load_processor()
+            if self.processor is not None:
+                self.tokenizer = (
+                    self.processor.tokenizer
+                    if hasattr(self.processor, "tokenizer")
+                    else self.processor
+                )
+            else:
+                logger.warning(
+                    "Processor loading failed, falling back to tokenizer only"
+                )
+                self.tokenizer = profile.load_tokenizer()
+        else:
+            self.tokenizer = profile.load_tokenizer()
+            self.processor = None
+
+        # Load model using profile's model class
+        self.model = profile.load_model(device_map="auto")
+        logger.info(
+            f"Model loaded via ModelProfile "
+            f"(VL={profile.is_vl_model}, class={profile.model_class})"
+        )
+
+    def _load_transformers_legacy(self):
+        """Legacy model loading (fallback when ModelProfile fails)."""
         import torch
         from transformers import (
             AutoModelForCausalLM,
@@ -275,23 +339,19 @@ class AgentRunner:
             AutoProcessor,
             AutoConfig,
         )
-        
-        logger.info(f"Loading {self.config.model_name_or_path} with transformers")
-        
+
         model_path = self.config.model_name_or_path
-        
-        # Detect model type from config
+        logger.info(f"Loading {model_path} with legacy loader")
+
         config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
         model_type = getattr(config, "model_type", "")
         architectures = getattr(config, "architectures", [])
-        
+
         self._is_vl_model = any(
             "vl" in a.lower() or "vision" in a.lower()
             for a in (architectures or [])
         ) or "vl" in model_type.lower()
-        
-        logger.info(f"Model type: {model_type}, VL: {self._is_vl_model}, Arch: {architectures}")
-        
+
         # Load tokenizer / processor
         if self._is_vl_model:
             try:
@@ -313,51 +373,34 @@ class AgentRunner:
                 model_path, trust_remote_code=True
             )
             self.processor = None
-        
-        # Load model – choose the right Auto class
+
+        # Load model
         load_kwargs = dict(
             torch_dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
         )
-        
-        # Determine model class based on architecture
-        auto_map = getattr(config, "auto_map", {})
-        uses_custom_auto = "AutoModelForCausalLM" in auto_map
+
         is_qwen_vl = model_type in ("qwen2_5_vl", "qwen2_vl")
-        
-        # Custom models (trust_remote_code) often break with attn_implementation
-        # so we skip it for them
-        if uses_custom_auto:
-            attn_options = [None]
-        else:
-            attn_options = ["sdpa", None]
-        
-        for attn_impl in attn_options:
-            try:
-                kw = {**load_kwargs}
-                if attn_impl:
-                    kw["attn_implementation"] = attn_impl
-                
-                if uses_custom_auto or not is_qwen_vl:
-                    # Custom model or standard CausalLM
-                    self.model = AutoModelForCausalLM.from_pretrained(
-                        model_path, **kw
-                    )
-                else:
-                    # Qwen VL models need specific class
-                    from transformers import Qwen2_5_VLForConditionalGeneration
-                    self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                        model_path, **kw
-                    )
-                break
-            except Exception as e:
-                logger.warning(f"Failed with attn_impl={attn_impl}: {e}")
-                if attn_impl is None:
-                    raise
-        
+
+        try:
+            if is_qwen_vl:
+                from transformers import Qwen2_5_VLForConditionalGeneration
+                self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    model_path, **load_kwargs
+                )
+            else:
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_path, **load_kwargs
+                )
+        except Exception as e:
+            logger.warning(f"First load attempt failed: {e}, retrying without sdpa")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_path, **load_kwargs
+            )
+
         self.model.eval()
-        logger.info(f"Model loaded (VL={self._is_vl_model})")
+        logger.info(f"Model loaded via legacy loader (VL={self._is_vl_model})")
     
     def generate(self, messages: list[dict]) -> str:
         """Generate a response from the model."""

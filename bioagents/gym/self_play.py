@@ -64,6 +64,7 @@ class SelfPlayConfig:
     num_train_epochs: int = 2
     batch_size: int = 2
     gradient_accumulation_steps: int = 8
+    max_length: int = 4096  # Training sequence length (auto-tuned or manual)
 
     # Iteration control
     max_iterations: int = 5
@@ -591,7 +592,7 @@ class SelfPlayLoop:
                 "sft_path": str(sft_path),
                 "min_reward": 0.0,
                 "max_samples": len(open(sft_path).readlines()),
-                "max_length": 4096,
+                "max_length": self.config.max_length,
                 "train_ratio": 0.9,
             },
             "training": {
@@ -655,7 +656,7 @@ class SelfPlayLoop:
         return self._train_sft(sft_path, iteration)
 
     def _merge_lora(self, adapter_path: str, output_path: str):
-        """Merge LoRA adapter into base model."""
+        """Merge LoRA adapter into base model using ModelProfile for loading."""
         if Path(output_path).exists() and (Path(output_path) / "config.json").exists():
             logger.info(f"  Merged model already exists: {output_path}")
             return
@@ -663,10 +664,10 @@ class SelfPlayLoop:
         import subprocess
 
         merge_script = f"""
-import torch
+import torch, json, sys
+sys.path.insert(0, ".")
 from pathlib import Path
 from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 
 adapter_path = "{adapter_path}"
 output_path = "{output_path}"
@@ -676,26 +677,34 @@ if not Path(adapter_path).exists():
     exit(1)
 
 # Find base model from adapter config
-import json
 adapter_cfg = json.load(open(Path(adapter_path) / "adapter_config.json"))
 base_path = adapter_cfg.get("base_model_name_or_path", "")
 
-config = AutoConfig.from_pretrained(base_path, trust_remote_code=True)
-model_type = getattr(config, "model_type", "")
+# Use ModelProfile for correct model class detection
+from bioagents.gym.model_profile import ModelProfiler
+profile = ModelProfiler.profile(base_path)
+print(f"Base model profile: {{profile.model_name}} ({{profile.model_class}})")
 
-if model_type in ("qwen2_5_vl", "qwen2_vl"):
-    from transformers import Qwen2_5_VLForConditionalGeneration
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        base_path, torch_dtype=torch.bfloat16, trust_remote_code=True)
-else:
-    model = AutoModelForCausalLM.from_pretrained(
-        base_path, torch_dtype=torch.bfloat16, trust_remote_code=True)
-
+model = profile.load_model(device_map="cpu")
 model = PeftModel.from_pretrained(model, adapter_path)
 model = model.merge_and_unload()
 model.save_pretrained(output_path)
-tokenizer = AutoTokenizer.from_pretrained(base_path, trust_remote_code=True)
+
+tokenizer = profile.load_tokenizer()
 tokenizer.save_pretrained(output_path)
+
+# Copy processor files from base if this is a VL model
+if profile.requires_processor:
+    import shutil
+    for fname in ["preprocessor_config.json", "chat_template.json",
+                   "special_tokens_map.json", "added_tokens.json",
+                   "merges.txt", "vocab.json"]:
+        src = Path(base_path) / fname
+        dst = Path(output_path) / fname
+        if src.exists() and not dst.exists():
+            shutil.copy2(src, dst)
+            print(f"Copied {{fname}} from base model")
+
 print(f"Merged to: {{output_path}}")
 """
         script_path = "/tmp/merge_self_play.py"

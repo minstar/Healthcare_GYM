@@ -819,4 +819,134 @@ get_grpo_reward_functions(["accuracy", "format", "process"])  # Registry
 
 ---
 
+## 10. Autonomous GYM Architecture (v3)
+
+> **추가일**: 2026-02-13
+
+### 10.1 핵심 변화: Coach-Driven → Agent-Driven
+
+기존 GymCoach는 **탑다운** 구조였다:
+- GymCoach가 모든 커리큘럼을 결정
+- 모든 에이전트가 같은 루프를 따름
+- GPU는 순차적으로 사용
+
+새로운 Autonomous GYM은 **바텀업** 구조:
+- 에이전트가 **스스로** 약점을 인지하고 학습 방향을 결정
+- 여러 에이전트가 **동시에** GPU를 활용하여 비동기 학습
+- SharedLogbook을 통해 **서로의 기록을 참조**하며 상호 학습
+- GYM은 자원 관리만 담당, 학습 방향은 에이전트가 결정
+
+### 10.2 Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    AutonomousGym (Shared Space)                   │
+│                                                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
+│  │  Station 1    │  │  Station 2    │  │  Station N            │  │
+│  │ Clinical Dx   │  │ Drug Safety   │  │ Emergency             │  │
+│  │  (GPU 0-1)    │  │  (GPU 2-3)    │  │  (GPU 4-5)            │  │
+│  └──────┬────────┘  └──────┬────────┘  └──────┬─────────────┘   │
+│         │                  │                   │                  │
+│  ┌──────▼──────────────────▼───────────────────▼──────────────┐  │
+│  │                  SharedLogbook                               │  │
+│  │  - Agent A: "drug interaction에서 3번 실패"                  │  │
+│  │  - Agent B: "emergency triage 정확도 92%"                   │  │
+│  │  - Agent C: "obstetrics에서 safety 위반"                    │  │
+│  │  - Leaderboard + InsightEngine + Herding Detection          │  │
+│  └──────┬──────────────────┬───────────────────┬──────────────┘  │
+│         │                  │                   │                  │
+│  ┌──────▼───────┐  ┌──────▼───────┐  ┌────────▼──────────┐     │
+│  │  Agent A      │  │  Agent B      │  │  Agent C           │    │
+│  │ (Qwen3-8B)   │  │(LingShu-8B)  │  │ (Qwen3-8B         │    │
+│  │              │  │              │  │  safety variant)   │    │
+│  │ REFLECT →    │  │ REFLECT →    │  │ REFLECT →          │    │
+│  │ CHOOSE →     │  │ CHOOSE →     │  │ CHOOSE →           │    │
+│  │ TRAIN →      │  │ TRAIN →      │  │ TRAIN →            │    │
+│  │ RECORD       │  │ RECORD       │  │ RECORD             │    │
+│  └──────────────┘  └──────────────┘  └────────────────────┘     │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │            GymScheduler + SafetyGuardrail                    │  │
+│  │  - GPU 할당/해제 (자원 관리만)                               │  │
+│  │  - Safety score floor 모니터링                               │  │
+│  │  - Consecutive failure 감지 → cooldown                      │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 10.3 New Modules
+
+| 모듈 | 파일 | 역할 |
+|------|------|------|
+| **SharedLogbook** | `bioagents/gym/shared_logbook.py` | 모든 에이전트의 기록을 공유. Workout logging, Profile 관리, Leaderboard, Herding 감지, Cross-agent 인사이트 |
+| **AutonomousAgent** | `bioagents/gym/autonomous_agent.py` | 자기 인식(SelfAwareness) + 전략 선택(StrategySelector) + 운동 실행(WorkoutExecutor). 6가지 동기(Motivation): curiosity, weakness, peer_learning, diversity, mastery_push, safety |
+| **AutonomousGym** | `bioagents/gym/autonomous_gym.py` | GymScheduler(GPU 관리) + SafetyGuardrail + AgentWorker pool. 에이전트들이 비동기적으로 출입하는 공유 공간 |
+
+### 10.4 Agent Decision Flow
+
+```
+AutonomousAgent.run_one_cycle():
+  1. REFLECT
+     └─ SelfAwareness.reflect()
+        ├─ 내 최근 기록 분석 (strengths, weaknesses)
+        ├─ Plateau 감지
+        └─ Improvement rate 계산
+
+  2. CHOOSE
+     └─ StrategySelector.choose_next_action()
+        ├─ 각 도메인에 6가지 motivation factor로 점수 계산
+        │   ├─ weakness_weight × (내 약점 도메인인가?)
+        │   ├─ curiosity_weight × (안 해본 도메인인가?)
+        │   ├─ peer_learning_weight × (다른 에이전트가 잘하는데 나는 못하나?)
+        │   ├─ diversity_weight × (herding 방지 - 덜 방문된 도메인인가?)
+        │   ├─ mastery_push_weight × (거의 정복 직전인가?)
+        │   └─ safety_weight × (safety 위반 이력이 있나?)
+        ├─ ε-greedy: 10% 확률로 차선책 선택 (exploration)
+        └─ Plateau 도메인에는 점수 감소 (diversity 유도)
+
+  3. TRAIN
+     └─ WorkoutExecutor.execute_workout()
+        ├─ Evaluate → Analyze errors → Generate data → Train
+        └─ 결과를 SharedLogbook에 기록
+
+  4. RECORD
+     └─ SharedLogbook.record_workout()
+        └─ 다른 에이전트가 이 기록을 읽고 자기 전략에 반영
+```
+
+### 10.5 Config
+
+```yaml
+# configs/autonomous_gym.yaml
+gym:
+  num_gpus: 8
+  safety_score_floor: 0.30
+  max_consecutive_failures: 5
+
+agents:
+  - agent_id: "qwen3_8b_v1"
+    weakness_weight: 0.35      # 약점 집중
+    curiosity_weight: 0.15
+
+  - agent_id: "qwen3_8b_explorer"
+    weakness_weight: 0.20
+    curiosity_weight: 0.30     # 탐험 집중
+
+  - agent_id: "lingshu_8b_v1"
+    peer_learning_weight: 0.25 # 동료 학습 집중
+
+  - agent_id: "qwen3_8b_safety"
+    safety_weight: 0.35        # Safety 전문가
+```
+
+### 10.6 기존 GymCoach와의 관계
+
+Autonomous GYM은 GymCoach를 **대체**하는 것이 아니라 **발전**시킨 것:
+- GymCoach의 ErrorAnalyzer, TargetedDataGenerator, CurriculumScheduler는 그대로 재사용
+- SelfPlayLoop, TrainingMemory도 AutonomousAgent 내부에서 활용
+- 차이점: 오케스트레이션이 GymCoach(중앙 통제) → AutonomousGym(자율 분산)
+
+---
+
 *이 문서는 프로젝트 진행에 따라 지속적으로 업데이트됩니다.*
