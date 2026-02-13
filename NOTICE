@@ -1,0 +1,83 @@
+BIOAgents — Healthcare AI GYM Framework
+Copyright 2025-2026 Minstar (Minjun Park)
+
+Licensed under the Apache License, Version 2.0.
+See LICENSE file for the full license text.
+
+================================================================================
+AI-ASSISTED CODE GENERATION DISCLOSURE
+================================================================================
+
+Portions of this codebase were authored with the assistance of AI language
+models, specifically:
+
+  - Anthropic Claude (Opus 4.6, via Cursor IDE — Commercial API)
+
+In accordance with Anthropic's Commercial Terms of Service (effective June 2025),
+all rights, title, and interest in generated outputs are assigned to the customer.
+The code has undergone substantial human review, modification, and integration.
+
+All AI-assisted code is released under the same Apache-2.0 license as the rest
+of this project. Human authors retain copyright over the overall creative
+arrangement, selection, integration, and modification of all code.
+
+================================================================================
+MEDICAL DISCLAIMER
+================================================================================
+
+This software is a RESEARCH TOOL for training and evaluating AI agents in
+simulated medical environments. It is NOT intended for:
+
+  - Clinical decision-making
+  - Patient diagnosis or treatment
+  - Medical device use
+  - Any direct patient care
+
+The simulated patient data, clinical scenarios, and tool responses in this
+project are SYNTHETIC and do not represent real patients or real clinical
+outcomes. Do not use any output from this system for actual medical purposes.
+
+================================================================================
+ATTRIBUTION NOTICES
+================================================================================
+
+This project incorporates or references the following works:
+
+1. AgentGym-RL (git submodule)
+   Copyright 2025 FudanNLP-Agent
+   Licensed under MIT License
+   https://github.com/WooooDyy/AgentGym-RL
+
+2. tau2-bench (git submodule)
+   Copyright 2025 Sierra Research
+   Licensed under MIT License
+   https://github.com/sierra-research/tau2-bench
+
+3. HuggingFace Transformers / TRL / PEFT / Datasets
+   Copyright HuggingFace Inc.
+   Licensed under Apache License 2.0
+
+4. PyTorch
+   Copyright Meta Platforms, Inc. and affiliates
+   Licensed under BSD-3-Clause License
+
+5. vLLM
+   Copyright vLLM contributors
+   Licensed under Apache License 2.0
+
+6. DeepSpeed
+   Copyright Microsoft Corporation
+   Licensed under Apache License 2.0
+
+7. Gymnasium (Farama Foundation)
+   Licensed under MIT License
+
+8. BiomedBERT (microsoft/BiomedNLP-BiomedBERT)
+   Copyright Microsoft Corporation
+   Licensed under MIT License
+
+9. FairGRPO methodology
+   Reference: arXiv:2510.19893 (Oct 2025)
+   Implementation is original work inspired by the paper.
+
+For complete third-party license information, see THIRD_PARTY_LICENSES.md.

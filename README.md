@@ -480,4 +480,10 @@ logs/gym_coach/training_memory/
 
 ## License
 
-MIT
+This project is licensed under the **Apache License 2.0** — see the [LICENSE](LICENSE) file for details.
+
+**Important notices:**
+- Portions of this codebase were authored with AI assistance (Anthropic Claude, Commercial API). See [NOTICE](NOTICE) for details.
+- Third-party components have their own licenses. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for a complete inventory.
+- The synthetic patient data in this repository is **entirely fictional** and does not contain any real patient information.
+- This is a **research tool** — NOT for clinical use. See NOTICE for the full medical disclaimer.
