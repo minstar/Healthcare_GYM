@@ -166,7 +166,7 @@ def evaluate_medlfqa(model_key, output_dir, max_samples=0):
 
     model_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
     model_type = getattr(model_config, "model_type", "")
-    is_qwen_vl = model_type in ("qwen2_5_vl", "qwen2_vl")
+    is_qwen_vl = model_type in ("qwen2_5_vl", "qwen2_vl") or ("qwen2" in model_type.lower() and "vl" in model_type.lower())
 
     load_kwargs = dict(torch_dtype=torch.bfloat16, trust_remote_code=True, device_map="auto", attn_implementation="sdpa")
 
@@ -196,42 +196,66 @@ def evaluate_medlfqa(model_key, output_dir, max_samples=0):
         per_question = []
         t0 = time.time()
 
-        for i, item in enumerate(data):
-            question = item.get("Question", "")
-            reference = item.get("Free_form_answer", "")
-            must_have = item.get("Must_have", [])
-            nice_to_have = item.get("Nice_to_have", [])
-            if not question:
-                continue
+        # --- Batched inference for speed (4x-8x faster than sequential) ---
+        BATCH_SIZE = 8
+        valid_items = [(i, item) for i, item in enumerate(data) if item.get("Question", "")]
 
-            messages = [
-                {"role": "system", "content": "You are a medical expert. Provide detailed, accurate, evidence-based answers."},
-                {"role": "user", "content": f"Question: {question}\n\nProvide a comprehensive answer."},
-            ]
-            text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=4096)
+        for batch_start in range(0, len(valid_items), BATCH_SIZE):
+            batch = valid_items[batch_start:batch_start + BATCH_SIZE]
+            batch_messages = []
+            batch_refs = []
+
+            for idx, item in batch:
+                question = item.get("Question", "")
+                reference = item.get("Free_form_answer", "")
+                must_have = item.get("Must_have", [])
+                nice_to_have = item.get("Nice_to_have", [])
+                batch_refs.append((idx, reference, must_have, nice_to_have))
+
+                messages = [
+                    {"role": "system", "content": "You are a medical expert. Provide detailed, accurate, evidence-based answers."},
+                    {"role": "user", "content": f"Question: {question}\n\nProvide a comprehensive answer."},
+                ]
+                text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                batch_messages.append(text)
+
+            # Batch tokenize with padding
+            inputs = tokenizer(
+                batch_messages, return_tensors="pt", truncation=True,
+                max_length=4096, padding=True,
+            )
             inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
             with torch.no_grad():
-                outputs = model.generate(**inputs, max_new_tokens=512, do_sample=False, pad_token_id=tokenizer.pad_token_id)
-            generated = outputs[0][inputs["input_ids"].shape[-1]:]
-            response = tokenizer.decode(generated, skip_special_tokens=True).strip()
+                outputs = model.generate(
+                    **inputs, max_new_tokens=512, do_sample=False,
+                    pad_token_id=tokenizer.pad_token_id,
+                )
 
-            rouge_l = compute_rouge_l(response, reference)
-            token_f1 = compute_token_f1(response, reference)
-            mh_cov = compute_must_have_coverage(response, must_have)
-            nth_cov = compute_nice_to_have_coverage(response, nice_to_have)
+            # Decode each response in the batch
+            for j, (idx, reference, must_have, nice_to_have) in enumerate(batch_refs):
+                input_len = inputs["input_ids"].shape[-1]
+                generated = outputs[j][input_len:]
+                response = tokenizer.decode(generated, skip_special_tokens=True).strip()
 
-            metrics_sum["rouge_l"] += rouge_l
-            metrics_sum["token_f1"] += token_f1
-            metrics_sum["must_have"] += mh_cov
-            metrics_sum["nice_to_have"] += nth_cov
-            per_question.append({"idx": i, "rouge_l": rouge_l, "token_f1": token_f1, "must_have_coverage": mh_cov, "nice_to_have_coverage": nth_cov})
+                rouge_l = compute_rouge_l(response, reference)
+                token_f1 = compute_token_f1(response, reference)
+                mh_cov = compute_must_have_coverage(response, must_have)
+                nth_cov = compute_nice_to_have_coverage(response, nice_to_have)
 
-            if (i + 1) % 50 == 0:
+                metrics_sum["rouge_l"] += rouge_l
+                metrics_sum["token_f1"] += token_f1
+                metrics_sum["must_have"] += mh_cov
+                metrics_sum["nice_to_have"] += nth_cov
+                per_question.append({"idx": idx, "rouge_l": rouge_l, "token_f1": token_f1,
+                                     "must_have_coverage": mh_cov, "nice_to_have_coverage": nth_cov})
+
+            done = batch_start + len(batch)
+            if done % 50 < BATCH_SIZE or done == len(valid_items):
                 elapsed = time.time() - t0
-                avg_rl = metrics_sum["rouge_l"] / (i + 1)
-                print(f"  [{model_name}] {dataset_info['name']}: {i+1}/{len(data)} ROUGE-L={avg_rl:.3f} {elapsed:.0f}s", flush=True)
+                avg_rl = metrics_sum["rouge_l"] / max(len(per_question), 1)
+                print(f"  [{model_name}] {dataset_info['name']}: {done}/{len(valid_items)} "
+                      f"ROUGE-L={avg_rl:.3f} {elapsed:.0f}s", flush=True)
 
         n = len(per_question)
         if n == 0:
@@ -301,27 +325,199 @@ def evaluate_vqa(model_key, output_dir, max_samples=0):
     return results
 
 
+def evaluate_textqa(model_key, output_dir, max_samples=0):
+    """Evaluate on TextQA benchmarks: MedQA, MedMCQA, MMLU (6 subcategories)."""
+    import torch
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+
+    model_info = MODELS[model_key]
+    model_name = model_info["name"]
+    model_path = model_info["path"]
+
+    print(f"\n{'='*70}", flush=True)
+    print(f"  TextQA Evaluation: {model_name}", flush=True)
+    print(f"{'='*70}", flush=True)
+
+    # Load model
+    model_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+    model_type = getattr(model_config, "model_type", "")
+    is_qwen_vl = model_type in ("qwen2_5_vl", "qwen2_vl") or ("qwen2" in model_type.lower() and "vl" in model_type.lower())
+
+    load_kwargs = dict(torch_dtype=torch.bfloat16, trust_remote_code=True,
+                       device_map="auto", attn_implementation="sdpa")
+
+    if is_qwen_vl:
+        from transformers import Qwen2_5_VLForConditionalGeneration
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(model_path, **load_kwargs)
+
+    model.eval()
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    # TextQA benchmark files
+    TEXTQA_BENCHMARKS = {
+        "medqa": "evaluations/self-biorag/data/benchmark/med_qa_test.jsonl",
+        "medmcqa": "evaluations/self-biorag/data/benchmark/medmc_qa_test.jsonl",
+        "mmlu_clinical": "evaluations/self-biorag/data/benchmark/mmlu_test.jsonl",
+    }
+
+    all_results = {}
+    for bm_key, bm_path in TEXTQA_BENCHMARKS.items():
+        full_path = PROJECT_ROOT / bm_path
+        if not full_path.exists():
+            print(f"  [SKIP] {bm_key}: file not found", flush=True)
+            continue
+
+        # Load data
+        data = []
+        with open(full_path) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    d = json.loads(line)
+                    data.append(d)
+        if max_samples > 0:
+            data = data[:max_samples]
+
+        print(f"\n  [{model_name}] {bm_key}: {len(data)} examples", flush=True)
+        correct = 0
+        total = 0
+        t0 = time.time()
+
+        BATCH_SIZE = 8
+        for batch_start in range(0, len(data), BATCH_SIZE):
+            batch = data[batch_start:batch_start + BATCH_SIZE]
+            batch_prompts = []
+            batch_answers = []
+
+            for item in batch:
+                instances = item.get("instances", {})
+                question = instances.get("input", "") if isinstance(instances, dict) else ""
+                answer = instances.get("output", "") if isinstance(instances, dict) else ""
+                if not question:
+                    continue
+
+                messages = [
+                    {"role": "system", "content": "Answer the medical question by selecting the best option. Reply with ONLY the letter (A, B, C, or D)."},
+                    {"role": "user", "content": question},
+                ]
+                text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                batch_prompts.append(text)
+                batch_answers.append(answer.strip())
+
+            if not batch_prompts:
+                continue
+
+            inputs = tokenizer(batch_prompts, return_tensors="pt", truncation=True,
+                             max_length=4096, padding=True)
+            inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+            with torch.no_grad():
+                outputs = model.generate(**inputs, max_new_tokens=32, do_sample=False,
+                                        pad_token_id=tokenizer.pad_token_id)
+
+            for j in range(len(batch_prompts)):
+                input_len = inputs["input_ids"].shape[-1]
+                generated = outputs[j][input_len:]
+                response = tokenizer.decode(generated, skip_special_tokens=True).strip()
+
+                # Extract answer letter
+                pred = ""
+                for ch in response:
+                    if ch in "ABCD":
+                        pred = ch
+                        break
+
+                ref = ""
+                for ch in batch_answers[j]:
+                    if ch in "ABCD":
+                        ref = ch
+                        break
+
+                total += 1
+                if pred == ref:
+                    correct += 1
+
+            done = min(batch_start + BATCH_SIZE, len(data))
+            if done % 100 < BATCH_SIZE or done == len(data):
+                elapsed = time.time() - t0
+                acc = correct / max(total, 1)
+                print(f"    {bm_key}: {done}/{len(data)} acc={acc:.3f} {elapsed:.0f}s", flush=True)
+
+        acc = correct / max(total, 1)
+        all_results[bm_key] = {"accuracy": acc, "correct": correct, "total": total}
+        print(f"  [{model_name}] {bm_key}: accuracy={acc:.4f} ({correct}/{total})", flush=True)
+
+    # Save
+    output_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = output_dir / f"textqa_{model_key}_{ts}.json"
+    report = {"model_name": model_name, "model_path": model_path,
+              "timestamp": datetime.now().isoformat(),
+              "category": "textqa", "benchmarks": all_results}
+    with open(out_path, "w") as f:
+        json.dump(report, f, indent=2)
+
+    print(f"\n  TextQA RESULTS: {model_name}", flush=True)
+    print(f"  {'Benchmark':<20} {'Accuracy':>10} {'Correct':>8} {'Total':>8}", flush=True)
+    print(f"  {'-'*46}", flush=True)
+    for key, r in all_results.items():
+        print(f"  {key:<20} {r['accuracy']:>10.4f} {r['correct']:>8} {r['total']:>8}", flush=True)
+
+    del model
+    try:
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
+    return all_results
+
+
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Full Benchmark Suite")
-    parser.add_argument("--category", choices=["vqa", "medlfqa", "all"], default="all")
-    parser.add_argument("--model", choices=list(MODELS.keys()), required=True)
+    parser = argparse.ArgumentParser(description="Full Benchmark Suite — VQA(6) + TextQA(3) + LongQA(5)")
+    parser.add_argument("--category", choices=["vqa", "medlfqa", "textqa", "all"], default="all")
+    parser.add_argument("--model", choices=list(MODELS.keys()), default=None,
+                        help="Model key (predefined)")
+    parser.add_argument("--model_path", type=str, default=None,
+                        help="Direct path to model checkpoint (overrides --model)")
     parser.add_argument("--gpus", default="6,7")
     parser.add_argument("--max-samples", type=int, default=0)
-    parser.add_argument("--output-dir", default="logs/full_baseline")
+    parser.add_argument("--output-dir", default="results/benchmarks")
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
     os.environ["PYTHONUNBUFFERED"] = "1"
+
+    # Handle model_path override
+    if args.model_path:
+        model_key = "custom"
+        model_name = Path(args.model_path).name
+        MODELS["custom"] = {
+            "name": model_name,
+            "path": args.model_path,
+            "type": "causal",
+            "supports_vision": False,
+        }
+        args.model = "custom"
+    elif not args.model:
+        parser.error("Either --model or --model_path is required")
 
     output_dir = PROJECT_ROOT / args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     model_info = MODELS[args.model]
     print(f"\n{'#'*70}", flush=True)
-    print(f"  Healthcare AI GYM - Full Benchmark Suite", flush=True)
+    print(f"  Healthcare AI GYM — Full Benchmark Suite", flush=True)
     print(f"  Model: {model_info['name']} | Category: {args.category} | GPUs: {args.gpus}", flush=True)
+    if args.max_samples:
+        print(f"  Max samples: {args.max_samples}", flush=True)
     print(f"{'#'*70}\n", flush=True)
+
+    if args.category in ("textqa", "all"):
+        evaluate_textqa(args.model, output_dir, args.max_samples)
 
     if args.category in ("vqa", "all"):
         evaluate_vqa(args.model, output_dir, args.max_samples)
@@ -329,7 +525,9 @@ def main():
     if args.category in ("medlfqa", "all"):
         evaluate_medlfqa(args.model, output_dir, args.max_samples)
 
-    print(f"\nALL EVALUATIONS COMPLETE", flush=True)
+    print(f"\n{'='*70}", flush=True)
+    print(f"  ALL EVALUATIONS COMPLETE — Results in {output_dir}", flush=True)
+    print(f"{'='*70}", flush=True)
 
 
 if __name__ == "__main__":

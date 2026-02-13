@@ -122,12 +122,34 @@ DOMAIN_SYSTEM_PROMPTS = {
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _load_all_test_ids() -> set:
+    """Load all test-split task IDs across all domains for contamination filtering."""
+    test_ids = set()
+    domains_dir = PROJECT_ROOT / "data" / "domains"
+    if domains_dir.exists():
+        for domain_dir in domains_dir.iterdir():
+            if not domain_dir.is_dir():
+                continue
+            split_path = domain_dir / "split_tasks.json"
+            if split_path.exists():
+                with open(split_path) as f:
+                    splits = json.load(f)
+                test_ids.update(splits.get("test", []))
+    return test_ids
+
+
 def extract_expert_trajectories(
     min_action_score: float = 0.3,
     model_filter: str = None,
 ) -> list[dict]:
-    """Extract trajectories from all baseline runs with lower threshold."""
+    """Extract trajectories from all baseline runs with lower threshold.
+
+    IMPORTANT: Filters out any trajectories from test-split tasks to prevent
+    data contamination.
+    """
     examples = []
+    test_ids = _load_all_test_ids()
+    filtered_count = 0
 
     for run_dir in sorted(BASELINE_DIR.iterdir()):
         if not run_dir.is_dir():
@@ -156,8 +178,15 @@ def extract_expert_trajectories(
         for task_file in sorted(run_dir.glob("task_*.json")):
             example = _trajectory_file_to_sft(task_file, domain, model_name, min_action_score)
             if example:
+                # Filter out test-split trajectories to prevent contamination
+                task_id = example.get("metadata", {}).get("task_id", "")
+                if task_id in test_ids:
+                    filtered_count += 1
+                    continue
                 examples.append(example)
 
+    if filtered_count > 0:
+        logger.info(f"Filtered {filtered_count} test-split trajectories to prevent contamination")
     return examples
 
 
@@ -746,14 +775,36 @@ def generate_ehr_sft(tasks: list[dict]) -> list[dict]:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def load_domain_tasks(domain: str) -> list[dict]:
-    """Load tasks for a domain."""
+def load_domain_tasks(domain: str, split: str = "train") -> list[dict]:
+    """Load tasks for a domain, filtered to the specified split (default: train).
+
+    IMPORTANT: Only use train-split tasks for SFT data generation to prevent
+    data contamination. Test-split tasks must NEVER appear in training data.
+    """
     path = PROJECT_ROOT / "data" / "domains" / domain / "tasks.json"
     if not path.exists():
         logger.warning(f"No tasks.json for {domain}")
         return []
     with open(path) as f:
-        return json.load(f)
+        all_tasks = json.load(f)
+
+    # Filter by split to prevent contamination
+    split_path = PROJECT_ROOT / "data" / "domains" / domain / "split_tasks.json"
+    if split_path.exists():
+        with open(split_path) as f:
+            splits = json.load(f)
+        if split in splits:
+            valid_ids = set(splits[split])
+            filtered = [t for t in all_tasks if t["id"] in valid_ids]
+            logger.info(
+                f"[{domain}] Loaded {len(filtered)}/{len(all_tasks)} tasks "
+                f"(split={split}, filtered {len(all_tasks)-len(filtered)} test tasks)"
+            )
+            return filtered
+        else:
+            logger.warning(f"[{domain}] Split '{split}' not found in split_tasks.json, using all tasks")
+
+    return all_tasks
 
 
 def main():
@@ -789,16 +840,27 @@ def main():
     for d, c in sorted(traj_domains.items()):
         print(f"    {d}: {c}")
 
-    # ── Step 2: Synthetic QA from medical_qa_200 ─────────────────────
-    print(f"\n  Step 2: Generating medical QA examples (max={args.max_qa})...")
-    qa_200_path = PROJECT_ROOT / "data" / "domains" / "medical_qa_200" / "tasks.json"
-    qa_tasks_200 = []
-    if qa_200_path.exists():
-        with open(qa_200_path) as f:
-            qa_tasks_200 = json.load(f)
-    # Also add original medical_qa tasks
-    qa_tasks_50 = load_domain_tasks("medical_qa")
-    all_qa_tasks = qa_tasks_200 + qa_tasks_50
+    # ── Step 2: Synthetic QA from medical_qa TRAIN split only ──────
+    # CRITICAL: Only use train-split tasks to prevent contamination.
+    # medical_qa_200 is excluded because it was generated from test benchmark files.
+    print(f"\n  Step 2: Generating medical QA examples (max={args.max_qa}, TRAIN split only)...")
+    qa_tasks_50 = load_domain_tasks("medical_qa", split="train")  # Explicit train split
+    # Also load scaled train tasks if available
+    qa_scaled_path = PROJECT_ROOT / "data" / "domains" / "medical_qa" / "tasks_scaled.json"
+    qa_scaled = []
+    if qa_scaled_path.exists():
+        with open(qa_scaled_path) as f:
+            qa_scaled_raw = json.load(f)
+        # Filter scaled tasks to train split only
+        split_path = PROJECT_ROOT / "data" / "domains" / "medical_qa" / "split_tasks.json"
+        if split_path.exists():
+            with open(split_path) as f:
+                splits = json.load(f)
+            train_ids = set(splits.get("train", []))
+            qa_scaled = [t for t in qa_scaled_raw if t["id"] in train_ids]
+        else:
+            qa_scaled = qa_scaled_raw
+    all_qa_tasks = qa_tasks_50 + qa_scaled
     # De-duplicate by ID
     seen_ids = set()
     unique_qa = []
@@ -807,6 +869,7 @@ def main():
             seen_ids.add(t["id"])
             unique_qa.append(t)
     random.shuffle(unique_qa)
+    print(f"  → Using {len(unique_qa)} clean train tasks (excluded medical_qa_200 contaminated data)")
     qa_examples = generate_medical_qa_sft(unique_qa[:args.max_qa])
     all_examples.extend(qa_examples)
     domain_counts["medical_qa"] += len(qa_examples)
@@ -916,6 +979,21 @@ def main():
 
     print(f"  Stats: {stats_path}")
     print(f"\n  {'✅' if len(unique_examples) >= 500 else '⚠️'} Generated {len(unique_examples)} examples (target: 500+)")
+
+    # ── Step 7: Auto contamination check (BUGLOG BUG-002 prevention) ──
+    print("\n  Step 7: Contamination check...")
+    test_ids = _load_all_test_ids()
+    contaminated = [
+        ex for ex in unique_examples
+        if ex.get("metadata", {}).get("task_id", "") in test_ids
+    ]
+    if contaminated:
+        print(f"  ✗ CONTAMINATION DETECTED: {len(contaminated)} examples contain test task IDs!")
+        print(f"    IDs: {[e['metadata']['task_id'] for e in contaminated[:5]]}...")
+        print(f"    This violates BUGLOG BUG-002. Fix the data pipeline before using this file!")
+    else:
+        print(f"  ✓ CLEAN: 0/{len(unique_examples)} examples overlap with test splits")
+
     print("=" * 80)
 
 

@@ -251,7 +251,7 @@ def train(config: BioAgentSFTConfig):
         "vl" in a.lower() or "vision" in a.lower()
         for a in (architectures or [])
     ) or "vl" in model_type.lower()
-    is_qwen_vl = model_type in ("qwen2_5_vl", "qwen2_vl")
+    is_qwen_vl = model_type in ("qwen2_5_vl", "qwen2_vl") or ("qwen2" in model_type.lower() and "vl" in model_type.lower())
 
     logger.info(f"Model type: {model_type}, VL: {is_vl_model}, Qwen-VL: {is_qwen_vl}")
 
@@ -274,6 +274,12 @@ def train(config: BioAgentSFTConfig):
             config.model_name_or_path, **load_kwargs,
         )
 
+    # --- Gradient Checkpointing (saves ~40% VRAM) ---
+    model.gradient_checkpointing_enable()
+    if hasattr(model, "enable_input_require_grads"):
+        model.enable_input_require_grads()
+    logger.info("Gradient checkpointing enabled")
+
     # --- PEFT ---
     peft_config = None
     if config.peft_enabled:
@@ -291,7 +297,7 @@ def train(config: BioAgentSFTConfig):
     # --- Dataset ---
     train_dataset, eval_dataset = build_sft_dataset(config)
 
-    # --- SFT Config ---
+    # --- SFT Config (optimized for A100 80GB) ---
     os.makedirs(config.output_dir, exist_ok=True)
 
     sft_config = SFTConfig(
@@ -315,6 +321,13 @@ def train(config: BioAgentSFTConfig):
         report_to="wandb" if config.use_wandb else "none",
         run_name=config.run_name,
         logging_dir=config.log_dir,
+        # --- Performance optimizations ---
+        dataloader_num_workers=4,
+        dataloader_pin_memory=True,
+        dataloader_prefetch_factor=2,
+        gradient_checkpointing=True,
+        optim="adamw_torch_fused",  # Fused optimizer (faster on A100)
+        torch_compile=False,  # Disable for compatibility
     )
 
     # --- Trainer ---
@@ -329,6 +342,8 @@ def train(config: BioAgentSFTConfig):
 
     # --- Train ---
     logger.info("Starting SFT training...")
+    logger.info(f"  Effective batch size: {config.per_device_train_batch_size * config.gradient_accumulation_steps}")
+    logger.info(f"  Optimizations: gradient_checkpointing, fused_adam, pin_memory, 4 workers")
     trainer.train()
 
     # Save

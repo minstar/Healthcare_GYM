@@ -9,7 +9,7 @@
 # =============================================================================
 
 model:
-  name_or_path: "/data/project/private/minstar/checkpoints/Qwen3-8B-Base"
+  name_or_path: "/data/project/private/minstar/models/Qwen3-8B-Base"
   torch_dtype: "bfloat16"
   attn_implementation: "sdpa"
 

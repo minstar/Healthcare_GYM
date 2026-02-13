@@ -162,9 +162,27 @@ def detect_difficulty(question: str, options: list[dict]) -> str:
 
 def build_task(record: dict, source: str, task_idx: int) -> dict | None:
     """Convert one raw record into a BIOAgents task dict."""
+    # Support multiple data formats:
+    # Format 1 (test): {"instances": {"input": "...", "output": "..."}}
+    # Format 2 (train_gpt4): {"question": "...", "answer": "...", "instruction": "...", "instances": {...}}
     instances = record.get("instances", {})
-    question_text = instances.get("input", "")
-    answer_text = instances.get("output", "")
+    if isinstance(instances, dict):
+        question_text = instances.get("input", "")
+        answer_text = instances.get("output", "")
+    else:
+        question_text = ""
+        answer_text = ""
+
+    # Fallback: direct question/answer fields (train_gpt4 format)
+    if not question_text:
+        question_text = record.get("question", "")
+        # Reconstruct full question with options if needed
+        instruction = record.get("instruction", "")
+        if question_text and instruction:
+            question_text = f"QUESTION: {question_text}"
+    if not answer_text:
+        answer_text = record.get("answer", "")
+
     if not question_text or not answer_text:
         return None
 
@@ -456,31 +474,62 @@ def main():
     print()
 
     # ---- Load raw data ----
-    print("Loading benchmark data...")
+    # CRITICAL: Use TRAIN files only to prevent data contamination!
+    # Test benchmark files (med_qa_test.jsonl, mmlu_test.jsonl, etc.) must NEVER
+    # be used for GYM task generation or SFT training data, as they are used
+    # for external benchmark evaluation (MedQA, MMLU, MedMCQA scores in paper).
+    print("Loading benchmark TRAIN data (contamination-safe)...")
     all_records = []
 
-    # MedQA
-    medqa_path = BENCHMARK_DIR / "med_qa_test.jsonl"
-    if medqa_path.exists():
-        records = load_jsonl(medqa_path)
-        all_records.extend((r, "MedQA") for r in records)
-        print(f"  MedQA test: {len(records)} records")
+    # ─── CONTAMINATION GUARD (see BUGLOG.md BUG-001) ───
+    # Runtime check: block any accidental loading from test files
+    _forbidden_test_files = list(BENCHMARK_DIR.glob("*_test*"))
+    def _assert_not_test(path: Path):
+        assert path not in _forbidden_test_files, (
+            f"CONTAMINATION BLOCKED: Attempted to load test file '{path.name}' for training data! "
+            f"See BUGLOG.md BUG-001. Use *_train* files only."
+        )
+    # ────────────────────────────────────────────────────
 
-    # MedMCQA
-    medmcqa_path = BENCHMARK_DIR / "medmc_qa_test.jsonl"
-    if medmcqa_path.exists():
-        records = load_jsonl(medmcqa_path)
-        all_records.extend((r, "MedMCQA") for r in records)
-        print(f"  MedMCQA test: {len(records)} records")
+    # MedQA — TRAIN only
+    for medqa_name in ["med_qa_train_gpt4.jsonl", "med_qa_5options_train.json"]:
+        medqa_path = BENCHMARK_DIR / medqa_name
+        if medqa_path.exists():
+            _assert_not_test(medqa_path)
+            records = load_jsonl(medqa_path)
+            all_records.extend((r, "MedQA") for r in records)
+            print(f"  MedQA train ({medqa_name}): {len(records)} records")
+            break
+    else:
+        print("  WARNING: No MedQA train file found!")
 
-    # MMLU
-    mmlu_path = BENCHMARK_DIR / "mmlu_test.jsonl"
-    if mmlu_path.exists():
-        records = load_jsonl(mmlu_path)
-        all_records.extend((r, "MMLU") for r in records)
-        print(f"  MMLU test: {len(records)} records")
+    # MedMCQA — TRAIN only
+    for medmcqa_name in ["medmc_qa_train_gpt4.jsonl", "medmc_qa_train.json"]:
+        medmcqa_path = BENCHMARK_DIR / medmcqa_name
+        if medmcqa_path.exists():
+            _assert_not_test(medmcqa_path)
+            raw_records = load_jsonl(medmcqa_path)
+            # Handle nested list format (some files store [record, record, ...] per line)
+            records = []
+            for r in raw_records:
+                if isinstance(r, list):
+                    records.extend(r)
+                else:
+                    records.append(r)
+            all_records.extend((r, "MedMCQA") for r in records)
+            print(f"  MedMCQA train ({medmcqa_name}): {len(records)} records")
+            break
+    else:
+        print("  WARNING: No MedMCQA train file found!")
+
+    # MMLU — NO train file available; skip for GYM tasks (eval-only benchmark)
+    # MMLU is evaluated separately via run_full_baseline_eval.py
+    print("  MMLU: Skipped (evaluation-only benchmark, no train split available)")
 
     print(f"  Total raw records: {len(all_records)}")
+    if not all_records:
+        print("  ERROR: No train data loaded! Check benchmark directory.")
+        sys.exit(1)
     print()
 
     # ---- Select balanced tasks ----

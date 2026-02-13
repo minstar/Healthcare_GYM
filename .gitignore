@@ -67,6 +67,13 @@ htmlcov/
 Thumbs.db
 .DS_Store
 
+# --- Results / Runtime ---
+results/
+datasets/sft/contaminated_backup/
+
+# --- Cursor IDE ---
+.cursor/
+
 # --- Wandb / MLflow ---
 wandb/
 mlruns/

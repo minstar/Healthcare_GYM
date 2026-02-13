@@ -765,13 +765,29 @@ def train_multiturn(config: BioAgentGRPOConfig):
     dtype_map = {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}
     model_dtype = dtype_map.get(mt_config.torch_dtype, torch.bfloat16)
 
-    model = AutoModelForCausalLM.from_pretrained(
-        mt_config.model_name_or_path,
-        torch_dtype=model_dtype,
-        trust_remote_code=True,
-    )
+    # Detect model type for correct Auto class
+    from transformers import AutoConfig
+    _model_config = AutoConfig.from_pretrained(mt_config.model_name_or_path, trust_remote_code=True)
+    _model_type = getattr(_model_config, "model_type", "")
+    _is_qwen_vl = _model_type in ("qwen2_5_vl", "qwen2_vl") or "qwen2" in _model_type.lower() and "vl" in _model_type.lower()
+
+    if _is_qwen_vl:
+        from transformers import Qwen2_5_VLForConditionalGeneration
+        logger.info(f"Loading VL model ({_model_type}) with Qwen2_5_VLForConditionalGeneration")
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            mt_config.model_name_or_path,
+            torch_dtype=model_dtype,
+            trust_remote_code=True,
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            mt_config.model_name_or_path,
+            torch_dtype=model_dtype,
+            trust_remote_code=True,
+        )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
+    model.gradient_checkpointing_enable()  # Save VRAM
 
     # --- PEFT ---
     if mt_config.peft_enabled:
@@ -988,17 +1004,27 @@ def _run_single_rollout(
 
     task_id = task["id"]
 
-    # Create environment
+    # Create environment (BUG-009: use constant, not string literal)
+    from bioagents.utils.model_loader import GYM_ENV_ID
     env = gym.make(
-        "bioagent-gym-v0",
+        GYM_ENV_ID,
         domain=domain,
         task_id=task_id,
     )
 
     obs, info = env.reset()
+    # obs is a string (the initial observation text), info is a dict with metadata
+    system_prompt = "You are a medical AI assistant. Use available tools to complete the task."
+    if isinstance(obs, dict):
+        # Legacy format
+        observation_text = obs.get("ticket", str(obs))
+        system_prompt = obs.get("system_prompt", system_prompt)
+    else:
+        # Current format: obs is a string containing the full initial observation
+        observation_text = str(obs)
     messages = [
-        {"role": "system", "content": obs.get("system_prompt", "You are a medical AI assistant.")},
-        {"role": "user", "content": obs.get("ticket", task.get("ticket", ""))},
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": observation_text},
     ]
 
     tool_calls = []
