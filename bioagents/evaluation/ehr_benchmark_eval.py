@@ -2,12 +2,12 @@
 
 Evaluates trained models on real-world EHR data from two clinical databases:
 
-  1. MIMIC-III Clinical Database v1.4 (50 ICU patients, 50 tasks)
+  1. MIMIC-III Clinical Database v1.4 (all qualifying ICU patients)
      - Chart review, critical value ID, medication reconciliation,
        lab trend analysis, discharge readiness
      Source: PhysioNet / MIT Lab for Computational Physiology
 
-  2. eICU Collaborative Research Database v2.0 (50 ICU patients, 50 tasks)
+  2. eICU Collaborative Research Database v2.0 (all qualifying ICU patients)
      - ICU assessment, vital monitoring, mortality prediction,
        lab trend analysis, medication review
      Source: PhysioNet / Philips Healthcare
@@ -16,11 +16,15 @@ These benchmarks test the agent's ability to navigate real EHR data
 using the BIOAgents tool-use framework, providing a grounded evaluation
 that complements synthetic task evaluation.
 
+Data is stored as gzip-compressed JSON (.json.gz) for efficient storage.
+Use --max-samples to limit evaluation tasks during development/testing.
+
 Usage:
     evaluator = EHRBenchmarkEvaluator(config)
     results = evaluator.evaluate_all()
 """
 
+import gzip
 import json
 import time
 from dataclasses import dataclass, field
@@ -32,19 +36,21 @@ from loguru import logger
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
-# Benchmark data paths
+# Benchmark data paths — supports both .json.gz (full dataset) and .json (legacy)
 BENCHMARK_DATA = {
     "mimic_iii": {
-        "path": "data/ehr_benchmarks/mimic_iii_bench.json",
+        "path": "data/ehr_benchmarks/mimic_iii_bench.json.gz",
+        "path_legacy": "data/ehr_benchmarks/mimic_iii_bench.json",
         "name": "MIMIC-III Clinical Database v1.4",
         "source": "PhysioNet",
-        "description": "ICU patients from Beth Israel Deaconess Medical Center",
+        "description": "All qualifying ICU patients from Beth Israel Deaconess Medical Center",
     },
     "eicu": {
-        "path": "data/ehr_benchmarks/eicu_bench.json",
+        "path": "data/ehr_benchmarks/eicu_bench.json.gz",
+        "path_legacy": "data/ehr_benchmarks/eicu_bench.json",
         "name": "eICU Collaborative Research Database v2.0",
         "source": "PhysioNet",
-        "description": "Multi-center ICU patients from Philips Healthcare",
+        "description": "All qualifying multi-center ICU patients from Philips Healthcare",
     },
 }
 
@@ -116,6 +122,9 @@ class EHRBenchmarkEvaluator:
     def load_benchmark(self, benchmark_key: str) -> tuple[dict, list]:
         """Load a benchmark dataset (db + tasks).
 
+        Supports both gzip-compressed (.json.gz) and plain JSON (.json) formats.
+        Prefers .json.gz (full dataset); falls back to .json (legacy/small).
+
         Returns:
             (db_dict, tasks_list)
         """
@@ -126,18 +135,40 @@ class EHRBenchmarkEvaluator:
                 f"Available: {list(BENCHMARK_DATA.keys())}"
             )
 
+        # Try gzip first, then legacy JSON
         data_path = PROJECT_ROOT / info["path"]
-        if not data_path.exists():
+        legacy_path = PROJECT_ROOT / info.get("path_legacy", "")
+        use_gzip = False
+
+        if data_path.exists():
+            use_gzip = True
+        elif legacy_path.exists():
+            data_path = legacy_path
+            logger.info(f"Using legacy JSON: {data_path}")
+        else:
             raise FileNotFoundError(
                 f"Benchmark data not found: {data_path}\n"
                 f"Run: python scripts/build_ehr_benchmark.py"
             )
 
-        with open(data_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        logger.info(f"Loading {benchmark_key} from {data_path} ...")
+        t0 = time.time()
 
+        if use_gzip:
+            with gzip.open(data_path, "rt", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            with open(data_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+        load_time = time.time() - t0
         db = data["db"]
         tasks = data["tasks"]
+
+        logger.info(
+            f"Loaded {benchmark_key}: {len(db['records']):,} records, "
+            f"{len(tasks):,} tasks in {load_time:.1f}s ({info['name']})"
+        )
 
         # Filter by split
         if self.config.task_split:
@@ -146,11 +177,8 @@ class EHRBenchmarkEvaluator:
         # Limit samples
         if self.config.max_samples > 0:
             tasks = tasks[:self.config.max_samples]
+            logger.info(f"  Limited to {len(tasks)} tasks (--max-samples {self.config.max_samples})")
 
-        logger.info(
-            f"Loaded {benchmark_key}: {len(db['records'])} records, "
-            f"{len(tasks)} tasks ({info['name']})"
-        )
         return db, tasks
 
     def evaluate_benchmark(self, benchmark_key: str) -> dict:
@@ -172,7 +200,8 @@ class EHRBenchmarkEvaluator:
         info = BENCHMARK_DATA[benchmark_key]
         logger.info(f"\n{'='*60}")
         logger.info(f"  EHR Benchmark: {info['name']}")
-        logger.info(f"  Tasks: {len(tasks)}")
+        logger.info(f"  Records: {len(db_dict.get('records', {})):,}")
+        logger.info(f"  Tasks: {len(tasks):,}")
         logger.info(f"{'='*60}")
 
         # Create EHRDB from benchmark data
@@ -398,7 +427,7 @@ class EHRBenchmarkEvaluator:
             total_completed = sum(r["completed"] for r in valid)
             print(f"\n  {'═'*50}")
             print(f"  OVERALL: {overall_score:.3f} action_score")
-            print(f"  Total: {total_completed}/{total_tasks} tasks across {len(valid)} EHR databases")
+            print(f"  Total: {total_completed:,}/{total_tasks:,} tasks across {len(valid)} EHR databases")
         print(f"{'='*70}")
 
 

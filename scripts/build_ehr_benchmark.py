@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """Build EHR Benchmark Datasets from MIMIC-III and eICU.
 
-Reads raw PhysioNet CSVs (gzipped), samples representative patient cohorts,
+Reads raw PhysioNet CSVs (gzipped), processes ALL qualifying patient cohorts,
 converts to BIOAgents EHR format, and generates evaluation tasks with
 clinically grounded rubrics.
 
-Output:
-    data/ehr_benchmarks/mimic_iii_bench.json   — 50 patient records + 50 tasks
-    data/ehr_benchmarks/eicu_bench.json         — 50 patient records + 50 tasks
+Output (gzipped JSON for efficient storage):
+    data/ehr_benchmarks/mimic_iii_bench.json.gz  — all qualifying ICU patients + tasks
+    data/ehr_benchmarks/eicu_bench.json.gz        — all qualifying ICU patients + tasks
+
+Qualifying criteria:
+    MIMIC-III: admission has ICU stay AND ≥3 lab events
+    eICU:      has APACHE admission dx, age, unit type AND ≥3 lab results
 
 Usage:
-    python scripts/build_ehr_benchmark.py [--mimic-dir ...] [--eicu-dir ...] [--n-patients 50]
+    python scripts/build_ehr_benchmark.py                        # full dataset (all patients)
+    python scripts/build_ehr_benchmark.py --n-patients 100       # limit to 100 per dataset
+    python scripts/build_ehr_benchmark.py --labs-per-patient 200  # more labs per patient
 """
 
 import argparse
@@ -20,6 +26,7 @@ import hashlib
 import json
 import random
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -47,6 +54,21 @@ def read_gz_csv(path: Path, max_rows: int = 0):
             yield row
 
 
+def read_gz_csv_progress(path: Path, desc: str = "", report_every: int = 5_000_000):
+    """Read a gzipped CSV with progress reporting (row count every N rows)."""
+    t0 = time.time()
+    with gzip.open(path, "rt", encoding="utf-8", errors="replace") as f:
+        reader = csv.DictReader(f, quotechar='"')
+        for i, row in enumerate(reader):
+            if (i + 1) % report_every == 0:
+                elapsed = time.time() - t0
+                rate = (i + 1) / elapsed
+                print(f"    {desc}: {(i+1):,} rows ({rate:,.0f} rows/s)", flush=True)
+            yield row
+    elapsed = time.time() - t0
+    print(f"    {desc}: done — {(i+1):,} rows in {elapsed:.1f}s", flush=True)
+
+
 def safe_float(val, default=None):
     try:
         return float(val)
@@ -67,118 +89,154 @@ def anon_id(prefix, original_id):
     return f"{prefix}_{h}"
 
 
+def write_gzip_json(data: dict, path: Path):
+    """Write dict to gzip-compressed JSON (compact format)."""
+    t0 = time.time()
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, default=str, separators=(",", ":"))
+    elapsed = time.time() - t0
+    size_mb = path.stat().st_size / (1024 * 1024)
+    print(f"    Saved: {path} ({size_mb:.1f} MB, {elapsed:.1f}s)")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # MIMIC-III Builder
 # ═══════════════════════════════════════════════════════════════════════════
 
-def build_mimic_benchmark(mimic_dir: Path, n_patients: int = 50):
-    """Build benchmark from MIMIC-III data."""
+def build_mimic_benchmark(mimic_dir: Path, n_patients: int = 0,
+                          labs_per_patient: int = 100,
+                          meds_per_patient: int = 30,
+                          procs_per_patient: int = 20):
+    """Build benchmark from MIMIC-III data.
+
+    Args:
+        mimic_dir: Path to MIMIC-III extracted directory.
+        n_patients: Max patients to include. 0 = all qualifying patients.
+        labs_per_patient: Max lab events to keep per patient admission.
+        meds_per_patient: Max medications per admission.
+        procs_per_patient: Max procedures per admission.
+    """
     print(f"\n{'='*60}")
-    print(f"  Building MIMIC-III Benchmark ({n_patients} patients)")
+    limit_str = f"{n_patients}" if n_patients > 0 else "ALL qualifying"
+    print(f"  Building MIMIC-III Benchmark ({limit_str} patients)")
     print(f"{'='*60}")
 
+    build_t0 = time.time()
+
     # ── Step 1: Load patients ─────────────────────────────────────────────
-    print("  [1/8] Loading PATIENTS...", flush=True)
+    print("  [1/9] Loading PATIENTS...", flush=True)
     patients = {}
     for row in read_gz_csv(mimic_dir / "PATIENTS.csv.gz"):
         patients[row["SUBJECT_ID"]] = row
+    print(f"    → {len(patients):,} patients")
 
     # ── Step 2: Load admissions ───────────────────────────────────────────
-    print("  [2/8] Loading ADMISSIONS...", flush=True)
+    print("  [2/9] Loading ADMISSIONS...", flush=True)
     admissions = defaultdict(list)
     all_hadm_ids = set()
     for row in read_gz_csv(mimic_dir / "ADMISSIONS.csv.gz"):
         admissions[row["SUBJECT_ID"]].append(row)
         all_hadm_ids.add(row["HADM_ID"])
+    print(f"    → {len(all_hadm_ids):,} admissions")
 
     # ── Step 3: Load ICU stays ────────────────────────────────────────────
-    print("  [3/8] Loading ICUSTAYS...", flush=True)
+    print("  [3/9] Loading ICUSTAYS...", flush=True)
     icustays = defaultdict(list)
     for row in read_gz_csv(mimic_dir / "ICUSTAYS.csv.gz"):
         icustays[row["HADM_ID"]].append(row)
+    icu_hadm_ids = set(icustays.keys())
+    print(f"    → {sum(len(v) for v in icustays.values()):,} ICU stays across {len(icu_hadm_ids):,} admissions")
 
     # ── Step 4: Load diagnoses ────────────────────────────────────────────
-    print("  [4/8] Loading DIAGNOSES_ICD...", flush=True)
+    print("  [4/9] Loading DIAGNOSES_ICD...", flush=True)
     diagnoses = defaultdict(list)
     for row in read_gz_csv(mimic_dir / "DIAGNOSES_ICD.csv.gz"):
         diagnoses[row["HADM_ID"]].append(row)
+    print(f"    → {sum(len(v) for v in diagnoses.values()):,} diagnosis entries")
 
     # ── Step 5: Load ICD descriptions ─────────────────────────────────────
-    print("  [5/8] Loading D_ICD_DIAGNOSES...", flush=True)
+    print("  [5/9] Loading D_ICD_DIAGNOSES...", flush=True)
     icd_desc = {}
     for row in read_gz_csv(mimic_dir / "D_ICD_DIAGNOSES.csv.gz"):
         icd_desc[row["ICD9_CODE"]] = row["LONG_TITLE"]
+    print(f"    → {len(icd_desc):,} ICD descriptions")
 
     # ── Step 6: Load D_LABITEMS ───────────────────────────────────────────
-    print("  [6/8] Loading D_LABITEMS...", flush=True)
+    print("  [6/9] Loading D_LABITEMS...", flush=True)
     lab_items = {}
     for row in read_gz_csv(mimic_dir / "D_LABITEMS.csv.gz"):
         lab_items[row["ITEMID"]] = row["LABEL"]
+    print(f"    → {len(lab_items):,} lab item definitions")
 
-    # ── Step 7: Sample patients with ICU stays ────────────────────────────
-    # Pick patients with >= 1 ICU admission and labs for clinical interest
-    print("  [7/8] Selecting patient cohort...", flush=True)
+    # ── Step 7: Identify ALL candidate admissions ─────────────────────────
+    print("  [7/9] Identifying candidate admissions (ICU stay required)...", flush=True)
     candidates = []
     for subj_id, adm_list in admissions.items():
         for adm in adm_list:
             hadm = adm["HADM_ID"]
-            if hadm in icustays and icustays[hadm]:
+            if hadm in icu_hadm_ids:
                 candidates.append((subj_id, hadm))
 
     random.seed(SEED)
     random.shuffle(candidates)
-    selected = candidates[:n_patients * 3]  # over-sample, then filter
+    if n_patients > 0:
+        # Over-sample 3x to account for filtering
+        candidates = candidates[:n_patients * 3]
 
-    # ── Step 8: Load labs + meds for selected patients ────────────────────
-    print("  [8/8] Loading LABEVENTS & PRESCRIPTIONS (sampled)...", flush=True)
-    selected_hadm_ids = {h for _, h in selected}
+    candidate_hadm_ids = {h for _, h in candidates}
+    print(f"    → {len(candidates):,} candidate admissions with ICU stays")
 
+    # ── Step 8: Load labs, meds, procedures for candidates ────────────────
+    print("  [8/9] Loading LABEVENTS for candidates (full scan)...", flush=True)
     lab_events = defaultdict(list)
-    lab_count = 0
-    for row in read_gz_csv(mimic_dir / "LABEVENTS.csv.gz"):
-        if row.get("HADM_ID") in selected_hadm_ids:
-            lab_events[row["HADM_ID"]].append(row)
-            lab_count += 1
-        if lab_count > 500000:  # cap for memory
-            break
+    for row in read_gz_csv_progress(mimic_dir / "LABEVENTS.csv.gz", desc="LABEVENTS"):
+        hadm = row.get("HADM_ID")
+        if hadm in candidate_hadm_ids and len(lab_events[hadm]) < labs_per_patient:
+            lab_events[hadm].append(row)
 
+    hadms_with_labs = {h for h, labs in lab_events.items() if len(labs) >= 3}
+    print(f"    → Labs collected for {len(lab_events):,} admissions "
+          f"({len(hadms_with_labs):,} with ≥3 labs)")
+
+    print("  [8/9] Loading PRESCRIPTIONS for candidates...", flush=True)
     prescriptions = defaultdict(list)
-    rx_count = 0
-    for row in read_gz_csv(mimic_dir / "PRESCRIPTIONS.csv.gz"):
-        if row.get("HADM_ID") in selected_hadm_ids:
-            prescriptions[row["HADM_ID"]].append(row)
-            rx_count += 1
-        if rx_count > 200000:
-            break
+    for row in read_gz_csv_progress(mimic_dir / "PRESCRIPTIONS.csv.gz", desc="PRESCRIPTIONS"):
+        hadm = row.get("HADM_ID")
+        if hadm in candidate_hadm_ids and len(prescriptions[hadm]) < meds_per_patient:
+            prescriptions[hadm].append(row)
+    print(f"    → Prescriptions for {len(prescriptions):,} admissions")
 
-    # Load DRG codes for selected admissions
+    print("  [8/9] Loading DRGCODES...", flush=True)
     drg_codes = {}
     for row in read_gz_csv(mimic_dir / "DRGCODES.csv.gz"):
-        if row["HADM_ID"] in selected_hadm_ids:
+        if row["HADM_ID"] in candidate_hadm_ids:
             drg_codes[row["HADM_ID"]] = row
 
-    # Load procedures for selected admissions
+    print("  [8/9] Loading PROCEDURES_ICD...", flush=True)
     procedures = defaultdict(list)
     for row in read_gz_csv(mimic_dir / "PROCEDURES_ICD.csv.gz"):
-        if row["HADM_ID"] in selected_hadm_ids:
-            procedures[row["HADM_ID"]].append(row)
+        hadm = row["HADM_ID"]
+        if hadm in candidate_hadm_ids and len(procedures[hadm]) < procs_per_patient:
+            procedures[hadm].append(row)
 
-    # Load ICD procedure descriptions
+    print("  [8/9] Loading D_ICD_PROCEDURES...", flush=True)
     icd_proc_desc = {}
     for row in read_gz_csv(mimic_dir / "D_ICD_PROCEDURES.csv.gz"):
         icd_proc_desc[row["ICD9_CODE"]] = row["LONG_TITLE"]
 
-    # ── Build EHR records ─────────────────────────────────────────────────
+    # ── Step 9: Build EHR records ─────────────────────────────────────────
+    print("  [9/9] Building EHR records...", flush=True)
     records = {}
     patient_index = defaultdict(list)
     final_count = 0
+    max_count = n_patients if n_patients > 0 else len(candidates)
 
-    for subj_id, hadm_id in selected:
-        if final_count >= n_patients:
+    for subj_id, hadm_id in candidates:
+        if final_count >= max_count:
             break
 
-        if hadm_id not in lab_events or len(lab_events[hadm_id]) < 3:
-            continue  # skip if no labs
+        if hadm_id not in hadms_with_labs:
+            continue  # skip if insufficient labs
 
         pat = patients.get(subj_id, {})
         adm = next((a for a in admissions[subj_id] if a["HADM_ID"] == hadm_id), None)
@@ -244,7 +302,7 @@ def build_mimic_benchmark(mimic_dir: Path, n_patients: int = 50):
 
         # Lab events
         lab_records = []
-        for lab in lab_events.get(hadm_id, [])[:50]:  # cap at 50
+        for lab in lab_events.get(hadm_id, []):
             item_id = lab.get("ITEMID", "")
             label = lab_items.get(item_id, f"Lab_{item_id}")
             val = safe_float(lab.get("VALUENUM"))
@@ -264,7 +322,7 @@ def build_mimic_benchmark(mimic_dir: Path, n_patients: int = 50):
 
         # Medications
         med_records = []
-        for i, rx in enumerate(prescriptions.get(hadm_id, [])[:20]):  # cap at 20
+        for i, rx in enumerate(prescriptions.get(hadm_id, [])):
             drug_type_map = {"MAIN": "MAIN", "BASE": "BASE", "ADDITIVE": "ADDITIVE"}
             med_records.append({
                 "order_id": anon_id("MORD", f"{hadm_id}_{i}"),
@@ -281,7 +339,7 @@ def build_mimic_benchmark(mimic_dir: Path, n_patients: int = 50):
 
         # Procedures
         proc_records = []
-        for p in procedures.get(hadm_id, [])[:10]:
+        for p in procedures.get(hadm_id, []):
             code = p.get("ICD9_CODE", "")
             proc_records.append({
                 "procedure_id": anon_id("MPROC", f"{hadm_id}_{code}"),
@@ -350,7 +408,10 @@ def build_mimic_benchmark(mimic_dir: Path, n_patients: int = 50):
         patient_index[anon_patient_id].append(anon_hadm_id)
         final_count += 1
 
-    print(f"  Built {len(records)} MIMIC-III patient records")
+        if final_count % 5000 == 0:
+            print(f"    Built {final_count:,} records...", flush=True)
+
+    print(f"  Built {len(records):,} MIMIC-III patient records")
 
     # ── Build lab reference ranges ────────────────────────────────────────
     lab_reference_ranges = {
@@ -390,11 +451,15 @@ def build_mimic_benchmark(mimic_dir: Path, n_patients: int = 50):
     # ── Build tasks ───────────────────────────────────────────────────────
     tasks = _generate_mimic_tasks(records)
 
+    elapsed = time.time() - build_t0
+    print(f"  MIMIC-III build complete: {len(records):,} records, "
+          f"{len(tasks):,} tasks in {elapsed:.0f}s")
+
     return db, tasks
 
 
 def _generate_mimic_tasks(records: dict) -> list:
-    """Generate evaluation tasks from MIMIC-III records."""
+    """Generate evaluation tasks from MIMIC-III records (one task per patient)."""
     tasks = []
     rec_list = list(records.values())
 
@@ -444,7 +509,7 @@ def _generate_mimic_tasks(records: dict) -> list:
         patient_id = rec["demographics"]["patient_id"]
 
         task = {
-            "id": f"mimic_ehr_{i+1:03d}",
+            "id": f"mimic_ehr_{i+1:05d}",
             "domain": "ehr_management",
             "source": "mimic_iii",
             "category": template["category"],
@@ -467,7 +532,7 @@ def _generate_mimic_tasks(records: dict) -> list:
         }
         tasks.append(task)
 
-    print(f"  Generated {len(tasks)} MIMIC-III evaluation tasks")
+    print(f"  Generated {len(tasks):,} MIMIC-III evaluation tasks")
     return tasks
 
 
@@ -475,72 +540,86 @@ def _generate_mimic_tasks(records: dict) -> list:
 # eICU Builder
 # ═══════════════════════════════════════════════════════════════════════════
 
-def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
-    """Build benchmark from eICU Collaborative Research Database."""
+def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 0,
+                         labs_per_patient: int = 100,
+                         meds_per_patient: int = 30,
+                         vitals_per_patient: int = 60):
+    """Build benchmark from eICU Collaborative Research Database.
+
+    Args:
+        eicu_dir: Path to eICU extracted directory.
+        n_patients: Max patients to include. 0 = all qualifying patients.
+        labs_per_patient: Max lab results per patient.
+        meds_per_patient: Max medications per patient.
+        vitals_per_patient: Max vital sign readings per patient.
+    """
     print(f"\n{'='*60}")
-    print(f"  Building eICU Benchmark ({n_patients} patients)")
+    limit_str = f"{n_patients}" if n_patients > 0 else "ALL qualifying"
+    print(f"  Building eICU Benchmark ({limit_str} patients)")
     print(f"{'='*60}")
+
+    build_t0 = time.time()
 
     # ── Step 1: Load patients ─────────────────────────────────────────────
     print("  [1/7] Loading patient table...", flush=True)
     patient_rows = []
     for row in read_gz_csv(eicu_dir / "patient.csv.gz"):
         patient_rows.append(row)
+    print(f"    → {len(patient_rows):,} patient unit stays")
 
     # ── Step 2: Filter patients with useful data ──────────────────────────
     print("  [2/7] Selecting patient cohort...", flush=True)
-    # Pick patients with known APACHE scores and meaningful diagnosis
     candidates = [
         p for p in patient_rows
         if p.get("apacheadmissiondx", "").strip()
         and p.get("age", "").strip()
         and p.get("unittype", "").strip()
     ]
+    print(f"    → {len(candidates):,} qualifying candidates (have dx, age, unit type)")
 
     random.seed(SEED + 1)
     random.shuffle(candidates)
-    selected_patients = candidates[:n_patients * 3]
-    selected_ids = {p["patientunitstayid"] for p in selected_patients}
+    if n_patients > 0:
+        candidates = candidates[:n_patients * 3]
+
+    selected_ids = {p["patientunitstayid"] for p in candidates}
 
     # ── Step 3: Load diagnoses ────────────────────────────────────────────
     print("  [3/7] Loading diagnoses...", flush=True)
     eicu_diagnoses = defaultdict(list)
-    for row in read_gz_csv(eicu_dir / "diagnosis.csv.gz"):
+    for row in read_gz_csv_progress(eicu_dir / "diagnosis.csv.gz", desc="diagnosis"):
         if row["patientunitstayid"] in selected_ids:
             eicu_diagnoses[row["patientunitstayid"]].append(row)
+    print(f"    → Diagnoses for {len(eicu_diagnoses):,} patients")
 
     # ── Step 4: Load labs ─────────────────────────────────────────────────
-    print("  [4/7] Loading lab results (sampled)...", flush=True)
+    print("  [4/7] Loading lab results (full scan)...", flush=True)
     eicu_labs = defaultdict(list)
-    lab_count = 0
-    for row in read_gz_csv(eicu_dir / "lab.csv.gz"):
-        if row["patientunitstayid"] in selected_ids:
-            eicu_labs[row["patientunitstayid"]].append(row)
-            lab_count += 1
-        if lab_count > 500000:
-            break
+    for row in read_gz_csv_progress(eicu_dir / "lab.csv.gz", desc="lab"):
+        pid = row["patientunitstayid"]
+        if pid in selected_ids and len(eicu_labs[pid]) < labs_per_patient:
+            eicu_labs[pid].append(row)
+
+    pids_with_labs = {pid for pid, labs in eicu_labs.items() if len(labs) >= 3}
+    print(f"    → Labs for {len(eicu_labs):,} patients ({len(pids_with_labs):,} with ≥3 labs)")
 
     # ── Step 5: Load medications ──────────────────────────────────────────
     print("  [5/7] Loading medications...", flush=True)
     eicu_meds = defaultdict(list)
-    med_count = 0
-    for row in read_gz_csv(eicu_dir / "medication.csv.gz"):
-        if row["patientunitstayid"] in selected_ids:
-            eicu_meds[row["patientunitstayid"]].append(row)
-            med_count += 1
-        if med_count > 200000:
-            break
+    for row in read_gz_csv_progress(eicu_dir / "medication.csv.gz", desc="medication"):
+        pid = row["patientunitstayid"]
+        if pid in selected_ids and len(eicu_meds[pid]) < meds_per_patient:
+            eicu_meds[pid].append(row)
+    print(f"    → Medications for {len(eicu_meds):,} patients")
 
     # ── Step 6: Load vitals ───────────────────────────────────────────────
-    print("  [6/7] Loading vital signs (sampled)...", flush=True)
+    print("  [6/7] Loading vital signs (full scan)...", flush=True)
     eicu_vitals = defaultdict(list)
-    vital_count = 0
-    for row in read_gz_csv(eicu_dir / "vitalPeriodic.csv.gz"):
-        if row["patientunitstayid"] in selected_ids:
-            eicu_vitals[row["patientunitstayid"]].append(row)
-            vital_count += 1
-        if vital_count > 300000:
-            break
+    for row in read_gz_csv_progress(eicu_dir / "vitalPeriodic.csv.gz", desc="vitalPeriodic"):
+        pid = row["patientunitstayid"]
+        if pid in selected_ids and len(eicu_vitals[pid]) < vitals_per_patient:
+            eicu_vitals[pid].append(row)
+    print(f"    → Vitals for {len(eicu_vitals):,} patients")
 
     # ── Step 7: Load APACHE results ───────────────────────────────────────
     print("  [7/7] Loading APACHE scores...", flush=True)
@@ -549,18 +628,21 @@ def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
         pid = row["patientunitstayid"]
         if pid in selected_ids:
             eicu_apache[pid] = row
+    print(f"    → APACHE scores for {len(eicu_apache):,} patients")
 
     # ── Build EHR records ─────────────────────────────────────────────────
+    print("  Building EHR records...", flush=True)
     records = {}
     patient_index = defaultdict(list)
     final_count = 0
+    max_count = n_patients if n_patients > 0 else len(candidates)
 
-    for pat in selected_patients:
-        if final_count >= n_patients:
+    for pat in candidates:
+        if final_count >= max_count:
             break
 
         pid = pat["patientunitstayid"]
-        if pid not in eicu_labs or len(eicu_labs[pid]) < 3:
+        if pid not in pids_with_labs:
             continue
 
         anon_patient_id = anon_id("EPAT", pat.get("uniquepid", pid))
@@ -599,7 +681,6 @@ def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
         for d in diag_list[:10]:
             code = d.get("icd9code", "").strip()
             if code:
-                # eICU may have comma-separated ICD codes
                 for c in code.split(","):
                     c = c.strip()
                     if c:
@@ -608,7 +689,7 @@ def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
 
         # Lab events
         lab_records = []
-        for lab in eicu_labs.get(pid, [])[:50]:
+        for lab in eicu_labs.get(pid, []):
             val = safe_float(lab.get("labresult"))
             if val is None:
                 continue
@@ -626,7 +707,7 @@ def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
 
         # Vital signs
         vital_records = []
-        for v in eicu_vitals.get(pid, [])[:30]:
+        for v in eicu_vitals.get(pid, []):
             vital_records.append({
                 "charttime": f"offset_{v.get('observationoffset', '0')}",
                 "heart_rate": safe_int(v.get("heartrate")),
@@ -642,7 +723,7 @@ def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
 
         # Medications
         med_records = []
-        for i, med in enumerate(eicu_meds.get(pid, [])[:20]):
+        for i, med in enumerate(eicu_meds.get(pid, [])):
             drug_name = med.get("drugname", "")
             med_records.append({
                 "order_id": anon_id("EORD", f"{pid}_{i}"),
@@ -699,7 +780,7 @@ def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
                 "patient_id": anon_patient_id,
                 "admit_time": pat.get("hospitaladmittime24", ""),
                 "discharge_time": pat.get("hospitaldischargetime24"),
-                "admit_type": "emergency",  # eICU is mostly emergency/ICU
+                "admit_type": "emergency",
                 "admit_location": pat.get("unitadmitsource", ""),
                 "discharge_location": pat.get("hospitaldischargelocation"),
                 "diagnosis_at_admission": admit_dx,
@@ -739,7 +820,10 @@ def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
         patient_index[anon_patient_id].append(anon_hadm_id)
         final_count += 1
 
-    print(f"  Built {len(records)} eICU patient records")
+        if final_count % 10000 == 0:
+            print(f"    Built {final_count:,} records...", flush=True)
+
+    print(f"  Built {len(records):,} eICU patient records")
 
     # ── Build lab reference ranges ────────────────────────────────────────
     lab_reference_ranges = {
@@ -770,11 +854,16 @@ def build_eicu_benchmark(eicu_dir: Path, n_patients: int = 50):
     }
 
     tasks = _generate_eicu_tasks(records)
+
+    elapsed = time.time() - build_t0
+    print(f"  eICU build complete: {len(records):,} records, "
+          f"{len(tasks):,} tasks in {elapsed:.0f}s")
+
     return db, tasks
 
 
 def _generate_eicu_tasks(records: dict) -> list:
-    """Generate evaluation tasks from eICU records."""
+    """Generate evaluation tasks from eICU records (one task per patient)."""
     tasks = []
     rec_list = list(records.values())
 
@@ -825,7 +914,7 @@ def _generate_eicu_tasks(records: dict) -> list:
         icu_type = rec["icu_stays"][0]["icu_type"] if rec["icu_stays"] else "ICU"
 
         task = {
-            "id": f"eicu_ehr_{i+1:03d}",
+            "id": f"eicu_ehr_{i+1:05d}",
             "domain": "ehr_management",
             "source": "eicu",
             "category": template["category"],
@@ -850,7 +939,7 @@ def _generate_eicu_tasks(records: dict) -> list:
         }
         tasks.append(task)
 
-    print(f"  Generated {len(tasks)} eICU evaluation tasks")
+    print(f"  Generated {len(tasks):,} eICU evaluation tasks")
     return tasks
 
 
@@ -859,41 +948,66 @@ def _generate_eicu_tasks(records: dict) -> list:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def main():
-    parser = argparse.ArgumentParser(description="Build EHR Benchmark from MIMIC-III & eICU")
+    parser = argparse.ArgumentParser(
+        description="Build EHR Benchmark from MIMIC-III & eICU (full dataset by default)"
+    )
     parser.add_argument("--mimic-dir", type=str, default=str(DEFAULT_MIMIC_DIR))
     parser.add_argument("--eicu-dir", type=str, default=str(DEFAULT_EICU_DIR))
     parser.add_argument("--output-dir", type=str, default=str(DEFAULT_OUTPUT_DIR))
-    parser.add_argument("--n-patients", type=int, default=50,
-                        help="Number of patients per dataset")
+    parser.add_argument("--n-patients", type=int, default=0,
+                        help="Number of patients per dataset (0 = ALL qualifying patients)")
+    parser.add_argument("--labs-per-patient", type=int, default=100,
+                        help="Max lab events to keep per patient admission")
+    parser.add_argument("--meds-per-patient", type=int, default=30,
+                        help="Max medications per patient")
+    parser.add_argument("--vitals-per-patient", type=int, default=60,
+                        help="Max vital readings per patient (eICU only)")
+    parser.add_argument("--procs-per-patient", type=int, default=20,
+                        help="Max procedures per patient (MIMIC-III only)")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    total_t0 = time.time()
+
     # ── Build MIMIC-III benchmark ─────────────────────────────────────────
     mimic_dir = Path(args.mimic_dir)
     if mimic_dir.exists():
-        mimic_db, mimic_tasks = build_mimic_benchmark(mimic_dir, args.n_patients)
-        mimic_out = output_dir / "mimic_iii_bench.json"
-        with open(mimic_out, "w", encoding="utf-8") as f:
-            json.dump({"db": mimic_db, "tasks": mimic_tasks}, f, indent=2, ensure_ascii=False, default=str)
-        print(f"\n  Saved: {mimic_out} ({len(mimic_db['records'])} records, {len(mimic_tasks)} tasks)")
+        mimic_db, mimic_tasks = build_mimic_benchmark(
+            mimic_dir,
+            n_patients=args.n_patients,
+            labs_per_patient=args.labs_per_patient,
+            meds_per_patient=args.meds_per_patient,
+            procs_per_patient=args.procs_per_patient,
+        )
+        mimic_out = output_dir / "mimic_iii_bench.json.gz"
+        print(f"\n  Writing MIMIC-III benchmark...", flush=True)
+        write_gzip_json({"db": mimic_db, "tasks": mimic_tasks}, mimic_out)
+        print(f"  → {len(mimic_db['records']):,} records, {len(mimic_tasks):,} tasks")
     else:
         print(f"  [SKIP] MIMIC-III dir not found: {mimic_dir}")
 
     # ── Build eICU benchmark ──────────────────────────────────────────────
     eicu_dir = Path(args.eicu_dir)
     if eicu_dir.exists():
-        eicu_db, eicu_tasks = build_eicu_benchmark(eicu_dir, args.n_patients)
-        eicu_out = output_dir / "eicu_bench.json"
-        with open(eicu_out, "w", encoding="utf-8") as f:
-            json.dump({"db": eicu_db, "tasks": eicu_tasks}, f, indent=2, ensure_ascii=False, default=str)
-        print(f"\n  Saved: {eicu_out} ({len(eicu_db['records'])} records, {len(eicu_tasks)} tasks)")
+        eicu_db, eicu_tasks = build_eicu_benchmark(
+            eicu_dir,
+            n_patients=args.n_patients,
+            labs_per_patient=args.labs_per_patient,
+            meds_per_patient=args.meds_per_patient,
+            vitals_per_patient=args.vitals_per_patient,
+        )
+        eicu_out = output_dir / "eicu_bench.json.gz"
+        print(f"\n  Writing eICU benchmark...", flush=True)
+        write_gzip_json({"db": eicu_db, "tasks": eicu_tasks}, eicu_out)
+        print(f"  → {len(eicu_db['records']):,} records, {len(eicu_tasks):,} tasks")
     else:
         print(f"  [SKIP] eICU dir not found: {eicu_dir}")
 
+    total_elapsed = time.time() - total_t0
     print(f"\n{'='*60}")
-    print(f"  EHR Benchmark Build Complete!")
+    print(f"  EHR Benchmark Build Complete! ({total_elapsed:.0f}s)")
     print(f"{'='*60}")
 
 

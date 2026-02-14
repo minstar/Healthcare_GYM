@@ -11,8 +11,8 @@ Visual QA (6 benchmarks — via VQABenchmarkEvaluator):
 - VQA-RAD, SLAKE, PathVQA, PMC-VQA, VQA-Med-2021, Quilt-VQA
 
 EHR Benchmarks (2 databases — via EHRBenchmarkEvaluator):
-- MIMIC-III Clinical Database v1.4 (50 ICU patients, 50 agent tasks)
-- eICU Collaborative Research Database v2.0 (50 ICU patients, 50 agent tasks)
+- MIMIC-III Clinical Database v1.4 (all qualifying ICU patients, stored as .json.gz)
+- eICU Collaborative Research Database v2.0 (all qualifying ICU patients, stored as .json.gz)
 
 These are the official benchmarks that provide comparable results
 with other published systems. For VQA benchmarks, use:

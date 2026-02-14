@@ -84,22 +84,26 @@ benchmarks:
       - name: mimic_iii
         full_name: "MIMIC-III Clinical Database v1.4"
         source: PhysioNet
-        patients: 50
-        tasks: 50
+        patients: all
+        tasks: all
+        format: json.gz
         categories: [chart_review, critical_value_identification, medication_reconciliation, lab_trend_analysis, discharge_readiness]
-        description: "Real ICU patients from Beth Israel Deaconess Medical Center"
+        description: "All qualifying ICU patients from Beth Israel Deaconess Medical Center"
 
       - name: eicu
         full_name: "eICU Collaborative Research Database v2.0"
         source: PhysioNet
-        patients: 50
-        tasks: 50
+        patients: all
+        tasks: all
+        format: json.gz
         categories: [icu_assessment, vital_monitoring, mortality_prediction, lab_trend_analysis, medication_review]
-        description: "Multi-center ICU patients from 208 US hospitals"
+        description: "All qualifying multi-center ICU patients from 208 US hospitals"
 
     metrics: [action_score, task_completion, avg_turns, tool_usage]
     max_turns: 15
-    description: "Real-world EHR navigation using MIMIC-III and eICU data (100 tasks total)"
+    max_samples: 0
+    build_script: "python scripts/build_ehr_benchmark.py"
+    description: "Real-world EHR navigation using full MIMIC-III and eICU datasets"
 
 generation:
   temperature: 0.1

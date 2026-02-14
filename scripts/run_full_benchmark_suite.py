@@ -6,7 +6,7 @@ Categories:
 2. Vision QA (6 datasets) - VQA-RAD, SLAKE, PathVQA, PMC-VQA, VQA-Med-2021, Quilt-VQA
 3. MedLFQA Long-form QA (~4,948 examples) - KQA Golden, LiveQA, MedicationQA, HealthSearchQA, KQA Silver
 4. Agent Tasks - Full test splits across 8 domains
-5. EHR Benchmarks (100 tasks) - MIMIC-III (50 ICU patients) + eICU (50 ICU patients)
+5. EHR Benchmarks (full dataset) - MIMIC-III (all qualifying ICU patients) + eICU (all qualifying ICU patients)
 
 Usage:
     python scripts/run_full_benchmark_suite.py --category vqa --model qwen2vl --gpus 6,7

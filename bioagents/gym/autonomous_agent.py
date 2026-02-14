@@ -724,7 +724,7 @@ class WorkoutExecutor:
         1. Text QA (8 benchmarks) — MedQA, MedMCQA, MMLU x6
         2. Vision QA (6 datasets, VL models only) — VQA-RAD, SLAKE, PathVQA, etc.
         3. MedLFQA (5 datasets) — Long-form medical QA (KQA, LiveQA, MedicationQA, etc.)
-        4. EHR Benchmarks (2 databases) — MIMIC-III (50 tasks) + eICU (50 tasks)
+        4. EHR Benchmarks (2 databases) — MIMIC-III (all qualifying ICU patients) + eICU (all qualifying ICU patients)
 
         This is the comprehensive evaluation that produces paper-ready
         numbers. It's expensive, so it only runs every
