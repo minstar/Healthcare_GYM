@@ -6,6 +6,7 @@ Provides:
 - Metrics computation (BERTScore, ROUGE, BLEU)
 - GRPO reward wrappers for RL training
 - Safety evaluation (contraindication, emergency, uncertainty, adversarial)
+- EHR Benchmark evaluation (MIMIC-III, eICU real-world clinical data)
 """
 
 from bioagents.evaluation.rewards import (

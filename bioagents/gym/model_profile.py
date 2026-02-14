@@ -869,6 +869,20 @@ class ModelProfiler:
 
         model_dir = Path(model_path)
 
+        # Repair 0: Fix config format for cross-version transformers compat
+        # (saves with 5.x nested format → fix to 4.x flat format)
+        config_path = model_dir / "config.json"
+        if config_path.exists():
+            try:
+                cfg = json.load(open(config_path))
+                text_cfg = cfg.get("text_config", {})
+                if text_cfg and "rope_parameters" in text_cfg and "rope_scaling" not in cfg:
+                    from bioagents.evaluation.agent_runner import repair_model_config
+                    repair_model_config(str(model_path))
+                    logger.info("[ModelProfiler] Repaired: config format (rope_scaling)")
+            except Exception as e:
+                logger.warning(f"[ModelProfiler] Config repair failed: {e}")
+
         # Repair 1: Copy missing files from base model for VL models
         if profile.is_vl_model and base_model_path:
             base_dir = Path(base_model_path)

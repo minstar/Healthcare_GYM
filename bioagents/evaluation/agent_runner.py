@@ -214,6 +214,102 @@ def parse_tool_call(text: str) -> Optional[dict]:
     return None
 
 
+def repair_model_config(model_path: str) -> bool:
+    """Repair model config.json for cross-version transformers compatibility.
+
+    When a model is saved with transformers >=5.x (nested text_config +
+    rope_parameters) but loaded with transformers 4.x (flat + rope_scaling),
+    the attention layer receives rope_scaling=None, causing TypeError in
+    Qwen2.5-VL attention forward.
+
+    This function converts the config in-place to the flat format expected by
+    transformers 4.x while remaining readable by 5.x.
+
+    Returns True if config was repaired, False if no repair was needed.
+    """
+    config_path = Path(model_path) / "config.json"
+    if not config_path.exists():
+        return False
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    # Only repair if nested text_config with rope_parameters exists
+    # AND top-level rope_scaling is missing
+    text_cfg = config.get("text_config", {})
+    if not (
+        text_cfg
+        and "rope_parameters" in text_cfg
+        and "rope_scaling" not in config
+    ):
+        return False
+
+    logger.info(f"Repairing config format: {config_path}")
+
+    # Reference base config for Qwen2.5-VL-7B fields
+    rope_params = text_cfg["rope_parameters"]
+
+    new_config = {}
+    new_config["architectures"] = config.get("architectures", ["Qwen2_5_VLForConditionalGeneration"])
+
+    # Promote text_config fields to top level
+    text_fields = [
+        "attention_dropout", "bos_token_id", "eos_token_id", "hidden_act",
+        "hidden_size", "initializer_range", "intermediate_size",
+        "max_position_embeddings", "max_window_layers",
+        "num_attention_heads", "num_hidden_layers", "num_key_value_heads",
+        "rms_norm_eps", "sliding_window", "use_cache", "use_sliding_window",
+        "vocab_size", "pad_token_id",
+    ]
+    for field in text_fields:
+        if field in text_cfg:
+            new_config[field] = text_cfg[field]
+
+    # model_type at top level
+    new_config["model_type"] = config.get("model_type", text_cfg.get("model_type", "qwen2_5_vl"))
+    if new_config["model_type"] == "qwen2_5_vl_text":
+        new_config["model_type"] = "qwen2_5_vl"
+
+    # Convert rope_parameters → rope_scaling
+    new_config["rope_scaling"] = {
+        "mrope_section": rope_params.get("mrope_section", [16, 24, 24]),
+        "rope_type": rope_params.get("rope_type", "default"),
+        "type": rope_params.get("type", "default"),
+    }
+    new_config["rope_theta"] = rope_params.get("rope_theta", 1000000.0)
+
+    # Token IDs
+    for tid in ["image_token_id", "video_token_id", "vision_end_token_id",
+                "vision_start_token_id", "vision_token_id"]:
+        if tid in config:
+            new_config[tid] = config[tid]
+
+    new_config["tie_word_embeddings"] = config.get("tie_word_embeddings", False)
+    new_config["torch_dtype"] = config.get("dtype", config.get("torch_dtype", "bfloat16"))
+    new_config["transformers_version"] = "4.57.3"
+
+    # Sliding window default
+    if new_config.get("sliding_window") is None:
+        new_config["sliding_window"] = 32768
+
+    # Vision config
+    vision_cfg = config.get("vision_config", {})
+    clean_vision = {k: v for k, v in vision_cfg.items() if k != "dtype"}
+    new_config["vision_config"] = clean_vision
+
+    # Backup + write
+    backup_path = str(config_path) + ".bak_autorepair"
+    if not Path(backup_path).exists():
+        import shutil
+        shutil.copy2(config_path, backup_path)
+
+    with open(config_path, "w") as f:
+        json.dump(new_config, f, indent=2)
+
+    logger.info(f"Config repaired: {config_path}")
+    return True
+
+
 class AgentRunner:
     """Runs LLM agents in BIOAgents environments."""
     
@@ -240,6 +336,11 @@ class AgentRunner:
     
     def load_model(self):
         """Load the language model."""
+        # Auto-repair config for cross-version transformers compatibility
+        model_path = self.config.model_name_or_path
+        if Path(model_path).is_dir():
+            repair_model_config(model_path)
+
         if self.config.backend == "vllm":
             self._load_vllm()
         else:

@@ -6,10 +6,12 @@ Categories:
 2. Vision QA (6 datasets) - VQA-RAD, SLAKE, PathVQA, PMC-VQA, VQA-Med-2021, Quilt-VQA
 3. MedLFQA Long-form QA (~4,948 examples) - KQA Golden, LiveQA, MedicationQA, HealthSearchQA, KQA Silver
 4. Agent Tasks - Full test splits across 8 domains
+5. EHR Benchmarks (100 tasks) - MIMIC-III (50 ICU patients) + eICU (50 ICU patients)
 
 Usage:
     python scripts/run_full_benchmark_suite.py --category vqa --model qwen2vl --gpus 6,7
     python scripts/run_full_benchmark_suite.py --category medlfqa --model qwen3 --gpus 6,7
+    python scripts/run_full_benchmark_suite.py --category ehr --model qwen3 --gpus 6,7
 """
 
 import json
@@ -325,6 +327,50 @@ def evaluate_vqa(model_key, output_dir, max_samples=0):
     return results
 
 
+def evaluate_ehr(model_key, output_dir, max_samples=0):
+    """Evaluate on EHR benchmarks: MIMIC-III (50 patients) + eICU (50 patients).
+
+    Tests the model's ability to navigate real-world Electronic Health Records
+    using tool-use in the BIOAgents EHR management environment.
+
+    Metrics: action_score (tool usage accuracy), task completion rate, avg turns.
+    """
+    model_info = MODELS[model_key]
+    model_name = model_info["name"]
+    model_path = model_info["path"]
+
+    print(f"\n{'='*70}", flush=True)
+    print(f"  EHR Benchmark Evaluation: {model_name}", flush=True)
+    print(f"  Datasets: MIMIC-III Clinical Database v1.4, eICU CRD v2.0", flush=True)
+    print(f"{'='*70}", flush=True)
+
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from bioagents.evaluation.ehr_benchmark_eval import (
+        EHRBenchmarkConfig,
+        EHRBenchmarkEvaluator,
+    )
+
+    ehr_output = output_dir / "ehr"
+    ehr_config = EHRBenchmarkConfig(
+        model_name_or_path=model_path,
+        model_name=model_name,
+        benchmarks=["mimic_iii", "eicu"],
+        max_samples=max_samples or 0,
+        max_turns=15,
+        output_dir=str(ehr_output),
+    )
+    evaluator = EHRBenchmarkEvaluator(ehr_config)
+    results = evaluator.evaluate_all()
+
+    del evaluator
+    try:
+        import torch
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
+    return results
+
+
 def evaluate_textqa(model_key, output_dir, max_samples=0):
     """Evaluate on TextQA benchmarks: MedQA, MedMCQA, MMLU (6 subcategories)."""
     import torch
@@ -477,8 +523,8 @@ def evaluate_textqa(model_key, output_dir, max_samples=0):
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Full Benchmark Suite — VQA(6) + TextQA(3) + LongQA(5)")
-    parser.add_argument("--category", choices=["vqa", "medlfqa", "textqa", "all"], default="all")
+    parser = argparse.ArgumentParser(description="Full Benchmark Suite — VQA(6) + TextQA(3) + LongQA(5) + EHR(2)")
+    parser.add_argument("--category", choices=["vqa", "medlfqa", "textqa", "ehr", "all"], default="all")
     parser.add_argument("--model", choices=list(MODELS.keys()), default=None,
                         help="Model key (predefined)")
     parser.add_argument("--model_path", type=str, default=None,
@@ -524,6 +570,9 @@ def main():
 
     if args.category in ("medlfqa", "all"):
         evaluate_medlfqa(args.model, output_dir, args.max_samples)
+
+    if args.category in ("ehr", "all"):
+        evaluate_ehr(args.model, output_dir, args.max_samples)
 
     print(f"\n{'='*70}", flush=True)
     print(f"  ALL EVALUATIONS COMPLETE — Results in {output_dir}", flush=True)

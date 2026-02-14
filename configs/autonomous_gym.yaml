@@ -1,23 +1,36 @@
 # ============================================================================
-# Autonomous Healthcare AI GYM -- 30-Day Continuous Training Configuration
+# Autonomous Healthcare AI GYM -- Pure RL (GRPO) Continuous Training
 # ============================================================================
 #
 # 8x A100 80GB GPUs, running 24/7 for ~30 days
 # Multiple agents with different strategies, learning from each other
 #
-# Now with ModelProfile system:
+# Training Philosophy: PURE RL, NO SFT
+# ─────────────────────────────────────
+# Pre-trained 7-8B models already possess medical knowledge.
+# Instead of memorizing answers via SFT, each agent improves through:
+#   1. Multi-turn GRPO with Environment-in-the-Loop
+#   2. 5D Adaptive Reward: accuracy + format + process + safety + coherence
+#   3. Benchmark-Guided Reward Weights: external benchmark results
+#      (MedQA, MMLU, VQA) dynamically adjust reward weights so the
+#      model self-corrects its weaknesses through RL exploration.
+#
+# Learning Cycle (per agent, per cycle):
+#   Phase 1: REFLECT — analyze recent performance from SharedLogbook
+#   Phase 2: BENCHMARK — evaluate on 14 external benchmarks (every N cycles)
+#   Phase 3: CHOOSE — select domain + motivation via intrinsic strategy
+#   Phase 4: GRPO TRAIN — multi-turn environment interaction with 5D reward
+#   Phase 5: RECORD — log results to SharedLogbook
+#
+# ModelProfile system:
 # - Each model auto-detects its capabilities (text-only vs VL)
 # - VL models get visual_diagnosis + radiology_report domains
 # - Text models get text-only domains
-# - Merged VL checkpoints auto-repair missing processor configs
 #
 # GPU-Aware Auto-Tuning:
-# - Batch size, sequence length, LoRA rank, etc. are auto-calculated
-#   per model based on model size and GPU VRAM
+# - Batch size, sequence length, LoRA rank, etc. auto-calculated
 # - Set any param to 0 = auto-tune (default)
 # - Set a specific value to override auto-tuning
-# - Example: train_batch_size: 8  (manually force batch=8)
-#            train_batch_size: 0  (let system decide)
 #
 # Usage:
 #   python scripts/run_autonomous_gym.py --config configs/autonomous_gym.yaml
@@ -57,13 +70,21 @@ gym:
 
   continuous: true
 
+# --- External Benchmark Evaluation ---
+# 14 benchmarks: MedQA, MedMCQA, 6x MMLU, 6x VQA
+# Runs every N cycles per agent. Set 0 to disable.
+# Injected into every agent's AutonomousAgentConfig by the launcher.
+benchmark:
+  every_n_cycles: 3             # Run external benchmarks every 3rd cycle
+  max_samples: 0                # 0 = full benchmark (6545+ text QA + VQA)
+
 # --- Agent Configurations ---
 # 8 agents = 8 GPUs, each with different strategy personality
 # Mixed: 5x Qwen3-8B (text-only) + 3x LingShu-7B VL (text + vision)
 #
 # GPU allocation:
 #   gpus_for_eval:  GPUs needed during evaluation (inference)
-#   gpus_for_train: GPUs needed during SFT/GRPO training
+#   gpus_for_train: GPUs needed during GRPO training
 #
 # Example scaling:
 #   8B model:  eval=1, train=1 (single GPU)
@@ -213,9 +234,9 @@ agents:
     output_dir: "checkpoints/autonomous/lingshu_vl_visual"
     log_dir: "logs/autonomous/lingshu_vl_visual"
 
-  # Agent 7: LingShu SFT -- safety-focused VL agent
-  - agent_id: "lingshu_sft_safety"
-    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/sft_p2_aggressive_lingshu/merged"
+  # Agent 7: LingShu Safety -- safety-focused VL agent (GRPO with safety boost)
+  - agent_id: "lingshu_safety"
+    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
     base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
     backend: "transformers"
     gpus_for_eval: 1
@@ -232,12 +253,12 @@ agents:
     learning_rate: 0.00001
     quality_threshold: 0.50
     mastery_threshold: 0.90
-    output_dir: "checkpoints/autonomous/lingshu_sft_safety"
-    log_dir: "logs/autonomous/lingshu_sft_safety"
+    output_dir: "checkpoints/autonomous/lingshu_safety"
+    log_dir: "logs/autonomous/lingshu_safety"
 
-  # Agent 8: LingShu GRPO -- mastery pusher VL agent
-  - agent_id: "lingshu_grpo_mastery"
-    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/grpo_p4_lingshu_agent/merged"
+  # Agent 8: LingShu Mastery -- mastery pusher VL agent
+  - agent_id: "lingshu_mastery"
+    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
     base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
     backend: "transformers"
     gpus_for_eval: 1
@@ -254,5 +275,5 @@ agents:
     learning_rate: 0.00001
     quality_threshold: 0.50
     mastery_threshold: 0.90
-    output_dir: "checkpoints/autonomous/lingshu_grpo_mastery"
-    log_dir: "logs/autonomous/lingshu_grpo_mastery"
+    output_dir: "checkpoints/autonomous/lingshu_mastery"
+    log_dir: "logs/autonomous/lingshu_mastery"

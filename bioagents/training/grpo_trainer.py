@@ -834,8 +834,16 @@ def train_multiturn(config: BioAgentGRPOConfig):
         weight_decay=mt_config.weight_decay,
     )
 
-    # --- Reward function ---
+    # --- Reward function (with adaptive weights from config) ---
     from bioagents.evaluation.rewards import compute_composite_reward
+
+    # Convert reward_functions list to weights dict for compute_composite_reward
+    _reward_weights = {}
+    for rw_spec in mt_config.reward_functions:
+        _reward_weights[rw_spec["name"]] = rw_spec["weight"]
+    if not _reward_weights:
+        _reward_weights = {"accuracy": 0.4, "format": 0.2, "process": 0.4}
+    logger.info(f"Reward weights: {_reward_weights}")
 
     # --- Output directory ---
     os.makedirs(mt_config.output_dir, exist_ok=True)
@@ -879,7 +887,7 @@ def train_multiturn(config: BioAgentGRPOConfig):
                 )
                 task_rollouts.append(trajectory)
 
-            # --- Compute rewards for each rollout ---
+            # --- Compute rewards for each rollout (with adaptive weights) ---
             task_rewards = []
             for traj in task_rollouts:
                 reward_result = compute_composite_reward(
@@ -888,6 +896,7 @@ def train_multiturn(config: BioAgentGRPOConfig):
                     tool_call_log=traj["tool_calls"],
                     expected_actions=expected_actions,
                     is_final=True,
+                    weights=_reward_weights,
                 )
                 traj["reward"] = reward_result["total"]
                 traj["reward_detail"] = reward_result

@@ -451,9 +451,11 @@ def compute_composite_reward(
     """
     if weights is None:
         weights = {
-            "accuracy": 0.4,
-            "format": 0.2,
-            "process": 0.4,
+            "accuracy": 0.30,
+            "format": 0.15,
+            "process": 0.25,
+            "safety": 0.20,
+            "coherence": 0.10,
         }
 
     if tool_call_log is None:
@@ -461,22 +463,47 @@ def compute_composite_reward(
     if expected_actions is None:
         expected_actions = []
 
-    # Compute individual rewards
+    # --- 1. Accuracy Reward ---
     accuracy = accuracy_reward_soft(response, correct_answer, reference_text)
+
+    # --- 2. Format Reward ---
     format_score = format_reward_composite(
         response, turn_idx=turn_idx, is_final=is_final
     )
 
-    # Process reward combines tool usage and reasoning
+    # --- 3. Process Reward (tool usage + reasoning quality) ---
     tool_score = process_reward_tool_usage(tool_call_log, expected_actions)
     reasoning_score = process_reward_reasoning_quality(response, correct_answer)
     process_score = 0.5 * tool_score + 0.5 * reasoning_score
 
-    # Weighted total
+    # --- 4. Safety Reward ---
+    safety_score = 1.0  # Default: safe
+    if weights.get("safety", 0) > 0:
+        try:
+            from bioagents.evaluation.safety_eval import compute_safety_reward
+            safety_result = compute_safety_reward(
+                response=response,
+                task_domain=kwargs.get("task_domain", ""),
+                patient_allergies=kwargs.get("patient_allergies", []),
+                patient_conditions=kwargs.get("patient_conditions", []),
+                emergency_type=kwargs.get("emergency_type", ""),
+            )
+            safety_score = safety_result.get("total", 1.0)
+        except Exception:
+            safety_score = 1.0  # Assume safe if evaluation fails
+
+    # --- 5. Coherence Reward ---
+    # Measures response structure: logical flow, no contradictions,
+    # clear final answer
+    coherence_score = _compute_coherence_score(response, is_final)
+
+    # Weighted 5D total
     total = (
-        weights["accuracy"] * accuracy
-        + weights["format"] * format_score
-        + weights["process"] * process_score
+        weights.get("accuracy", 0.30) * accuracy
+        + weights.get("format", 0.15) * format_score
+        + weights.get("process", 0.25) * process_score
+        + weights.get("safety", 0.20) * safety_score
+        + weights.get("coherence", 0.10) * coherence_score
     )
 
     return {
@@ -484,10 +511,72 @@ def compute_composite_reward(
         "accuracy": accuracy,
         "format": format_score,
         "process": process_score,
+        "safety": safety_score,
+        "coherence": coherence_score,
         "tool_usage": tool_score,
         "reasoning_quality": reasoning_score,
         "weights": weights,
     }
+
+
+def _compute_coherence_score(response: str, is_final: bool = False) -> float:
+    """Compute coherence reward for agent responses.
+
+    Measures:
+    - Logical structure (has intro, reasoning, conclusion)
+    - No self-contradictions
+    - Clear final answer if is_final
+    - Appropriate length (not too short, not repetitive)
+
+    Returns:
+        float in [0, 1]
+    """
+    if not response or not response.strip():
+        return 0.0
+
+    score = 0.5  # Baseline
+
+    # Length check: too short is bad
+    words = response.split()
+    if len(words) < 5:
+        score -= 0.3
+    elif len(words) >= 20:
+        score += 0.1
+
+    # Structure: has reasoning markers
+    reasoning_markers = [
+        "because", "therefore", "since", "based on",
+        "considering", "given that", "analysis",
+        "evidence", "indicates", "suggests",
+        "이유", "따라서", "기반", "결과",
+    ]
+    has_reasoning = any(
+        m.lower() in response.lower() for m in reasoning_markers
+    )
+    if has_reasoning:
+        score += 0.2
+
+    # Final answer clarity
+    if is_final:
+        answer_markers = [
+            "final answer", "diagnosis", "recommendation",
+            "conclusion", "assessment", "in summary",
+            "최종", "진단", "결론",
+        ]
+        has_conclusion = any(
+            m.lower() in response.lower() for m in answer_markers
+        )
+        if has_conclusion:
+            score += 0.15
+
+    # Repetition penalty: check for repeated phrases
+    sentences = response.split(".")
+    if len(sentences) > 3:
+        unique_ratio = len(set(s.strip().lower() for s in sentences if s.strip())) / len(sentences)
+        if unique_ratio < 0.5:
+            score -= 0.3  # Heavy repetition
+
+    return max(0.0, min(1.0, score))
 
 
 # ============================================================

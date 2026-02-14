@@ -42,7 +42,7 @@ AgentGym-RL과 τ²-bench의 아키텍처를 참고하되, **의료 도메인 �
 3. **Integrated Safety RL** — Safety reward가 RL 학습에 직접 통합
 4. **Patient Agent + Tool-Use** — 동적 환자 상호작용 + 88개 임상 도구 동시 지원
 5. **Clinical Guidelines Compliance** — 10개 가이드라인 자동 준수 평가
-6. **End-to-End Training** — SFT → GRPO → Self-Play → Cross-Domain RL 완전한 파이프라인
+6. **Pure RL Training (No SFT)** — Pre-trained models learn directly via Multi-Turn GRPO with 5D adaptive rewards. Benchmark-guided reward weights dynamically adjust based on external evaluation results, enabling self-correcting RL without supervised fine-tuning.
 7. **FairGRPO** — 인구통계학적 공정성 인식 RL 학습 (demographic-aware reward weighting)
 
 ### 1.4 심층 경쟁자 분석: DiagGym vs MedAgentGym vs Healthcare AI GYM

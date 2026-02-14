@@ -206,7 +206,18 @@ def run_gym(config_path: str):
             gym = AutonomousGym(gym_config)
 
             # Register all agents
+            # Inherit benchmark settings from top-level config
+            bench_cfg = cfg.get("benchmark", {})
+            benchmark_every = bench_cfg.get("every_n_cycles", 3)
+            benchmark_samples = bench_cfg.get("max_samples", 0)
+
             for agent_cfg in agents_cfg:
+                # Inject benchmark config from gym level
+                if "benchmark_every_n_cycles" not in agent_cfg:
+                    agent_cfg["benchmark_every_n_cycles"] = benchmark_every
+                if "benchmark_max_samples" not in agent_cfg:
+                    agent_cfg["benchmark_max_samples"] = benchmark_samples
+
                 agent_config = AutonomousAgentConfig(
                     available_domains=gym_config.available_domains,
                     **agent_cfg,

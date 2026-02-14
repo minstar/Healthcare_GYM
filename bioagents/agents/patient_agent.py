@@ -810,8 +810,32 @@ class PatientAgent:
 # 3. Clinical Case Library
 # ============================================================
 
+def _load_cases_from_json(json_path: str) -> list[ClinicalCase]:
+    """Load additional clinical cases from an external JSON file."""
+    from pathlib import Path
+    path = Path(json_path)
+    if not path.exists():
+        logger.warning(f"Clinical cases JSON not found: {json_path}")
+        return []
+    try:
+        with open(path) as f:
+            cases_data = json.load(f)
+        cases = []
+        for d in cases_data:
+            cases.append(ClinicalCase(**d))
+        logger.info(f"Loaded {len(cases)} additional clinical cases from {path.name}")
+        return cases
+    except Exception as e:
+        logger.warning(f"Failed to load clinical cases from {json_path}: {e}")
+        return []
+
+
 def get_clinical_cases() -> list[ClinicalCase]:
-    """Return a library of 31 clinical cases for patient simulation.
+    """Return a library of clinical cases for patient simulation.
+    
+    Sources:
+    1. 6 built-in cases (hardcoded below)
+    2. Additional cases from data/clinical_cases_v2.json (15+ cases)
     
     v2 expansion covers:
     - Emergency medicine (6 cases)
@@ -824,9 +848,10 @@ def get_clinical_cases() -> list[ClinicalCase]:
     - Rare / complex cases (4 cases)
     
     All 12 personality types and 13 bias types are represented.
-    Difficulty: 8 moderate, 10 hard, 8 expert, 5 easy
     """
-    return [
+    from pathlib import Path
+    
+    builtin_cases = [
         ClinicalCase(
             case_id="pa_chest_pain_001",
             age=58, sex="M", ethnicity="Caucasian", occupation="Construction worker",
@@ -1032,6 +1057,20 @@ def get_clinical_cases() -> list[ClinicalCase]:
             difficulty="expert",
         ),
     ]
+
+    # Load additional cases from external JSON file
+    project_root = Path(__file__).parent.parent.parent
+    json_path = project_root / "data" / "clinical_cases_v2.json"
+    extra_cases = _load_cases_from_json(str(json_path))
+    
+    # Deduplicate by case_id
+    existing_ids = {c.case_id for c in builtin_cases}
+    for case in extra_cases:
+        if case.case_id not in existing_ids:
+            builtin_cases.append(case)
+            existing_ids.add(case.case_id)
+
+    return builtin_cases
 
 
 # ============================================================

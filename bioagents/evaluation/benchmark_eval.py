@@ -10,9 +10,15 @@ Text QA (8 benchmarks):
 Visual QA (6 benchmarks — via VQABenchmarkEvaluator):
 - VQA-RAD, SLAKE, PathVQA, PMC-VQA, VQA-Med-2021, Quilt-VQA
 
+EHR Benchmarks (2 databases — via EHRBenchmarkEvaluator):
+- MIMIC-III Clinical Database v1.4 (50 ICU patients, 50 agent tasks)
+- eICU Collaborative Research Database v2.0 (50 ICU patients, 50 agent tasks)
+
 These are the official benchmarks that provide comparable results
 with other published systems. For VQA benchmarks, use:
     from bioagents.evaluation.vqa_benchmark_eval import VQABenchmarkEvaluator
+For EHR benchmarks, use:
+    from bioagents.evaluation.ehr_benchmark_eval import EHRBenchmarkEvaluator
 """
 
 import json
@@ -71,6 +77,12 @@ class BenchmarkEvaluator:
         from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
         logger.info(f"Loading model: {self.config.model_name_or_path}")
+
+        # Auto-repair config for cross-version transformers compatibility
+        from pathlib import Path
+        if Path(self.config.model_name_or_path).is_dir():
+            from bioagents.evaluation.agent_runner import repair_model_config
+            repair_model_config(self.config.model_name_or_path)
 
         model_config = AutoConfig.from_pretrained(
             self.config.model_name_or_path, trust_remote_code=True
@@ -425,21 +437,26 @@ def main():
     VQA_BENCHMARKS = [
         "vqa_rad", "slake", "pathvqa", "pmc_vqa", "vqa_med_2021", "quilt_vqa",
     ]
+    # EHR benchmarks (handled by EHRBenchmarkEvaluator)
+    EHR_BENCHMARKS = [
+        "mimic_iii", "eicu",
+    ]
 
     parser.add_argument(
         "--benchmarks",
         nargs="+",
         default=["medqa", "medmcqa", "mmlu_clinical", "mmlu_professional"],
-        choices=TEXT_BENCHMARKS + VQA_BENCHMARKS,
+        choices=TEXT_BENCHMARKS + VQA_BENCHMARKS + EHR_BENCHMARKS,
     )
     parser.add_argument("--max-samples", type=int, default=0, help="Max samples (0=all)")
     parser.add_argument("--output-dir", default="logs/benchmarks")
 
     args = parser.parse_args()
 
-    # Split benchmarks into text and VQA
+    # Split benchmarks into text, VQA, and EHR
     text_benchmarks = [b for b in args.benchmarks if b in TEXT_BENCHMARKS]
     vqa_benchmarks = [b for b in args.benchmarks if b in VQA_BENCHMARKS]
+    ehr_benchmarks = [b for b in args.benchmarks if b in EHR_BENCHMARKS]
 
     # Run text QA benchmarks
     if text_benchmarks:
@@ -469,6 +486,23 @@ def main():
         )
         vqa_evaluator = VQABenchmarkEvaluator(vqa_config)
         vqa_evaluator.evaluate_all()
+
+    # Run EHR benchmarks (MIMIC-III, eICU)
+    if ehr_benchmarks:
+        from bioagents.evaluation.ehr_benchmark_eval import (
+            EHRBenchmarkConfig,
+            EHRBenchmarkEvaluator,
+        )
+
+        ehr_config = EHRBenchmarkConfig(
+            model_name_or_path=args.model,
+            model_name=args.model_name,
+            benchmarks=ehr_benchmarks,
+            max_samples=args.max_samples,
+            output_dir=args.output_dir,
+        )
+        ehr_evaluator = EHRBenchmarkEvaluator(ehr_config)
+        ehr_evaluator.evaluate_all()
 
 
 if __name__ == "__main__":

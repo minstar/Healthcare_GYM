@@ -66,6 +66,41 @@ domains:
     metrics: [action_score, composite_reward]
     description: "Chart review, critical values, clinical scoring, discharge planning"
 
+benchmarks:
+  textqa:
+    datasets: [medqa, medmcqa, mmlu_clinical, mmlu_professional, mmlu_anatomy, mmlu_genetics, mmlu_biology, mmlu_college_med]
+    description: "Multiple-choice medical QA (8 benchmarks, ~6,545 examples)"
+
+  vqa:
+    datasets: [vqa_rad, slake, pathvqa, pmc_vqa, vqa_med_2021, quilt_vqa]
+    description: "Visual medical QA (6 datasets)"
+
+  medlfqa:
+    datasets: [kqa_golden, live_qa, medication_qa, healthsearch_qa, kqa_silver]
+    description: "Long-form medical QA (~4,948 examples)"
+
+  ehr:
+    datasets:
+      - name: mimic_iii
+        full_name: "MIMIC-III Clinical Database v1.4"
+        source: PhysioNet
+        patients: 50
+        tasks: 50
+        categories: [chart_review, critical_value_identification, medication_reconciliation, lab_trend_analysis, discharge_readiness]
+        description: "Real ICU patients from Beth Israel Deaconess Medical Center"
+
+      - name: eicu
+        full_name: "eICU Collaborative Research Database v2.0"
+        source: PhysioNet
+        patients: 50
+        tasks: 50
+        categories: [icu_assessment, vital_monitoring, mortality_prediction, lab_trend_analysis, medication_review]
+        description: "Multi-center ICU patients from 208 US hospitals"
+
+    metrics: [action_score, task_completion, avg_turns, tool_usage]
+    max_turns: 15
+    description: "Real-world EHR navigation using MIMIC-III and eICU data (100 tasks total)"
+
 generation:
   temperature: 0.1
   top_p: 0.95

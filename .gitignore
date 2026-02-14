@@ -30,6 +30,19 @@ logs/
 # --- Specific large files ---
 data/domains/medical_qa_200/db.json
 
+# --- EHR benchmark raw data (PhysioNet, very large) ---
+data/ehr_benchmarks/mimic_iii/
+data/ehr_benchmarks/eicu/
+# Keep the processed benchmark JSON files (they're small ~1-2MB)
+# data/ehr_benchmarks/mimic_iii_bench.json  ← tracked
+# data/ehr_benchmarks/eicu_bench.json       ← tracked
+
+# --- Large PhysioNet zip files ---
+mimic-iii-clinical-database-1.4.zip
+eicu-collaborative-research-database-2.0*.zip
+train_data.zip
+MRPO-Code.zip
+
 # --- Secrets ---
 .env
 .env.*

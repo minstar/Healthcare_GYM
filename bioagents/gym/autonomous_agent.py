@@ -71,7 +71,7 @@ class AgentDecision:
     confidence: float = 0.5
     reasoning: str = ""
     priority_score: float = 0.0
-    training_method: str = "sft"
+    training_method: str = "grpo"
     estimated_difficulty: str = "moderate"
     timestamp: str = ""
 
@@ -104,6 +104,8 @@ class AutonomousAgentConfig:
     backend: str = "transformers"
     max_turns: int = 15
     eval_tasks_per_domain: int = 20
+    benchmark_every_n_cycles: int = 3  # Run external benchmarks every N cycles (0=never)
+    benchmark_max_samples: int = 0     # 0 = full benchmark, >0 = sample N questions
     training_epochs: int = 2
     learning_rate: float = 2e-5
     quality_threshold: float = 0.5
@@ -489,17 +491,16 @@ class StrategySelector:
         return scores
 
     def _select_training_method(self, domain: str, reflection: dict) -> str:
-        """Select training method based on current mastery."""
-        my_score = reflection.get("domain_scores", {}).get(domain, 0.0)
+        """Select training method — always GRPO (pure RL, no SFT).
 
-        if my_score < 0.3:
-            return "sft"  # Need foundation
-        elif my_score < 0.7:
-            return "sft"  # Still building skills
-        elif domain in reflection.get("plateaus", []):
-            return "grpo"  # Plateau -> try RL
-        else:
-            return "grpo"  # Refinement stage
+        Rationale: Pre-trained 7-8B models already have medical knowledge.
+        Rather than memorizing answers via SFT, the model should learn
+        through trial-and-error in the GYM environment using GRPO rewards:
+        - 5D composite reward (accuracy, format, process, safety, coherence)
+        - External benchmark signals (TextQA, VQA, MedLFQA, EHR)
+        This produces better agent behavior than SFT fine-tuning.
+        """
+        return "grpo"
 
     def _estimate_difficulty(self, domain: str, reflection: dict) -> str:
         """Estimate task difficulty for the chosen domain."""
@@ -594,7 +595,7 @@ class WorkoutExecutor:
         }
 
         try:
-            # Step 1: Evaluate
+            # Step 1: Evaluate on internal GYM tasks
             logger.info(
                 f"[{self.config.agent_id}] Evaluating on {domain}..."
             )
@@ -603,29 +604,30 @@ class WorkoutExecutor:
             results["tasks_completed"] = eval_result.get("num_tasks", 0)
             results["errors"] = eval_result.get("error_types", [])
 
-            # Step 2: Analyze and generate
+            # Step 2: RL Training via Multi-Turn GRPO
+            # No SFT — the model learns directly from environment
+            # interaction rewards (5D: accuracy, format, process, safety, coherence)
             logger.info(
                 f"[{self.config.agent_id}] Pre-score: "
-                f"{results['pre_score']:.1%}, generating training data..."
+                f"{results['pre_score']:.1%}, starting GRPO training..."
             )
-            training_data = self._generate_training_data(
-                domain, eval_result, decision
-            )
-
-            # Step 3: Train
-            if training_data:
+            new_model = self._train_grpo(domain, eval_result, decision)
+            if new_model:
+                self.config.model_path = new_model
                 logger.info(
-                    f"[{self.config.agent_id}] Training "
-                    f"({decision.training_method})..."
+                    f"[{self.config.agent_id}] Model updated: {new_model}"
                 )
-                new_model = self._train(
-                    domain, training_data, decision.training_method
-                )
-                if new_model:
-                    self.config.model_path = new_model
 
-            # Step 4: Re-evaluate (optional, expensive)
-            results["post_score"] = results["pre_score"]  # Placeholder
+            # Step 3: Re-evaluate after GRPO
+            if new_model:
+                logger.info(
+                    f"[{self.config.agent_id}] Re-evaluating after GRPO..."
+                )
+                post_result = self._evaluate(domain)
+                results["post_score"] = post_result.get("action_score", 0.0)
+            else:
+                results["post_score"] = results["pre_score"]
+
             results["improvement"] = (
                 results["post_score"] - results["pre_score"]
             )
@@ -715,6 +717,346 @@ class WorkoutExecutor:
                 "error_types": [f"eval_crash: {str(e)}"],
             }
 
+    def evaluate_external_benchmarks(self, cycle_num: int) -> dict:
+        """Run external benchmark evaluation across ALL categories.
+
+        Categories evaluated:
+        1. Text QA (8 benchmarks) — MedQA, MedMCQA, MMLU x6
+        2. Vision QA (6 datasets, VL models only) — VQA-RAD, SLAKE, PathVQA, etc.
+        3. MedLFQA (5 datasets) — Long-form medical QA (KQA, LiveQA, MedicationQA, etc.)
+        4. EHR Benchmarks (2 databases) — MIMIC-III (50 tasks) + eICU (50 tasks)
+
+        This is the comprehensive evaluation that produces paper-ready
+        numbers. It's expensive, so it only runs every
+        ``benchmark_every_n_cycles`` cycles.
+
+        Returns:
+            dict with benchmark results per category, or empty dict if skipped.
+        """
+        interval = self.config.benchmark_every_n_cycles
+        if interval <= 0 or (cycle_num % interval != 0):
+            return {}
+
+        logger.info(
+            f"[{self.config.agent_id}] Running FULL EXTERNAL BENCHMARK "
+            f"evaluation (cycle #{cycle_num})..."
+        )
+
+        results = {}
+        benchmark_output_dir = str(
+            Path(self.config.log_dir)
+            / self.config.agent_id
+            / "benchmarks"
+            / f"cycle_{cycle_num}"
+        )
+
+        # ── 1. Text QA Benchmarks (MedQA, MedMCQA, MMLU x6) ─────────────
+        try:
+            from bioagents.evaluation.benchmark_eval import (
+                BenchmarkEvaluator,
+                BenchmarkConfig,
+            )
+            from bioagents.evaluation.agent_runner import repair_model_config
+            repair_model_config(self.config.model_path)
+
+            text_benchmarks = [
+                "medqa", "medmcqa",
+                "mmlu_clinical", "mmlu_professional",
+                "mmlu_anatomy", "mmlu_genetics",
+                "mmlu_biology", "mmlu_college_med",
+            ]
+
+            bench_config = BenchmarkConfig(
+                model_name_or_path=self.config.model_path,
+                model_name=self.config.agent_id,
+                benchmarks=text_benchmarks,
+                max_samples=self.config.benchmark_max_samples,
+                batch_size=self.config.inference_batch_size or 8,
+                output_dir=benchmark_output_dir,
+                temperature=0.0,
+                max_new_tokens=256,
+            )
+
+            evaluator = BenchmarkEvaluator(bench_config)
+            text_results = evaluator.evaluate_all()
+            results["text_qa"] = text_results
+
+            # Free memory
+            del evaluator
+            import torch
+            torch.cuda.empty_cache()
+
+            logger.info(
+                f"[{self.config.agent_id}] Text QA benchmarks complete:"
+            )
+            for bench, res in text_results.items():
+                if isinstance(res, dict) and "accuracy" in res:
+                    logger.info(
+                        f"    {bench}: {res['accuracy']:.3f} "
+                        f"({res.get('correct', '?')}/{res.get('total', '?')})"
+                    )
+
+        except Exception as e:
+            logger.warning(
+                f"[{self.config.agent_id}] Text benchmark eval failed: {e}"
+            )
+            import traceback
+            traceback.print_exc()
+            results["text_qa_error"] = str(e)
+
+        # ── 2. VQA Benchmarks (VL models only) ───────────────────────────
+        is_vl = getattr(
+            self.config, "_model_profile", None
+        )
+        if is_vl and getattr(is_vl, "is_vl_model", False):
+            try:
+                from bioagents.evaluation.vqa_benchmark_eval import (
+                    VQABenchmarkEvaluator,
+                    VQABenchmarkConfig,
+                )
+
+                vqa_config = VQABenchmarkConfig(
+                    model_name_or_path=self.config.model_path,
+                    model_name=self.config.agent_id,
+                    benchmarks=[
+                        "vqa_rad", "slake", "pathvqa",
+                        "pmc_vqa", "vqa_med_2021", "quilt_vqa",
+                    ],
+                    max_samples=self.config.benchmark_max_samples or 200,
+                    output_dir=benchmark_output_dir,
+                )
+
+                vqa_evaluator = VQABenchmarkEvaluator(vqa_config)
+                vqa_results = vqa_evaluator.evaluate_all()
+                results["vqa"] = vqa_results
+
+                del vqa_evaluator
+                import torch
+                torch.cuda.empty_cache()
+
+                logger.info(
+                    f"[{self.config.agent_id}] VQA benchmarks complete:"
+                )
+                for bench, res in vqa_results.items():
+                    if isinstance(res, dict) and "accuracy" in res:
+                        logger.info(
+                            f"    {bench}: {res['accuracy']:.3f}"
+                        )
+
+            except Exception as e:
+                logger.warning(
+                    f"[{self.config.agent_id}] VQA benchmark eval failed: {e}"
+                )
+                results["vqa_error"] = str(e)
+
+        # ── 3. MedLFQA Long-form QA Benchmarks ───────────────────────────
+        try:
+            from bioagents.evaluation.benchmark_eval import BenchmarkConfig
+            import torch
+            from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+
+            # MedLFQA uses the same evaluation logic as run_full_benchmark_suite
+            # but we integrate it here for the GYM cycle
+            medlfqa_datasets = {
+                "kqa_golden": "evaluations/OLAPH/MedLFQA/kqa_golden_test_MedLFQA.jsonl",
+                "live_qa": "evaluations/OLAPH/MedLFQA/live_qa_test_MedLFQA.jsonl",
+                "medication_qa": "evaluations/OLAPH/MedLFQA/medication_qa_test_MedLFQA.jsonl",
+                "healthsearch_qa": "evaluations/OLAPH/MedLFQA/healthsearch_qa_test_MedLFQA.jsonl",
+                "kqa_silver": "evaluations/OLAPH/MedLFQA/kqa_silver_wogold_test_MedLFQA.jsonl",
+            }
+
+            project_root = Path(__file__).parent.parent.parent
+            available_datasets = {
+                k: v for k, v in medlfqa_datasets.items()
+                if (project_root / v).exists()
+            }
+
+            if available_datasets:
+                logger.info(
+                    f"[{self.config.agent_id}] Running MedLFQA benchmarks "
+                    f"({len(available_datasets)} datasets)..."
+                )
+
+                # Load model once for all MedLFQA datasets
+                model_config = AutoConfig.from_pretrained(
+                    self.config.model_path, trust_remote_code=True
+                )
+                model_type = getattr(model_config, "model_type", "")
+                is_qwen_vl = model_type in ("qwen2_5_vl", "qwen2_vl")
+
+                load_kwargs = dict(
+                    torch_dtype=torch.bfloat16,
+                    trust_remote_code=True,
+                    device_map="auto",
+                )
+
+                if is_qwen_vl:
+                    from transformers import Qwen2_5_VLForConditionalGeneration
+                    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                        self.config.model_path, **load_kwargs
+                    )
+                else:
+                    model = AutoModelForCausalLM.from_pretrained(
+                        self.config.model_path, **load_kwargs
+                    )
+                model.eval()
+
+                tokenizer = AutoTokenizer.from_pretrained(
+                    self.config.model_path, trust_remote_code=True
+                )
+                if tokenizer.pad_token is None:
+                    tokenizer.pad_token = tokenizer.eos_token
+
+                import json as _json
+                medlfqa_results = {}
+                max_samples = self.config.benchmark_max_samples or 0
+
+                for ds_key, ds_path in available_datasets.items():
+                    data = []
+                    full_path = project_root / ds_path
+                    with open(full_path) as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                data.append(_json.loads(line))
+                    if max_samples > 0:
+                        data = data[:max_samples]
+
+                    if not data:
+                        continue
+
+                    correct_count = 0
+                    total_count = 0
+                    rouge_l_sum = 0.0
+
+                    for item in data:
+                        question = item.get("Question", "")
+                        reference = item.get("Free_form_answer", "")
+                        if not question:
+                            continue
+
+                        messages = [
+                            {"role": "system", "content": "You are a medical expert. Provide detailed, accurate answers."},
+                            {"role": "user", "content": f"Question: {question}\n\nProvide a comprehensive answer."},
+                        ]
+                        text = tokenizer.apply_chat_template(
+                            messages, tokenize=False, add_generation_prompt=True
+                        )
+                        inputs = tokenizer(
+                            text, return_tensors="pt", truncation=True, max_length=4096
+                        ).to(model.device)
+
+                        with torch.no_grad():
+                            outputs = model.generate(
+                                **inputs, max_new_tokens=512, do_sample=False,
+                                pad_token_id=tokenizer.pad_token_id,
+                            )
+
+                        generated = outputs[0][inputs["input_ids"].shape[-1]:]
+                        response = tokenizer.decode(generated, skip_special_tokens=True).strip()
+
+                        # Compute token-level F1 as a proxy for accuracy
+                        pred_tokens = set(response.lower().split())
+                        ref_tokens = set(reference.lower().split())
+                        if pred_tokens and ref_tokens:
+                            common = pred_tokens & ref_tokens
+                            if common:
+                                precision = len(common) / len(pred_tokens)
+                                recall = len(common) / len(ref_tokens)
+                                f1 = 2 * precision * recall / (precision + recall)
+                            else:
+                                f1 = 0.0
+                        else:
+                            f1 = 0.0
+
+                        rouge_l_sum += f1
+                        total_count += 1
+
+                    if total_count > 0:
+                        medlfqa_results[ds_key] = {
+                            "token_f1": rouge_l_sum / total_count,
+                            "total": total_count,
+                        }
+
+                results["medlfqa"] = medlfqa_results
+
+                del model
+                torch.cuda.empty_cache()
+
+                logger.info(
+                    f"[{self.config.agent_id}] MedLFQA benchmarks complete:"
+                )
+                for ds, res in medlfqa_results.items():
+                    logger.info(
+                        f"    {ds}: token_f1={res['token_f1']:.3f} "
+                        f"(n={res['total']})"
+                    )
+            else:
+                logger.info(
+                    f"[{self.config.agent_id}] MedLFQA: no datasets found, skipping"
+                )
+
+        except Exception as e:
+            logger.warning(
+                f"[{self.config.agent_id}] MedLFQA benchmark eval failed: {e}"
+            )
+            import traceback
+            traceback.print_exc()
+            results["medlfqa_error"] = str(e)
+
+        # ── 4. EHR Benchmarks (MIMIC-III + eICU) ─────────────────────────
+        try:
+            from bioagents.evaluation.ehr_benchmark_eval import (
+                EHRBenchmarkEvaluator,
+                EHRBenchmarkConfig,
+            )
+
+            ehr_config = EHRBenchmarkConfig(
+                model_name_or_path=self.config.model_path,
+                model_name=self.config.agent_id,
+                backend=self.config.backend,
+                benchmarks=["mimic_iii", "eicu"],
+                max_samples=self.config.benchmark_max_samples,
+                max_turns=self.config.max_turns,
+                output_dir=str(Path(benchmark_output_dir) / "ehr"),
+            )
+
+            ehr_evaluator = EHRBenchmarkEvaluator(ehr_config)
+            ehr_results = ehr_evaluator.evaluate_all()
+            results["ehr"] = ehr_results
+
+            del ehr_evaluator
+            import torch
+            torch.cuda.empty_cache()
+
+            logger.info(
+                f"[{self.config.agent_id}] EHR benchmarks complete:"
+            )
+            for db_key, res in ehr_results.items():
+                if isinstance(res, dict) and "avg_action_score" in res:
+                    logger.info(
+                        f"    {db_key}: action_score={res['avg_action_score']:.3f} "
+                        f"({res.get('completed', '?')}/{res.get('total_tasks', '?')} tasks)"
+                    )
+
+        except Exception as e:
+            logger.warning(
+                f"[{self.config.agent_id}] EHR benchmark eval failed: {e}"
+            )
+            import traceback
+            traceback.print_exc()
+            results["ehr_error"] = str(e)
+
+        # ── Summary ───────────────────────────────────────────────────────
+        categories_done = [k for k in results if not k.endswith("_error")]
+        logger.info(
+            f"[{self.config.agent_id}] EXTERNAL BENCHMARK complete: "
+            f"{len(categories_done)} categories evaluated "
+            f"({', '.join(categories_done)})"
+        )
+
+        return results
+
     def _generate_training_data(
         self, domain: str, eval_result: dict, decision: AgentDecision
     ) -> Optional[list]:
@@ -754,64 +1096,331 @@ class WorkoutExecutor:
             )
             return None
 
-    def _train(
-        self, domain: str, training_data: list, method: str
+    def _train_grpo(
+        self,
+        domain: str,
+        eval_result: dict,
+        decision: AgentDecision,
     ) -> Optional[str]:
-        """Train the model on generated data."""
+        """Train the model via Multi-Turn GRPO (pure RL, no SFT).
+
+        This is the core training method of Healthcare AI GYM.
+        The model learns directly from environment interaction:
+
+        1. Sample tasks from the chosen domain
+        2. Run G rollouts per task through the GYM environment
+        3. Score each trajectory with 5D composite reward
+           (accuracy + format + process + safety + coherence)
+        4. Compute group-relative advantages (GRPO)
+        5. Update policy to maximize advantage-weighted returns
+
+        If benchmark results are available from recent cycles,
+        they are used to boost reward weights for weak areas.
+
+        Returns:
+            Path to merged model checkpoint, or None if training failed.
+        """
         try:
-            from bioagents.gym.self_play import SelfPlayConfig, SelfPlayLoop
+            from bioagents.training.grpo_trainer import (
+                BioAgentGRPOConfig,
+                MultiTurnGRPOConfig,
+                train_multiturn,
+            )
+            from bioagents.evaluation.agent_runner import repair_model_config
+
+            # Repair config if needed (Transformers version compat)
+            repair_model_config(self.config.model_path)
 
             iteration_id = int(time.time()) % 100000
             output_dir = str(
                 Path(self.config.output_dir)
                 / self.config.agent_id
-                / f"workout_{iteration_id}"
+                / f"grpo_{iteration_id}"
             )
 
             # Use auto-tuned params if available, fallback to defaults
             train_batch = self.config.train_batch_size or 2
-            grad_accum = self.config.gradient_accumulation_steps or 8
+            grad_accum = self.config.gradient_accumulation_steps or 4
             lora_r = self.config.lora_r or 16
             train_max_len = self.config.train_max_length or 4096
+            num_rollouts = 4  # G: rollouts per task for group-relative
 
-            sp_config = SelfPlayConfig(
+            # Find domain tasks file
+            tasks_path = str(
+                Path("data/domains") / domain / "tasks.json"
+            )
+            if not Path(tasks_path).exists():
+                logger.warning(
+                    f"[{self.config.agent_id}] No tasks file for "
+                    f"{domain}: {tasks_path}"
+                )
+                return None
+
+            # --- Analyze benchmark weaknesses to adjust reward weights ---
+            reward_functions = self._get_reward_weights_from_benchmarks(
+                domain, eval_result
+            )
+
+            logger.info(
+                f"[{self.config.agent_id}] GRPO config: "
+                f"domain={domain}, batch={train_batch}, "
+                f"grad_accum={grad_accum}, lora_r={lora_r}, "
+                f"rollouts={num_rollouts}, "
+                f"rewards={reward_functions}"
+            )
+
+            grpo_config = BioAgentGRPOConfig(
                 model_name_or_path=self.config.model_path,
-                backend=self.config.backend,
-                domains=[domain],
-                tasks_per_domain=self.config.eval_tasks_per_domain,
-                max_iterations=1,
-                learning_rate=self.config.learning_rate,
-                num_train_epochs=self.config.training_epochs,
-                quality_threshold=self.config.quality_threshold,
-                min_trajectories_for_training=10,
-                batch_size=train_batch,
-                gradient_accumulation_steps=grad_accum,
-                lora_r=lora_r,
-                max_length=train_max_len,
+                torch_dtype="bfloat16",
+                attn_implementation="sdpa",
+                peft_enabled=True,
+                peft_r=lora_r,
+                peft_lora_alpha=lora_r * 2,
+                peft_lora_dropout=0.05,
+                domain=domain,
+                tasks_path=tasks_path,
                 output_dir=output_dir,
+                num_train_epochs=self.config.training_epochs,
+                per_device_train_batch_size=train_batch,
+                gradient_accumulation_steps=grad_accum,
+                learning_rate=self.config.learning_rate,
+                bf16=True,
+                num_generations=num_rollouts,
+                beta=0.04,
+                temperature=0.7,
+                max_turns=self.config.max_turns,
+                use_gym_env=True,
+                reward_functions=reward_functions,
+                use_wandb=False,
                 log_dir=str(
                     Path(self.config.log_dir) / self.config.agent_id
                 ),
-                trajectory_dir=str(
-                    Path(output_dir) / "trajectories"
-                ),
+                seed=42 + iteration_id % 1000,
             )
 
-            loop = SelfPlayLoop(sp_config)
-            loop.run()
+            # Run multi-turn GRPO training
+            trajectories = train_multiturn(grpo_config)
 
-            merged_path = str(
-                Path(output_dir) / "iter_1_sft" / "merged"
+            logger.info(
+                f"[{self.config.agent_id}] GRPO complete: "
+                f"{len(trajectories)} trajectories collected"
             )
-            if Path(merged_path).exists():
-                return merged_path
+
+            # Check for merged model or best checkpoint
+            final_path = str(Path(output_dir) / "final")
+            best_path = str(Path(output_dir) / "best")
+
+            # Merge LoRA if needed
+            for candidate in [best_path, final_path]:
+                if Path(candidate).exists():
+                    merged_path = candidate + "_merged"
+                    self._merge_lora_checkpoint(candidate, merged_path)
+                    if Path(merged_path).exists():
+                        return merged_path
+
+            # If no best/final, check if the output_dir has adapter
+            if Path(output_dir).exists():
+                return output_dir
 
         except Exception as e:
             logger.warning(
-                f"[{self.config.agent_id}] Training failed: {e}"
+                f"[{self.config.agent_id}] GRPO training failed: {e}"
             )
+            import traceback
+            traceback.print_exc()
 
         return None
+
+    def _get_reward_weights_from_benchmarks(
+        self, domain: str, eval_result: dict
+    ) -> list:
+        """Compute adaptive reward weights based on benchmark + GYM signals.
+
+        The idea: if the model scores poorly on knowledge benchmarks
+        (MedQA, MMLU), boost the accuracy reward weight. If it makes
+        format errors or safety violations in GYM tasks, boost those
+        respective reward weights.
+
+        Returns:
+            list of reward function dicts with adaptive weights
+        """
+        # Default 5D reward weights
+        accuracy_w = 0.30
+        format_w = 0.15
+        process_w = 0.25
+        safety_w = 0.20
+        coherence_w = 0.10
+
+        # --- Adapt from GYM evaluation errors ---
+        error_types = eval_result.get("error_types", [])
+        if error_types:
+            from collections import Counter
+            error_counts = Counter(error_types)
+            total_errors = sum(error_counts.values())
+
+            # If many reasoning errors, boost process reward
+            reasoning_ratio = error_counts.get("reasoning_error", 0) / max(total_errors, 1)
+            if reasoning_ratio > 0.5:
+                process_w += 0.10
+                accuracy_w -= 0.05
+                format_w -= 0.05
+
+            # If premature stops, boost process (need longer reasoning)
+            premature_ratio = error_counts.get("premature_stop", 0) / max(total_errors, 1)
+            if premature_ratio > 0.3:
+                process_w += 0.05
+                coherence_w += 0.05
+                accuracy_w -= 0.05
+                format_w -= 0.05
+
+        # --- Adapt from benchmark scores (if available in logbook) ---
+        try:
+            # Check if there are recent benchmark scores in agent history
+            from bioagents.gym.shared_logbook import SharedLogbook
+            # Access logbook through the config's log_dir
+            logbook_path = Path(self.config.log_dir) / "shared_logbook.json"
+            if logbook_path.exists():
+                import json
+                with open(logbook_path, "r") as f:
+                    logbook_data = json.load(f)
+
+                # Find latest benchmark entries for this agent
+                benchmark_entries = [
+                    e for e in logbook_data.get("entries", [])
+                    if e.get("agent_id") == self.config.agent_id
+                    and e.get("domain", "").startswith("benchmark_")
+                ]
+
+                if benchmark_entries:
+                    # Average score across all benchmarks (text_qa, vqa, medlfqa, ehr)
+                    bench_scores = [
+                        e.get("action_score", 0) for e in benchmark_entries[-20:]
+                    ]
+                    avg_benchmark = sum(bench_scores) / max(len(bench_scores), 1)
+
+                    if avg_benchmark < 0.4:
+                        # Very poor knowledge → heavily boost accuracy
+                        accuracy_w += 0.15
+                        process_w -= 0.05
+                        format_w -= 0.05
+                        coherence_w -= 0.05
+                        logger.info(
+                            f"[{self.config.agent_id}] Benchmark avg={avg_benchmark:.2f} "
+                            f"(low) → boosting accuracy reward"
+                        )
+                    elif avg_benchmark < 0.6:
+                        # Moderate → slightly boost accuracy
+                        accuracy_w += 0.05
+                        format_w -= 0.025
+                        coherence_w -= 0.025
+
+                    # EHR-specific: low EHR action_score → boost process reward
+                    # (EHR tasks require multi-step tool-use reasoning)
+                    ehr_entries = [
+                        e for e in benchmark_entries[-20:]
+                        if "mimic" in e.get("domain", "") or "eicu" in e.get("domain", "")
+                    ]
+                    if ehr_entries:
+                        avg_ehr = sum(e.get("action_score", 0) for e in ehr_entries) / len(ehr_entries)
+                        if avg_ehr < 0.5:
+                            process_w += 0.05
+                            accuracy_w -= 0.025
+                            format_w -= 0.025
+                            logger.info(
+                                f"[{self.config.agent_id}] EHR avg={avg_ehr:.2f} "
+                                f"(low) → boosting process reward for tool-use"
+                            )
+        except Exception:
+            pass  # Logbook not available, use defaults
+
+        # Normalize to sum = 1.0
+        total = accuracy_w + format_w + process_w + safety_w + coherence_w
+        accuracy_w /= total
+        format_w /= total
+        process_w /= total
+        safety_w /= total
+        coherence_w /= total
+
+        return [
+            {"name": "accuracy", "weight": round(accuracy_w, 3)},
+            {"name": "format", "weight": round(format_w, 3)},
+            {"name": "process", "weight": round(process_w, 3)},
+            {"name": "safety", "weight": round(safety_w, 3)},
+            {"name": "coherence", "weight": round(coherence_w, 3)},
+        ]
+
+    def _merge_lora_checkpoint(self, adapter_path: str, output_path: str):
+        """Merge LoRA adapter weights into the base model."""
+        if Path(output_path).exists() and (Path(output_path) / "config.json").exists():
+            logger.info(f"  Merged model already exists: {output_path}")
+            return
+
+        try:
+            import subprocess
+            merge_script = f"""
+import torch, json, sys
+sys.path.insert(0, ".")
+from pathlib import Path
+from peft import PeftModel
+
+adapter_path = "{adapter_path}"
+output_path = "{output_path}"
+
+if not Path(adapter_path).exists():
+    print(f"Adapter not found: {{adapter_path}}")
+    exit(1)
+
+# Find base model from adapter config
+adapter_cfg_path = Path(adapter_path) / "adapter_config.json"
+if not adapter_cfg_path.exists():
+    print(f"No adapter_config.json in {{adapter_path}}, skipping merge")
+    exit(0)
+
+adapter_cfg = json.load(open(adapter_cfg_path))
+base_path = adapter_cfg.get("base_model_name_or_path", "")
+
+from bioagents.evaluation.agent_runner import repair_model_config
+repair_model_config(base_path)
+
+from bioagents.gym.model_profile import ModelProfiler
+profile = ModelProfiler.profile(base_path)
+model = profile.load_model(device_map="cpu")
+model = PeftModel.from_pretrained(model, adapter_path)
+model = model.merge_and_unload()
+model.save_pretrained(output_path)
+
+tokenizer = profile.load_tokenizer()
+tokenizer.save_pretrained(output_path)
+
+# Copy processor files from base if VL model
+if profile.requires_processor:
+    import shutil
+    for fname in ["preprocessor_config.json", "chat_template.json",
+                   "special_tokens_map.json", "added_tokens.json"]:
+        src = Path(base_path) / fname
+        dst = Path(output_path) / fname
+        if src.exists() and not dst.exists():
+            shutil.copy2(src, dst)
+
+print(f"Merged to: {{output_path}}")
+"""
+            script_path = f"/tmp/merge_grpo_{adapter_path.replace('/', '_')[-40:]}.py"
+            with open(script_path, "w") as f:
+                f.write(merge_script)
+
+            result = subprocess.run(
+                ["python", script_path],
+                timeout=600,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                logger.warning(f"LoRA merge failed: {result.stderr[:500]}")
+            else:
+                logger.info(f"LoRA merge complete: {output_path}")
+
+        except Exception as e:
+            logger.warning(f"LoRA merge error: {e}")
 
 
 # ============================================================
@@ -905,7 +1514,7 @@ class AutonomousAgent:
         # Phase 1: REFLECT
         self.state = AgentState.REFLECTING
         logger.info(
-            f"  [1/4] REFLECTING on recent performance..."
+            f"  [1/5] REFLECTING on recent performance..."
         )
         reflection = self.awareness.reflect()
 
@@ -933,10 +1542,60 @@ class AutonomousAgent:
             "plateaus": reflection.get("plateaus", []),
         }
 
-        # Phase 2: CHOOSE
+        # Phase 2: EXTERNAL BENCHMARK (periodic, BEFORE training)
+        # This must happen before GRPO training so that benchmark
+        # results can inform the adaptive reward weights.
+        benchmark_results = self.executor.evaluate_external_benchmarks(
+            self.total_cycles
+        )
+        if benchmark_results:
+            cycle_result["benchmarks"] = benchmark_results
+            logger.info(
+                f"  [2/5] EXTERNAL BENCHMARKS evaluated "
+                f"({len(benchmark_results)} categories)"
+            )
+
+            # Record benchmark entries to logbook (before training)
+            for category, cat_results in benchmark_results.items():
+                if isinstance(cat_results, dict) and "error" not in category:
+                    for bench_name, res in cat_results.items():
+                        if not isinstance(res, dict):
+                            continue
+                        # Extract score: text_qa/vqa use "accuracy",
+                        # medlfqa uses "token_f1", ehr uses "avg_action_score"
+                        score = (
+                            res.get("accuracy")
+                            or res.get("token_f1")
+                            or res.get("avg_action_score")
+                        )
+                        if score is not None:
+                            from bioagents.gym.shared_logbook import WorkoutEntry
+                            bench_entry = WorkoutEntry(
+                                agent_id=self.config.agent_id,
+                                domain=f"benchmark_{bench_name}",
+                                task_id=f"benchmark_cycle_{self.total_cycles}",
+                                action_score=score,
+                                reward_score=score,
+                                errors=[],
+                                tools_used=[],
+                                self_reflection=f"External benchmark ({category}): {bench_name}",
+                                confidence=1.0,
+                                iteration=self.total_cycles,
+                                model_path=self.config.model_path,
+                                training_method="benchmark",
+                                gpu_id=gpu_id,
+                                duration_ms=0,
+                            )
+                            self.logbook.record_workout(bench_entry)
+        else:
+            logger.info(
+                f"  [2/5] BENCHMARK: skipped (not a benchmark cycle)"
+            )
+
+        # Phase 3: CHOOSE
         self.state = AgentState.CHOOSING
         logger.info(
-            f"  [2/4] CHOOSING next domain..."
+            f"  [3/5] CHOOSING next domain..."
         )
         decision = self.strategy.choose_next_action(reflection)
         self.decision_history.append(decision)
@@ -960,25 +1619,28 @@ class AutonomousAgent:
             "reasoning": decision.reasoning,
         }
 
-        # Phase 3: TRAIN (workout)
+        # Phase 4: GRPO TRAIN (workout)
+        # The model learns through multi-turn environment interaction
+        # with adaptive 5D rewards (informed by Phase 2 benchmarks)
         self.state = AgentState.TRAINING
         logger.info(
-            f"  [3/4] EXECUTING workout on {decision.domain}..."
+            f"  [4/5] EXECUTING GRPO workout on {decision.domain}..."
         )
         workout_result = self.executor.execute_workout(decision, gpu_id)
 
         logger.info(
-            f"    Score: {workout_result['pre_score']:.1%} | "
+            f"    Score: {workout_result['pre_score']:.1%} → "
+            f"{workout_result.get('post_score', 0):.1%} | "
             f"Tasks: {workout_result['tasks_completed']} | "
-            f"Errors: {len(workout_result['errors'])}"
+            f"Δ: {workout_result.get('improvement', 0):+.1%}"
         )
 
         cycle_result["workout"] = workout_result
 
-        # Phase 4: RECORD
+        # Phase 5: RECORD
         self.state = AgentState.RECORDING
         logger.info(
-            f"  [4/4] RECORDING to shared logbook..."
+            f"  [5/5] RECORDING to shared logbook..."
         )
         from bioagents.gym.shared_logbook import WorkoutEntry
         entry = WorkoutEntry(

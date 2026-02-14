@@ -852,6 +852,8 @@ config = AutonomousAgentConfig(
     gradient_accumulation_steps={cfg.gradient_accumulation_steps},
     lora_r={cfg.lora_r},
     gpu_memory_utilization={cfg.gpu_memory_utilization},
+    benchmark_every_n_cycles={cfg.benchmark_every_n_cycles},
+    benchmark_max_samples={cfg.benchmark_max_samples},
     output_dir="{cfg.output_dir}",
     log_dir="{cfg.log_dir}",
 )

@@ -55,7 +55,7 @@ class SelfPlayConfig:
     judge_model: str = "self"  # "self" = same model, or path to judge model
 
     # Training
-    training_method: str = "sft"  # "sft" or "grpo"
+    training_method: str = "grpo"  # "grpo" (primary) or "sft" (legacy)
     lora_r: int = 16
     lora_target_modules: list[str] = field(
         default_factory=lambda: ["q_proj", "k_proj", "v_proj", "o_proj"]
@@ -649,11 +649,93 @@ class SelfPlayLoop:
     def _train_grpo(
         self, trajectories: list[TrajectoryRecord], iteration: int
     ) -> Optional[str]:
-        """Run GRPO training using environment rollouts."""
-        # TODO: Implement multi-turn GRPO with environment rollouts
-        logger.warning("GRPO self-play training not yet implemented. Using SFT fallback.")
-        sft_path = Path(self.config.trajectory_dir) / f"iter_{iteration}_sft.jsonl"
-        return self._train_sft(sft_path, iteration)
+        """Run GRPO training using multi-turn environment rollouts.
+
+        Instead of learning from curated SFT examples, the model
+        interacts with the GYM environment, collects diverse
+        trajectories, and learns from group-relative advantages.
+        """
+        from bioagents.training.grpo_trainer import (
+            BioAgentGRPOConfig,
+            train_multiturn,
+        )
+        from bioagents.evaluation.agent_runner import repair_model_config
+
+        # Use most recent model checkpoint
+        model_path = (
+            self.config.model_name_or_path
+            if iteration == 1
+            else str(
+                Path(self.config.output_dir) / f"iter_{iteration-1}_grpo" / "merged"
+            )
+        )
+        # Fallback to base if previous checkpoint doesn't exist
+        if not Path(model_path).exists():
+            model_path = self.config.model_name_or_path
+
+        repair_model_config(model_path)
+
+        output_dir = str(
+            Path(self.config.output_dir) / f"iter_{iteration}_grpo"
+        )
+
+        # Find tasks for the primary domain
+        domain = self.config.domains[0] if self.config.domains else "medical_qa"
+        tasks_path = str(Path("data/domains") / domain / "tasks.json")
+        if not Path(tasks_path).exists():
+            logger.warning(f"Tasks not found: {tasks_path}, falling back to SFT")
+            sft_path = Path(self.config.trajectory_dir) / f"iter_{iteration}_sft.jsonl"
+            return self._train_sft(sft_path, iteration)
+
+        grpo_config = BioAgentGRPOConfig(
+            model_name_or_path=model_path,
+            torch_dtype="bfloat16",
+            attn_implementation="sdpa",
+            peft_enabled=True,
+            peft_r=self.config.lora_r,
+            peft_lora_alpha=self.config.lora_r * 2,
+            peft_lora_dropout=0.05,
+            domain=domain,
+            tasks_path=tasks_path,
+            output_dir=output_dir,
+            num_train_epochs=self.config.num_train_epochs,
+            per_device_train_batch_size=self.config.batch_size,
+            gradient_accumulation_steps=self.config.gradient_accumulation_steps,
+            learning_rate=self.config.learning_rate,
+            bf16=True,
+            num_generations=4,
+            beta=0.04,
+            temperature=0.7,
+            max_turns=self.config.max_turns,
+            use_gym_env=True,
+            use_wandb=False,
+            log_dir=self.config.log_dir,
+            seed=42 + iteration,
+        )
+
+        try:
+            collected = train_multiturn(grpo_config)
+            logger.info(
+                f"GRPO iter {iteration}: {len(collected)} trajectories"
+            )
+        except Exception as e:
+            logger.warning(f"GRPO training failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+        # Merge LoRA into base
+        best_path = str(Path(output_dir) / "best")
+        final_path = str(Path(output_dir) / "final")
+
+        for candidate in [best_path, final_path]:
+            if Path(candidate).exists():
+                merged_path = str(Path(output_dir) / "merged")
+                self._merge_lora(candidate, merged_path)
+                if Path(merged_path).exists():
+                    return merged_path
+
+        return None
 
     def _merge_lora(self, adapter_path: str, output_path: str):
         """Merge LoRA adapter into base model using ModelProfile for loading."""
