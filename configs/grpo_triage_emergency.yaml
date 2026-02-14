@@ -88,7 +88,7 @@ environment:
     - "triage_emergency"
 
 logging:
-  project: "bioagents-grpo"
+  project: "pt2-minstar-gym-rl"
   run_name: "grpo_triage_emergency"
   use_wandb: true
   log_dir: "logs/runs"

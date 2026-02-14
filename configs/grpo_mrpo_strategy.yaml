@@ -1,0 +1,89 @@
+# ============================================================
+# BIOAgents MRPO (Multi-Reward Policy Optimization) Config
+# ============================================================
+# Applies MRPO-style token-level reward shaping with BERTScore.
+# Best for open-ended medical QA requiring detailed reasoning.
+#
+# Reference: MRPO ICML submission (grpo_vqa_Qwen3_token_shaping.py)
+#
+# Usage:
+#   python bioagents/training/grpo_trainer.py --config configs/grpo_mrpo_strategy.yaml
+#   python bioagents/training/grpo_trainer.py --config configs/grpo_mrpo_strategy.yaml --strategy mrpo
+# ============================================================
+
+model:
+  name_or_path: "Qwen/Qwen3-1.7B"
+  torch_dtype: "bfloat16"
+  attn_implementation: "flash_attention_2"
+
+peft:
+  enabled: true
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+dataset:
+  domain: "medical_qa"
+  tasks_path: "data/domains/medical_qa/tasks.json"
+  split_tasks_path: "data/domains/medical_qa/split_tasks.json"
+  train_split: "train"
+  eval_split: "test"
+  max_prompt_length: 2048
+  max_completion_length: 1024
+
+training:
+  output_dir: "checkpoints/grpo_mrpo_medical_qa"
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-6
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  bf16: true
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 50
+  save_total_limit: 3
+  seed: 42
+  num_generations: 4
+  beta: 0.04
+  temperature: 0.7
+
+rewards:
+  strategy: "mrpo"
+  strategy_config:
+    mrpo_alignment_weight: 0.3     # Structural quality (think/answer tags)
+    mrpo_relevance_weight: 0.3     # BERTScore semantic relevance
+    mrpo_factuality_weight: 0.4    # ROUGE/BLEU factual overlap
+    mrpo_bertscore_weight: 0.5     # BERTScore within factuality
+    mrpo_rouge_weight: 0.25        # ROUGE-1 within factuality
+    mrpo_bleu_weight: 0.25         # BLEU-1 within factuality
+  bertscore_model: "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"
+
+environment:
+  max_turns: 10
+  use_gym_env: true
+
+logging:
+  project: "pt2-minstar-gym-rl"
+  run_name: "grpo_mrpo_medical_qa"
+  use_wandb: true
+  log_dir: "logs/runs"
+
+meta:
+  experiment: "MRPO strategy for Medical QA"
+  description: >
+    MRPO (Multi-Reward Policy Optimization) with token-level shaping.
+    Combines alignment (structural quality), relevance (BERTScore),
+    and factuality (ROUGE+BLEU) for fine-grained reward signal.
+    Best for open-ended medical reasoning tasks.

@@ -87,7 +87,7 @@ environment:
     - "radiology_report"
 
 logging:
-  project: "bioagents-grpo"
+  project: "pt2-minstar-gym-rl"
   run_name: "grpo_radiology_report"
   use_wandb: true
   log_dir: "logs/runs"

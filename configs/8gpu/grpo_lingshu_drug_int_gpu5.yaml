@@ -62,7 +62,7 @@ environment:
   use_gym_env: true
 
 logging:
-  project: "bioagents-grpo"
+  project: "pt2-minstar-gym-rl"
   run_name: "grpo_lingshu_drug_int_gpu5"
   use_wandb: false
   log_dir: "logs/8gpu/grpo_lingshu_drug_int"

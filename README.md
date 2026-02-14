@@ -1,123 +1,409 @@
 # Healthcare AI GYM
 
-**An end-to-end Gymnasium environment for training medical AI agents via multi-turn Reinforcement Learning.**
+**A self-evolving gymnasium where medical AI agents autonomously train, compete, and master clinical reasoning through multi-turn reinforcement learning.**
 
-Healthcare AI GYM provides the infrastructure to train, evaluate, and improve medical AI agents that use tools, follow clinical protocols, and make safe decisions across the full spectrum of healthcare — from triage to discharge.
+> "Static benchmarks tell you if a model memorized medical facts. The GYM tells you if it can practice medicine."
 
-> "Static benchmarks tell you if a model memorized medical facts.  
->  The GYM tells you if it can practice medicine."
+Healthcare AI GYM is an end-to-end infrastructure for training medical AI agents that use 126+ clinical tools, follow evidence-based guidelines, and make safe decisions across 10 medical specialties. Agents in the GYM don't just answer questions — they gather information, reason through cases, use tools, check safety, and submit structured clinical assessments.
+
+**What makes it different?** The agents train *themselves*. Each agent reflects on its own performance, chooses what to practice, generates its own training data from medical knowledge sources, learns through RL, and shares what it learns with peers. No human curriculum. No manual data curation. Just open the GYM doors and let the agents work out.
 
 ---
 
-## Key Results (P4 Experiments)
+## At a Glance
 
-| Metric | Finding |
+| | |
 |---|---|
-| **Agent ≠ Benchmark** | Lingshu: 68.5% benchmark vs 0.504 agent score — static QA doesn't measure clinical ability |
-| **GRPO works** | Qwen3 GRPO: 0 → 0.890 agent score (from nothing to competent agent) |
-| **Self-Play loop** | 3 iterations end-to-end: collect → judge → filter → train → evaluate |
-| **Domain difficulty** | EHR (1.00) >> Drug Interaction (0.5–0.8) > Visual Dx (0.3–0.9) > Clinical Dx (0.2–0.9) |
+| **Medical Domains** | 10 specialties (diagnosis, triage, EHR, radiology, psychiatry, OB/GYN, ...) |
+| **Clinical Tools** | 126+ (labs, vitals, imaging, prescribing, scoring, protocols) |
+| **Training Tasks** | 2,400+ (original + scaled + auto-generated from 828K knowledge passages) |
+| **Benchmarks** | 21 (MedQA, MedMCQA, 6x MMLU, 6x VQA, 5x MedLFQA, 2x EHR) |
+| **Reward System** | 5D: Accuracy + Format + Process + Safety + Coherence |
+| **RL Strategies** | GRPO, MRPO, SARL, Adaptive (auto-selected per task) |
+| **Knowledge Base** | 828K medical passages + 188 GB Wikipedia (FTS5 + FAISS) |
+| **Modalities** | Text + Vision (VL models supported natively) |
+| **Models Tested** | Qwen2.5-VL-7B, LingShu-7B, Step3-VL-10B |
 
 ---
 
-## Architecture
+## How It Works
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                    Healthcare AI GYM                              │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   ┌─────────────┐    ┌──────────────┐    ┌──────────────────┐   │
-│   │  8 Medical   │    │  88 Clinical │    │  537 Tasks       │   │
-│   │  Domains     │◄──►│  Tools       │◄──►│  (scaled)        │   │
-│   └──────┬──────┘    └──────┬───────┘    └────────┬─────────┘   │
-│          │                  │                      │              │
-│   ┌──────▼──────────────────▼──────────────────────▼─────────┐   │
-│   │              Gymnasium Environment (BioAgent-v0)          │   │
-│   │  obs: text conversation │ action: tool calls / answers    │   │
-│   └──────────────────────────┬───────────────────────────────┘   │
-│                              │                                    │
-│   ┌──────────────────────────▼───────────────────────────────┐   │
-│   │                    Reward System                          │   │
-│   │  Accuracy │ Format │ Process │ Safety │ Coherence        │   │
-│   └──────────────────────────┬───────────────────────────────┘   │
-│                              │                                    │
-│   ┌──────────────────────────▼───────────────────────────────┐   │
-│   │              GymCoach — Autonomous Training Loop          │   │
-│   │  EVALUATE → ANALYZE → GENERATE → TRAIN → TRACK → EXPAND │   │
-│   │                                                           │   │
-│   │  Phase 1: Individual Domain Mastery (SFT)                │   │
-│   │  Phase 2: Multi-Domain Proficiency (GRPO)                │   │
-│   │  Phase 3: Cross-Domain Pathways (GRPO + Coherence)       │   │
-│   │  Phase 4: Safety Hardening (Adversarial + Bias)          │   │
-│   │  Phase 5: Domain Expansion (New Medical Specialties)     │   │
-│   └──────────────────────────────────────────────────────────┘   │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+                         ┌─────────────────────────────┐
+                         │     Healthcare AI GYM        │
+                         └──────────┬──────────────────┘
+                                    │
+           ┌────────────────────────┼────────────────────────┐
+           │                        │                        │
+    ┌──────▼──────┐          ┌──────▼──────┐          ┌──────▼──────┐
+    │   Agent A   │          │   Agent B   │          │   Agent C   │
+    │  Qwen2.5-VL │          │  LingShu-7B │          │  Step3-VL   │
+    └──────┬──────┘          └──────┬──────┘          └──────┬──────┘
+           │                        │                        │
+           ▼                        ▼                        ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                 Autonomous Training Loop                     │
+    │                                                             │
+    │   1. REFLECT    → Analyze own strengths/weaknesses          │
+    │   2. BENCHMARK  → Periodic external evaluation (21 tests)   │
+    │   3. CHOOSE     → Pick domain + strategy (GRPO/MRPO/SARL)  │
+    │   4. TRAIN      → Multi-turn RL with 5D rewards             │
+    │   5. RECORD     → Share results via SharedLogbook           │
+    │                                                             │
+    │   Repeat forever. Agents learn from each other.             │
+    └─────────────────────────────────────────────────────────────┘
+           │                        │                        │
+           ▼                        ▼                        ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                   10 Medical Domains                        │
+    │  ┌──────────┐ ┌──────────┐ ┌─────────┐ ┌────────────────┐  │
+    │  │ Clinical  │ │   Drug   │ │   EHR   │ │  Medical QA    │  │
+    │  │ Diagnosis │ │ Interact │ │  Mgmt   │ │  (evidence)    │  │
+    │  └──────────┘ └──────────┘ └─────────┘ └────────────────┘  │
+    │  ┌──────────┐ ┌──────────┐ ┌─────────┐ ┌────────────────┐  │
+    │  │  Triage  │ │Psychiatry│ │   OB/   │ │   Radiology    │  │
+    │  │Emergency │ │          │ │  GYN    │ │   Report       │  │
+    │  └──────────┘ └──────────┘ └─────────┘ └────────────────┘  │
+    │  ┌──────────┐ ┌──────────┐                                  │
+    │  │  Visual  │ │  Cross-  │  Each domain: tools + tasks      │
+    │  │Diagnosis │ │  Domain  │  + evidence + guidelines          │
+    │  └──────────┘ └──────────┘                                  │
+    └─────────────────────────────────────────────────────────────┘
+           │
+           ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                 5D Reward System                             │
+    │  Accuracy(30%) + Process(25%) + Safety(20%)                 │
+    │           + Format(15%) + Coherence(10%)                    │
+    └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Medical Domains
+## The 10 Medical Domains
 
-| # | Domain | Tasks | Tools | Description |
-|---|--------|------:|------:|-------------|
-| 1 | **Clinical Diagnosis** | 65 | 20 | History, physical, labs, differential diagnosis, treatment |
-| 2 | **Drug Interaction** | 65 | 10 | Pharmacology, DDI checking, dosing, contraindications |
-| 3 | **EHR Management** | 75 | 14 | Chart review, documentation, scoring (SOFA, NEWS2, GRACE) |
-| 4 | **Medical QA** | 250 | 10 | Evidence-based reasoning with PubMed/wiki retrieval |
-| 5 | **Visual Diagnosis** | 39 | 11 | Medical image analysis (X-ray, CT, MRI, pathology, dermoscopy) |
-| 6 | **Triage & Emergency** | 10 | 12 | ESI assessment, time-critical protocols (STEMI, Stroke, Sepsis) |
-| 7 | **Radiology Report** | 8 | 11 | Structured reporting (Fleischner, BI-RADS, TI-RADS) |
-| 8 | **Cross-Domain Pathways** | 25 | — | Multi-phase patient journeys across 6 pathways |
-| | **Total** | **537** | **88** | |
+| Domain | Tools | Tasks | What the Agent Does |
+|--------|------:|------:|---------------------|
+| **Clinical Diagnosis** | 17 | 112 | Take history, order labs, build DDx, prescribe |
+| **Drug Interaction** | 10 | 65 | Check DDIs, assess severity, recommend alternatives |
+| **EHR Management** | 14 | 75 | Navigate charts, track trends, calculate SOFA/NEWS |
+| **Medical QA** | 8 | 235 | Search PubMed, analyze evidence, answer MCQA |
+| **Triage & Emergency** | 12 | 20 | ABC assessment, ESI scoring, STAT orders |
+| **Psychiatry** | 14 | 20 | MSE, PHQ-9, GAD-7, Columbia-SSRS, treatment plans |
+| **Obstetrics** | 14 | 20 | Fetal monitoring, Bishop score, ACOG protocols |
+| **Visual Diagnosis** | 11 | 39 | Medical image analysis, pattern recognition |
+| **Radiology Report** | 11 | 20 | Structured reporting (BI-RADS, TI-RADS, Fleischner) |
+| **Cross-Domain** | -- | 25 | Multi-phase patient journeys across specialties |
+| **Total** | **126+** | **2,400+** | |
 
 ### Cross-Domain Clinical Pathways
 
-Real medicine doesn't happen in isolated silos. Our 6 cross-domain pathways simulate complete patient journeys:
+Real medicine doesn't happen in isolated silos. These 6 pathways simulate complete patient journeys spanning multiple departments:
 
-| Pathway | Phases | Domains Involved | Difficulty |
-|---------|--------|------------------|-----------|
-| Acute Chest Pain (ED) | Triage → Dx → Imaging → Drugs → EHR → Disposition | 5 domains | Hard |
-| Diabetic Ketoacidosis | Triage → Dx → Drug Mgmt → ICU Documentation | 4 domains | Hard |
-| Stroke Code | Triage → Imaging → Treatment Decision → Documentation | 4 domains | Expert |
-| Sepsis Hour-1 Bundle | Triage → Dx → Antibiotics → ICU Documentation | 4 domains | Expert |
-| Post-op Pulmonary Embolism | Chart Review → Dx → Anticoagulation | 3 domains | Hard |
-| Pediatric Kawasaki Disease | Triage → Dx → IVIG Protocol → Documentation | 4 domains | Hard |
+| Pathway | Phases | Domains Involved |
+|---------|--------|------------------|
+| Acute Chest Pain (ED) | Triage -> Dx -> Imaging -> Drugs -> EHR -> Disposition | 5 domains |
+| Diabetic Ketoacidosis | Triage -> Dx -> Drug Mgmt -> ICU Documentation | 4 domains |
+| Stroke Code | Triage -> Imaging -> Treatment Decision -> Documentation | 4 domains |
+| Sepsis Hour-1 Bundle | Triage -> Dx -> Antibiotics -> ICU Documentation | 4 domains |
+| Post-op Pulmonary Embolism | Chart Review -> Dx -> Anticoagulation | 3 domains |
+| Pediatric Kawasaki Disease | Triage -> Dx -> IVIG Protocol -> Documentation | 4 domains |
 
 ---
 
-## Evaluation System
+## What an Agent Actually Does
 
-### 5-Dimensional Reward
+Here's a real interaction in the Clinical Diagnosis domain. The agent makes tool calls, receives observations, reasons, and submits:
 
-| Dimension | Weight | What It Measures |
-|-----------|--------|------------------|
-| **Accuracy** | 0.20–0.40 | Correctness of diagnosis/answer |
-| **Format** | 0.15–0.30 | Valid tool calls, structured output |
-| **Process** | 0.25–0.40 | Clinical reasoning quality, tool coverage |
-| **Safety** | 0.15–0.30 | Contraindications, emergency recognition, uncertainty |
-| **Coherence** | 0.15 | Cross-domain context maintenance (pathway only) |
+```
+System: You are a clinical diagnostician AI...
 
-### Safety Evaluation
+Turn 1 — Agent:
+  {"name": "think", "arguments": {"thought": "58M with chest pain. Need to rule out ACS."}}
 
-Healthcare AI must be safe. Our safety module evaluates:
+Turn 2 — Agent:
+  {"name": "get_patient_info", "arguments": {"patient_id": "P001"}}
+  → Observation: "58-year-old male, HTN, DM2, smoker..."
 
-- **Contraindication Detection** — Does the model check allergies and contraindications?
-- **Emergency Recognition** — Does it recognize STEMI, stroke, sepsis in time?
-- **Uncertainty Calibration** — Does it hedge appropriately when uncertain?
-- **Scope Awareness** — Does it refer to specialists when needed?
-- **Adversarial Robustness** — 50 adversarial test cases across 9 categories (harmful instruction, jailbreak, misinformation, bias probe, scope test, confidentiality, informed consent, resource allocation, end-of-life)
-- **Cognitive Bias Detection** — 11 matched-pair bias tests (anchoring, confirmation, availability, racial, gender, age, SES, weight, authority, framing, premature closure)
+Turn 3 — Agent:
+  {"name": "get_vital_signs", "arguments": {"patient_id": "P001"}}
+  → Observation: "HR 98, BP 165/95, SpO2 96%, Temp 37.2°C"
 
-Critical violations (severity 5) cap the safety score at 0.1 regardless of other performance.
+Turn 4 — Agent:
+  {"name": "get_lab_results", "arguments": {"patient_id": "P001"}}
+  → Observation: "Troponin I: 0.45 ng/mL (elevated), BNP: 890..."
 
-### External Benchmarks
+Turn 5 — Agent:
+  {"name": "think", "arguments": {"thought": "Elevated troponin with chest pain and cardiac risk factors — high suspicion for NSTEMI..."}}
 
-| Category | Benchmarks |
-|----------|-----------|
-| **Text QA** | MedQA (USMLE), MedMCQA, MMLU (anatomy, clinical knowledge, medical genetics, professional medicine) |
-| **Visual QA** | VQA-RAD, SLAKE, PathVQA, PMC-VQA, VQA-Med-2021, Quilt-VQA |
+Turn 6 — Agent:
+  {"name": "search_clinical_guidelines", "arguments": {"condition": "NSTEMI"}}
+  → Observation: "AHA/ACC 2023: Dual antiplatelet, heparin, cardiology consult..."
+
+Turn 7 — Agent:
+  {"name": "record_diagnosis", "arguments": {"patient_id": "P001", "diagnosis": "NSTEMI", "icd10_code": "I21.4"}}
+
+Turn 8 — Agent:
+  {"name": "submit_answer", "arguments": {"answer": "NSTEMI with recommended dual antiplatelet therapy...", "reasoning": "Based on elevated troponin, cardiac risk factors..."}}
+
+Score: Accuracy=0.92, Process=0.88, Safety=0.95, Format=1.00, Coherence=0.90
+Composite: 0.926
+```
+
+---
+
+## 5D Reward System
+
+Every agent response is evaluated across 5 dimensions. The composite reward drives RL training.
+
+| Dimension | Weight | What It Measures | Example Failure |
+|-----------|--------|------------------|-----------------|
+| **Accuracy** | 30% | Answer correctness (ROUGE + BERTScore / exact match) | Wrong diagnosis |
+| **Process** | 25% | Reasoning quality, tool coverage, systematic approach | Skipped vital signs |
+| **Safety** | 20% | Contraindications, emergency recognition, uncertainty | Prescribed to allergic patient |
+| **Format** | 15% | Valid JSON tool calls, structured output | Malformed JSON |
+| **Coherence** | 10% | Logical flow, no contradictions, clear conclusion | Contradictory recommendations |
+
+**Specialized Reward Strategies** (auto-selected per task):
+
+| Strategy | When Used | Mechanism |
+|----------|-----------|-----------|
+| **GRPO** | Default, stable performance | Group Relative Policy Optimization |
+| **MRPO** | Reasoning errors | Token-level reward shaping (alignment + relevance + factuality) |
+| **SARL** | Premature stops, tool-heavy domains | Self-assessment decay + tool usage bonus |
+| **Adaptive** | New domains, uncertain performance | Dynamic strategy selection |
+
+---
+
+## 21 Benchmarks
+
+### Text QA (8)
+
+| Benchmark | Questions | Source |
+|-----------|----------:|--------|
+| MedQA | 1,273 | USMLE-style |
+| MedMCQA | 4,183 | Indian medical entrance |
+| MMLU Clinical Knowledge | 265 | MMLU |
+| MMLU Professional Medicine | 272 | MMLU |
+| MMLU Anatomy | 135 | MMLU |
+| MMLU Medical Genetics | 100 | MMLU |
+| MMLU College Biology | 144 | MMLU |
+| MMLU College Medicine | 173 | MMLU |
+
+### Vision QA (6 -- VL models only)
+
+| Benchmark | Modality |
+|-----------|----------|
+| VQA-RAD | Radiology |
+| SLAKE | Multi-modal |
+| PathVQA | Pathology |
+| PMC-VQA | Literature |
+| VQA-Med-2021 | Medical imaging |
+| Quilt-VQA | Histology |
+
+### Long-Form QA (5)
+
+| Benchmark | Questions |
+|-----------|----------:|
+| KQA Golden | 201 |
+| LiveQA | 100 |
+| MedicationQA | 666 |
+| HealthSearchQA | 3,077 |
+| KQA Silver | 904 |
+
+### EHR (2)
+
+| Benchmark | Source |
+|-----------|--------|
+| MIMIC-III | ICU patients |
+| eICU | ICU patients |
+
+---
+
+## Autonomous Training
+
+The agents in the GYM are fully autonomous. They decide what to train on, how to train, and even generate their own training data.
+
+### Self-Directed Learning
+
+Each agent follows the **REFLECT -> CHOOSE -> TRAIN -> RECORD** loop:
+
+1. **REFLECT**: Analyze past performance across all domains. Identify strengths, weaknesses, plateaus.
+2. **CHOOSE**: Pick the next domain based on weighted strategy (weakness targeting, curiosity, peer learning, diversity, mastery push, safety focus).
+3. **TRAIN**: Execute a GRPO workout with auto-selected reward strategy.
+4. **RECORD**: Log results to the SharedLogbook. Other agents can learn from your experience.
+
+### Peer Learning via SharedLogbook
+
+Agents share their training logs and learn from each other:
+
+- **Cross-agent suggestions**: "Agent X scores 85% in psychiatry but you score 40% -- try that domain."
+- **Anti-herding**: Detects when all agents converge on the same domain and diversifies.
+- **Leaderboard**: Per-domain and global rankings with mastery levels (novice -> master).
+
+### Autonomous Data Generation
+
+When the training task pool is insufficient, agents mine new tasks from knowledge sources:
+
+| Source | Volume | Content |
+|--------|--------|---------|
+| FTS5 Medical Index | 828K passages | PubMed evidence, biomedical QA |
+| MCQA Benchmarks | 8.9K questions | MedQA, MedMCQA, MMLU |
+| MedLFQA | 4.9K questions | Long-form medical QA |
+| Clinical Guidelines | 10 guidelines | AHA, ACOG, SSC protocols |
+| Wikipedia | 188 GB | Medical articles (FTS5 + FAISS) |
+
+The system analyses evaluation errors (`premature_stop`, `tool_use_failure`, `reasoning_error`) and generates targeted tasks from the most relevant sources.
+
+---
+
+## Safety
+
+Healthcare AI must be safe. The GYM integrates safety at every level.
+
+**5D Reward Safety Component (20%)**:
+- Contraindication detection (allergies, drug interactions)
+- Emergency recognition (STEMI, stroke, sepsis in time)
+- Uncertainty calibration (hedging when uncertain)
+- Scope awareness (referring to specialists when needed)
+- Critical violations cap the score at 0.1 regardless of other performance
+
+**Adversarial Testing**:
+- 50 adversarial test cases across 9 categories (harmful instruction, jailbreak, misinformation, bias probe, scope test, confidentiality, informed consent, resource allocation, end-of-life)
+
+**Cognitive Bias Detection**:
+- 11 matched-pair bias tests (anchoring, confirmation, availability, racial, gender, age, SES, weight, authority, framing, premature closure)
+
+**FairGRPO**:
+- Demographic-aware reward weighting ensures equitable performance across patient populations
+
+---
+
+## Quick Start
+
+### Install
+
+```bash
+pip install -e ".[dev]"
+```
+
+### Option 1: Run the Autonomous GYM (Recommended)
+
+Register your models in `configs/autonomous_gym.yaml` and let them train themselves:
+
+```bash
+python -m bioagents.gym.autonomous_gym --config configs/autonomous_gym.yaml
+```
+
+The system will:
+1. Auto-profile each model (architecture, VRAM, modalities, compatible domains)
+2. Auto-tune training parameters (batch size, context length, LoRA rank)
+3. Start the autonomous training loop
+
+See [AGENT_GUIDELINE.md](AGENT_GUIDELINE.md) for the full agent onboarding guide.
+
+### Option 2: Run a Single Agent Task
+
+```python
+import gymnasium as gym
+from bioagents.gym.agent_env import register_bioagent_gym
+
+register_bioagent_gym()
+env = gym.make("BioAgent-v0", domain="clinical_diagnosis", task_id="dx_pneumonia_001")
+obs, info = env.reset()
+print(obs)  # Patient scenario + available tools
+```
+
+### Option 3: Train with GRPO Directly
+
+```bash
+# Single domain
+python bioagents/training/grpo_trainer.py --config configs/grpo_triage_emergency.yaml
+
+# Adaptive strategy (auto-selects GRPO/MRPO/SARL)
+python -m bioagents.training.grpo_trainer --config configs/grpo_adaptive_strategy.yaml
+```
+
+### Benchmark Evaluation
+
+```bash
+# Text benchmarks
+python bioagents/evaluation/benchmark_eval.py \
+    --model checkpoints/my_model \
+    --benchmarks medqa medmcqa mmlu_anatomy
+
+# VQA benchmarks (VL models)
+python bioagents/evaluation/vqa_benchmark_eval.py \
+    --model checkpoints/my_model \
+    --benchmarks vqa_rad slake pathvqa
+```
+
+---
+
+## Bring Your Own Model
+
+Any HuggingFace-compatible model can join the GYM. Add to `configs/autonomous_gym.yaml`:
+
+```yaml
+agents:
+  - agent_id: "my_model_v1"
+    model_path: "/path/to/your/model"
+    base_model_path: "/path/to/base"   # VL models only
+    backend: "transformers"
+    gpus_for_eval: 1
+    gpus_for_train: 1
+    
+    # Strategy personality
+    curiosity_weight: 0.15
+    weakness_weight: 0.35
+    peer_learning_weight: 0.20
+    diversity_weight: 0.15
+    mastery_push_weight: 0.10
+    safety_weight: 0.05
+    
+    # All set to 0 = auto-tuned
+    inference_batch_size: 0
+    train_batch_size: 0
+```
+
+The GYM auto-detects:
+- Architecture and modalities (text / vision)
+- Optimal GPU parameters
+- Compatible domains
+- Missing processor files (auto-repairs)
+
+See [AGENT_GUIDELINE.md](AGENT_GUIDELINE.md) for detailed tool definitions, scoring rubrics, and domain-specific tips.
+
+---
+
+## Knowledge Infrastructure
+
+| Source | Size | Index | Coverage |
+|--------|------|-------|----------|
+| Wikipedia 2018 | 97 GB | FTS5 + FAISS (26M vectors) | General knowledge |
+| Wikipedia 2026 | 91 GB | FTS5 + FAISS | Current knowledge |
+| MedCPT Evidence | 2.9 GB (581K entries) | FTS5 BM25 | PubMed/PMC literature |
+| Biomedical Instructions | 260 MB (122K entries) | FTS5 BM25 | QA pairs |
+| Generator Retrieval | 7.3 GB (83K passages) | FTS5 BM25 | Passage evidence |
+| MedInstruct-52k | 69 MB (52K entries) | FTS5 BM25 | Medical instructions |
+| Medical Knowledge FTS | 2.4 GB | 828K passages unified | All of the above |
+| Clinical Guidelines | 10 guidelines | JSON indexed | AHA, ACOG, SSC, IDSA, ... |
+
+All knowledge is accessible through a unified `KnowledgeTools` interface that supports PubMed search, wiki browsing, evidence retrieval, and guideline lookup.
+
+---
+
+## Monitoring
+
+All training is logged to **Weights & Biases** (project: `pt2-minstar-gym-rl`):
+
+- Per-step: task rewards, tool usage, turn counts
+- Per-epoch: mean reward, trajectory counts, loss curves
+- Per-cycle: domain selection, pre/post scores, improvement delta
+- Benchmarks: all 21 benchmark results per evaluation cycle
+- Leaderboard: agent rankings updated in real-time
+
+The `AGENT_GUIDELINE.md` is automatically updated with live intelligence from training cycles -- current score baselines, discovered best practices, and known pitfalls.
 
 ---
 
@@ -126,353 +412,75 @@ Critical violations (severity 5) cap the safety score at 0.1 regardless of other
 ```
 BIOAgents/
 ├── bioagents/
-│   ├── agents/                     # Multi-agent simulation
-│   │   └── patient_agent.py        # Patient Agent (7 personalities, 6 biases, 6 cases)
-│   ├── domains/                    # 8 medical domain implementations
-│   │   ├── clinical_diagnosis/     # 20 tools (patient info, labs, vitals, scoring)
-│   │   ├── drug_interaction/       # 10 tools (drug info, DDI check, recommendations)
-│   │   ├── ehr_management/         # 14 tools (chart review, documentation, trends)
-│   │   ├── medical_qa/             # 10 tools (PubMed search, evidence retrieval)
-│   │   ├── visual_diagnosis/       # 11 tools (image analysis, report, comparison)
-│   │   ├── triage_emergency/       # 12 tools (ESI, GCS, protocols, resources)
-│   │   ├── radiology_report/       # 11 tools (study info, templates, knowledge base)
-│   │   └── cross_domain/           # Pathway engine + multi-phase orchestration
-│   ├── evaluation/
-│   │   ├── rewards.py              # Core reward functions (accuracy, format, process)
-│   │   ├── safety_eval.py          # Safety rewards + 50 adversarial tests (9 categories)
-│   │   ├── cognitive_bias.py       # Matched-pair bias detection (12 bias types)
-│   │   ├── grpo_rewards.py         # TRL GRPO-compatible reward wrappers
-│   │   ├── benchmark_eval.py       # External text + VQA benchmark evaluation
-│   │   ├── vqa_benchmark_eval.py   # 6-dataset VQA evaluation pipeline
-│   │   └── agent_runner.py         # Agent execution in GYM environment
-│   ├── knowledge/
-│   │   └── guidelines.py           # 10 clinical guidelines + compliance checking
-│   ├── gym/
+│   ├── gym/                        # Autonomous GYM system
+│   │   ├── autonomous_gym.py       # GYM orchestrator (GPU scheduler + safety)
+│   │   ├── autonomous_agent.py     # Self-directing agent (REFLECT→CHOOSE→TRAIN)
 │   │   ├── agent_env.py            # Gymnasium environment (BioAgent-v0)
-│   │   ├── self_play.py            # Self-play training loop
-│   │   ├── gym_coach.py            # GymCoach continuous autonomous orchestrator
-│   │   └── training_memory.py      # Training Memory System (actions, errors, trajectories)
-│   ├── training/                   # SFT + GRPO/PPO training pipelines
-│   └── data_pipeline/
-│       └── vqa_loader.py           # Unified loader for 6 VQA datasets
-├── data/
-│   ├── domains/                    # Per-domain data (db.json, tasks.json, policy.md)
-│   └── guidelines/                 # Clinical practice guidelines (JSON)
-├── configs/
-│   ├── gym_coach.yaml              # GymCoach continuous training config
-│   ├── 8gpu/                       # 8 per-GPU training configs (SFT + GRPO)
-│   ├── grpo_cross_domain.yaml      # Flagship: cross-domain pathway training
-│   ├── grpo_triage_emergency.yaml  # Safety-weighted triage training
-│   ├── grpo_radiology_report.yaml  # Structured report generation
-│   ├── grpo_p2_multidomain.yaml    # 8-domain multi-domain GRPO
-│   ├── self_play_3iter.yaml        # Self-play iterative loop
-│   └── ...                         # SFT, ablation, baseline configs
-└── scripts/
-    ├── launch_8gpu_training.sh     # 8-GPU parallel training launcher
-    ├── run_gym_coach.sh            # Continuous GymCoach launcher
-    ├── scale_tasks.py              # Template-based task scaling
-    └── generate_tasks_llm.py       # LLM-based diverse task generation
+│   │   ├── model_profile.py        # Auto-detect architecture + optimal params
+│   │   ├── shared_logbook.py       # Cross-agent peer learning
+│   │   ├── tool_guidance.py        # Adaptive prompt injection
+│   │   └── guideline_updater.py    # Living guideline auto-updater
+│   ├── domains/                    # 10 medical domains
+│   │   ├── clinical_diagnosis/     # 17 tools
+│   │   ├── drug_interaction/       # 10 tools
+│   │   ├── ehr_management/         # 14 tools
+│   │   ├── medical_qa/             # 8 tools
+│   │   ├── triage_emergency/       # 12 tools
+│   │   ├── psychiatry/             # 14 tools
+│   │   ├── obstetrics/             # 14 tools
+│   │   ├── visual_diagnosis/       # 11 tools
+│   │   ├── radiology_report/       # 11 tools
+│   │   └── cross_domain/           # 6 clinical pathways
+│   ├── evaluation/
+│   │   ├── agent_runner.py         # Multi-turn agent execution + onboarding
+│   │   ├── grpo_rewards.py         # 5D + FairGRPO + MRPO + SARL rewards
+│   │   ├── benchmark_eval.py       # 21 benchmark evaluation
+│   │   ├── safety_eval.py          # 50 adversarial + severity taxonomy
+│   │   └── cognitive_bias.py       # 11 matched-pair bias tests
+│   ├── training/
+│   │   └── grpo_trainer.py         # GRPO/MRPO/SARL/FairGRPO trainer
+│   ├── data_pipeline/
+│   │   ├── auto_task_generator.py  # Autonomous data generation
+│   │   ├── vqa_loader.py           # 6 VQA dataset loader
+│   │   └── medqa_loader.py         # MedQA/MedMCQA/MMLU loader
+│   ├── tools/
+│   │   └── knowledge_tools.py      # Unified search (Wiki + PubMed + Evidence)
+│   ├── knowledge/
+│   │   └── guidelines.py           # 10 clinical guidelines + compliance
+│   └── agents/
+│       └── patient_agent.py        # Patient simulation (12 personalities, 13 biases)
+├── data/domains/                   # Per-domain data (tasks, db, policies)
+├── configs/                        # YAML configs (27 total)
+│   └── autonomous_gym.yaml         # Main GYM config
+├── AGENT_GUIDELINE.md              # Living agent onboarding guide
+└── PLANNING.md                     # Internal research planning document
 ```
 
 ---
 
-## Quick Start
-
-### 1. Install
-
-```bash
-pip install -e ".[dev]"
-```
-
-### 2. Run an Agent in the GYM
-
-```python
-import gymnasium as gym
-from bioagents.gym.agent_env import register_bioagent_gym
-
-register_bioagent_gym()
-
-# Single domain
-env = gym.make("BioAgent-v0", domain="clinical_diagnosis", task_id="dx_pneumonia_001")
-obs, info = env.reset()
-print(obs)  # Patient scenario + available tools
-
-# Cross-domain pathway
-env = gym.make("BioAgent-v0", domain="cross_domain", task_id="xd_chest_pain_001_triage")
-obs, info = env.reset()
-# Agent traverses: Triage → Diagnosis → Imaging → Drugs → EHR → Disposition
-
-# With scaled tasks
-env = gym.make("BioAgent-v0", domain="drug_interaction", use_scaled_tasks=True)
-# 65 tasks including template-generated variants
-```
-
-### 3. Evaluate Safety
-
-```python
-from bioagents.evaluation.safety_eval import (
-    compute_safety_reward,
-    run_adversarial_suite,
-)
-
-# Per-response safety check
-result = compute_safety_reward(
-    response="Prescribe amoxicillin 500mg TID",
-    patient_allergies=["penicillin"],
-    time_critical=False,
-)
-print(result["total"])          # 0.0 (allergy violation!)
-print(result["violations"])     # Details of what went wrong
-
-# Full adversarial suite
-results = run_adversarial_suite(generate_fn=my_model.generate)
-print(f"Pass rate: {results['pass_rate']:.1%}")
-print(f"Category scores: {results['category_scores']}")
-```
-
-### 4. Train with GRPO
-
-```bash
-# Single domain
-python bioagents/training/grpo_trainer.py --config configs/grpo_triage_emergency.yaml
-
-# Cross-domain pathways (flagship)
-python bioagents/training/grpo_trainer.py --config configs/grpo_cross_domain.yaml
-
-# Self-play loop
-python bioagents/training/self_play.py --config configs/self_play_3iter.yaml
-```
-
-### 5. Benchmark Evaluation
-
-```bash
-# Text benchmarks (MedQA, MedMCQA, MMLU)
-python bioagents/evaluation/benchmark_eval.py \
-    --model checkpoints/grpo_cross_domain/merged \
-    --benchmarks medqa medmcqa mmlu_anatomy
-
-# VQA benchmarks (6 datasets)
-python bioagents/evaluation/vqa_benchmark_eval.py \
-    --model checkpoints/grpo_cross_domain/merged \
-    --benchmarks vqa_rad slake pathvqa
-```
-
----
-
-## Training Pipeline
-
-```
-Phase 1: SFT (Supervised Fine-Tuning)
-  └─ Instruction data + medical trajectories → base agent capability
-
-Phase 2: GRPO (Group Relative Policy Optimization)
-  └─ Per-domain RL with 5D reward → domain-specific improvement
-
-Phase 3: Self-Play
-  └─ Collect trajectories → Judge quality → Filter → Train → Repeat
-
-Phase 4: Cross-Domain RL
-  └─ Multi-phase pathways with safety constraints → clinical integration
-
-Phase 5: Evaluation
-  └─ Agent tasks + External benchmarks + Safety adversarial suite
-```
-
----
-
-## Patient Agent (Multi-Agent Simulation)
-
-Real clinical encounters are **dialogues**, not static prompts. Our Patient Agent simulates realistic patients:
-
-```python
-from bioagents.agents import PatientAgent, get_clinical_cases, PatientPersonality
-
-case = get_clinical_cases()[0]  # 58M chest pain → STEMI
-patient = PatientAgent(case, personality=PatientPersonality.ANXIOUS)
-
-# Patient opens with chief complaint
-opening = patient.get_opening_statement()
-# → "Doctor, I'm really scared... I've been having chest pain for 2 hours..."
-
-# Progressive symptom revelation based on doctor's questions
-response = patient.respond("Can you describe the pain?")
-# → "Heavy pressure, like an elephant sitting on chest. Is that bad?"
-
-# Track information gathering
-progress = patient.get_revelation_progress()
-# → {"revealed_layers": 5, "total_layers": 33, "rapport": 2}
-```
-
-**Features:**
-- 6 clinical cases (STEMI, appendicitis, stroke, Kawasaki, back pain, urosepsis)
-- 7 patient personalities (cooperative, anxious, stoic, vague, demanding, elderly confused, pediatric parent)
-- 6 cognitive biases (anchoring, minimization, catastrophizing, med-seeking, doctor distrust, cultural)
-- Progressive symptom revelation (5 layers, keyword-triggered)
-- Rapport tracking (empathy → more information)
-
-## Clinical Guidelines Integration
-
-10 evidence-based guidelines with automated compliance checking:
-
-```python
-from bioagents.knowledge.guidelines import check_compliance, get_guideline_context
-
-# Check if actions comply with STEMI guidelines
-result = check_compliance(
-    actions=["Obtained ECG", "Drew troponin", "Gave aspirin 325mg", "Activated cath lab"],
-    condition="STEMI",
-)
-# → compliance_score: 0.85, critical_compliance: 1.0
-
-# Inject guidelines into agent context
-context = get_guideline_context("sepsis")
-# → "=== Clinical Guidelines: 2021 Surviving Sepsis Campaign ===\n..."
-```
-
-| Guideline | Organization | Key Metrics |
-|-----------|-------------|-------------|
-| STEMI | AHA/ACC 2023 | Door-to-balloon <90 min |
-| Acute Stroke | AHA/ASA 2019 | Door-to-CT <25 min, door-to-needle <60 min |
-| Sepsis | SSC 2021 | Hour-1 bundle compliance |
-| DKA | ADA 2024 | K+ before insulin, glucose q1h |
-| Chest Pain | ACEP HEART 2020 | HEART score risk stratification |
-| Kawasaki | AHA 2017/2024 | IVIG within 10 days, echo timing |
-| Appendicitis | WSES 2020 | CT gold standard, pregnancy test |
-| PE | ESC 2019 | Wells score, D-dimer vs CT-PA |
-| Low Back Pain | ACP 2017 | No imaging without red flags |
-| Antimicrobial | IDSA 2023 | Cultures before antibiotics, de-escalation |
-
-## Cognitive Bias Evaluation
-
-Inspired by AgentClinic's 24-bias framework, our matched-pair testing detects:
-
-| Bias Type | Test Method | Example |
-|-----------|------------|---------|
-| Anchoring | Same case ± patient self-diagnosis | Chest pain + "I think it's heartburn" |
-| Confirmation | Same case ± misleading triage note | PE case + "Triage: likely anxiety" |
-| Racial | Identical presentation, different race | STEMI in White vs Black patient |
-| Gender | Classic vs atypical MI by gender | Male chest pressure vs female jaw pain |
-| Age | Same appendicitis in young vs elderly | 25yo vs 78yo with RLQ pain |
-| Socioeconomic | Same cardiac case, different SES | Insured attorney vs uninsured laborer |
-| Authority | Correct labs vs incorrect senior opinion | INR 1.2 + "senior says it's fine" |
-| Weight | Same RA presentation, different BMI | BMI 22 vs BMI 38 with joint symptoms |
-
----
-
-## GymCoach: Continuous Autonomous Training Loop
-
-The GymCoach is what makes models **autonomously improve forever** — it runs a continuous loop of evaluation, error analysis, targeted data generation, training, and automatic domain expansion. **It never stops.**
-
-```bash
-# Launch the continuous autonomous training loop
-python -m bioagents.gym.gym_coach \
-    --model checkpoints/qwen3_8b_sft \
-    --mastery-threshold 0.90
-
-# Or use the launcher script
-bash scripts/run_gym_coach.sh --model checkpoints/qwen3_8b_sft
-```
-
-**How it works:**
-
-```
-Iteration 1: EVALUATE → ANALYZE → DETECT PATTERNS → GENERATE → TRAIN → TRACK
-
-  Domain             Score  Mastery        Trend       Status
-  clinical_diagnosis 42.0%  beginner       ---         Focus!
-  drug_interaction   65.0%  intermediate   ---
-  ehr_management     90.0%  expert         ---
-  
-  [TrainingMemory] 0 recurring patterns (first iteration)
-  Top weaknesses: premature_stop (18), safety_violation (15), reasoning_error (12)
-  → Generated 50 targeted tasks → Training (SFT, lr=2e-5)
-
-Iteration 5: (after 4 rounds of targeted training)
-  clinical_diagnosis 78.0%  advanced       improving   ↑
-  
-  [TrainingMemory] RECURRING ERROR: premature_stop in clinical_dx (3x)
-    → Recommendation: Increase min turn requirement, add process reward
-  → Phase transition: SINGLE_DOMAIN → MULTI_DOMAIN (GRPO)
-
-Iteration 12: All domains > 90% → SAFETY_HARDENING
-  [TrainingMemory] Total: 3,600 trajectories, 847 errors, 12 recurring patterns
-  → Adversarial + bias testing + safety-weighted training
-
-Iteration 18: ALL DOMAINS CONQUERED!
-  → AUTO-EXPAND: Adding Ophthalmology, Psychiatry, Oncology
-  → Continuous loop continues with 11 domains...
-  
-Iteration 30: Expansion domains conquered too!
-  → AUTO-EXPAND: Adding Cardiology, Nephrology, Endocrinology...
-  
-  (The loop NEVER stops — it keeps finding new frontiers)
-```
-
-**8 Core Components:**
-
-| Component | What it does |
-|-----------|-------------|
-| **ErrorAnalyzer** | 9 failure categories: tool_selection, parameter_error, premature_stop, over_investigation, reasoning_error, safety_violation, format_error, knowledge_gap, guideline_noncompliance |
-| **TargetedDataGenerator** | Creates training tasks specifically for each weakness |
-| **CurriculumScheduler** | 5-phase progression: Single Domain → Multi-Domain → Cross-Domain → Safety → Expansion |
-| **ProgressTracker** | Mastery tracking with trends (novice → beginner → intermediate → advanced → expert → master) |
-| **DomainExpander** | When all conquered: auto-expand to new medical specialties |
-| **TrainingMemory** | Records ALL actions, trajectories, errors; detects recurring patterns; generates preventive recommendations |
-| **PatternDetector** | Finds recurring errors, score plateaus, safety regressions; warns BEFORE training |
-| **GymCoach** | Master orchestrator — continuous loop that never stops, auto-expands when conquered |
-
-### Training Memory System
-
-Every action, trajectory, and error is recorded to enable learning from past mistakes:
-
-```
-logs/gym_coach/training_memory/
-├── actions/              # Every action as JSONL per iteration
-│   ├── iter_0001.jsonl   # evaluate/domain_result, train/completed, etc.
-│   └── iter_0002.jsonl
-├── errors/               # All errors with deduplication + recurrence tracking
-│   └── all_errors.jsonl  # Fingerprinted, deduplicated, with resolutions
-├── trajectories/         # Full multi-turn trajectories per domain
-│   ├── iter_0001/
-│   │   ├── clinical_diagnosis_CD001.json
-│   │   └── drug_interaction_DI003.json
-│   └── iter_0002/
-└── snapshot_iter_*.json  # Periodic comprehensive snapshots
-```
-
-**Capabilities:**
-- **Error deduplication** via fingerprinting (same error type + domain + description = same fingerprint)
-- **Recurrence tracking** — logs WARNING when same error reoccurs across iterations
-- **Preventive warnings** — before training a domain, checks past errors and warns about frequent issues
-- **Recommendations** — generates actionable suggestions based on error patterns (e.g., "increase safety reward weight")
-- **Safety regression detection** — alerts if safety score drops between iterations
-- **Score plateau detection** — flags domains stuck at same score for N iterations
-
----
-
-## Why Healthcare AI GYM?
-
-| Problem | Our Solution |
-|---------|-------------|
-| Benchmarks don't measure clinical ability | Simulated clinical environments with tool use |
-| Models trained in isolation per task | Cross-domain pathways spanning complete patient journeys |
-| No patient interaction | Patient Agent with progressive symptom revelation |
-| No safety evaluation | 50 adversarial tests + 11 bias tests + severity taxonomy |
-| No guideline compliance | 10 clinical guidelines with automated compliance checking |
-| Models don't improve autonomously | GymCoach: evaluate → analyze → generate → train loop |
-| Static datasets can't scale | Targeted data generation based on error analysis |
-| No path to domain expansion | 5-phase curriculum with automatic domain expansion |
-| No standard for medical agent training | Gymnasium-compatible interface with 5D rewards |
+## vs. Existing Work
+
+| Dimension | DiagGym | MedAgentGym | AgentClinic | **Healthcare AI GYM** |
+|-----------|---------|-------------|-------------|----------------------|
+| Domains | 1 (EHR) | 129 (code) | 9 (dialogue) | **10 clinical** |
+| Task type | Diagnosis | Code execution | Conversation | **Tool-use agent** |
+| Multimodal | No | No | No | **Text + Vision** |
+| Cross-domain | No | No | No | **6 pathways** |
+| Clinical tools | ~10 | Python RT | None | **126+** |
+| Safety eval | Limited | No | No | **5D + 50 adversarial + 11 bias** |
+| Fairness (RL) | No | No | No | **FairGRPO** |
+| Self-training | No | Limited | No | **Full autonomous** |
+| Peer learning | No | No | No | **SharedLogbook** |
+| Auto data gen | No | No | No | **828K knowledge source** |
 
 ---
 
 ## Citation
 
 ```bibtex
-@software{healthcare_ai_gym,
-  title={Healthcare AI GYM: End-to-End Gymnasium for Medical Agent Training},
+@software{healthcare_ai_gym_2025,
+  title={Healthcare AI GYM: Autonomous Gymnasium for Medical Agent Training via Multi-Turn Reinforcement Learning},
   year={2025},
-  url={https://github.com/bioagents/healthcare-ai-gym}
 }
 ```
 
@@ -480,10 +488,9 @@ logs/gym_coach/training_memory/
 
 ## License
 
-This project is licensed under the **Apache License 2.0** — see the [LICENSE](LICENSE) file for details.
+Apache License 2.0. See [LICENSE](LICENSE) for details.
 
-**Important notices:**
-- Portions of this codebase were authored with AI assistance (Anthropic Claude, Commercial API). See [NOTICE](NOTICE) for details.
-- Third-party components have their own licenses. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for a complete inventory.
-- The synthetic patient data in this repository is **entirely fictional** and does not contain any real patient information.
-- This is a **research tool** — NOT for clinical use. See NOTICE for the full medical disclaimer.
+- Portions authored with AI assistance (Anthropic Claude). See [NOTICE](NOTICE).
+- Third-party licenses: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+- All patient data is **synthetic**. No real patient information.
+- **Research tool only** -- NOT for clinical use.

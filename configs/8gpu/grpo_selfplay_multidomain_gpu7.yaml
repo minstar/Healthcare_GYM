@@ -63,7 +63,7 @@ environment:
   use_gym_env: true
 
 logging:
-  project: "bioagents-grpo"
+  project: "pt2-minstar-gym-rl"
   run_name: "grpo_selfplay_multidomain_gpu7"
   use_wandb: false
   log_dir: "logs/8gpu/grpo_selfplay_multidomain"

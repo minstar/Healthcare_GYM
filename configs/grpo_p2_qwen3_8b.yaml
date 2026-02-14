@@ -81,7 +81,7 @@ environment:
     - "medical_qa"
 
 logging:
-  project: "bioagents-grpo"
+  project: "pt2-minstar-gym-rl"
   run_name: "grpo_p2_qwen3_8b_medqa"
   use_wandb: false
   log_dir: "logs/runs"

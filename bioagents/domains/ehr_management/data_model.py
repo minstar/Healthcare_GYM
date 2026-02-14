@@ -97,7 +97,10 @@ class MedicationOrder(BaseModel):
     """A medication order (MIMIC prescriptions table)."""
     order_id: str = Field(description="Order identifier")
     drug: str = Field(description="Drug generic name")
-    drug_type: Literal["MAIN", "BASE", "ADDITIVE"] = Field(default="MAIN")
+    drug_type: Literal[
+        "MAIN", "BASE", "ADDITIVE",
+        "BLOOD", "ELECTROLYTE", "TPN", "LIPID", "ANTIBIOTICS",
+    ] = Field(default="MAIN")
     dose_val: str = Field(default="", description="Dose value")
     dose_unit: str = Field(default="", description="Dose unit")
     route: str = Field(default="", description="Route of administration (PO, IV, etc.)")

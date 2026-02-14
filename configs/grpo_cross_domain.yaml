@@ -96,7 +96,7 @@ environment:
     - "radiology_report"
 
 logging:
-  project: "bioagents-grpo"
+  project: "pt2-minstar-gym-rl"
   run_name: "grpo_cross_domain_pathways"
   use_wandb: true
   log_dir: "logs/runs"

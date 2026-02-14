@@ -1,0 +1,1352 @@
+[
+  {
+    "id": "evid_ehr_management_846cbdd0",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Develop a policy statement to address issues of privacy and confidentiality in electronic health records. <noinput> Defi",
+    "correct_answer": "Privacy, confidentiality, and electronic medical records. The enhanced availability of health information in an electronic format is strategic for industry-wide efforts to improve the quality and reduce the cost of health care, yet it brings a concomitant concern of greater risk for loss of privacy among health care participants. The authors review the conflicting goals of accessibility and security for electronic medical records and discuss nontechnical and technical aspects that constitute a reasonable security solution. It is argued that with guiding policy and current technology, an electronic medical record may offer better security than a traditional paper record.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Develop a policy statement to address issues of privacy and confidentiality in e",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_9fa17648",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Develop a policy statement to address issues of privacy and confidentiality in electronic health records. <noinput> Here",
+    "correct_answer": "Privacy, confidentiality, and electronic medical records. The enhanced availability of health information in an electronic format is strategic for industry-wide efforts to improve the quality and reduce the cost of health care, yet it brings a concomitant concern of greater risk for loss of privacy among health care participants. The authors review the conflicting goals of accessibility and security for electronic medical records and discuss nontechnical and technical aspects that constitute a reasonable security solution. It is argued that with guiding policy and current technology, an electronic medical record may offer better security than a traditional paper record.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Develop a policy statement to address issues of privacy and confidentiality in e",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_cd7a1d5e",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Generate an informative text on how to read clinical notes for medical students. Clinical notes play a crucial role in c",
+    "correct_answer": "of the care and communication of medical decision making are other critical elements of quality documentation. Limited previous work suggests that medical student documentation is at risk for factual errors, highlighting the need for close faculty supervision of all trainee documentation.The highest quality documentation curriculum still cannot take the place of appropriate oversight and ongoing guidance for students who may be encountering complex and unfamiliar clinical scenarios. While some physicians may perceive this additional time spent reviewing student notes as a potential burden, this must be weighed against the time saved by not having to provide wholesale documentation of the patient encounter and the enrichment of the medical student experience.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Generate an informative text on how to read clinical notes for medical students.",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_421a73cc",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Provide a summary of how Electronic Health Records have transformed healthcare. <noinput> 4. Enhanced Communication and ",
+    "correct_answer": "Electronic health records: current and future use. This paper provides an overview of the current state of the electronic medical record, including benefits and shortcomings, and presents key factors likely to drive development in the next decade and beyond. The current electronic medical record to a large extent represents a digital version of the traditional paper legal record, owned and maintained by the practitioner. The future electronic health record is expected to be a shared tool, engaging patients in decision making, wellness and disease management and providing data for individual decision support, population management and analytics. Many drivers will determine this path, including payment model reform, proliferation of mobile platforms, telemedicine, genomics and individualized medicine and advances in 'big data' technologies.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Provide a summary of how Electronic Health Records have transformed healthcare. ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_b90cc1d8",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Provide a summary of how Electronic Health Records have transformed healthcare. <noinput> This enables healthcare organi",
+    "correct_answer": "Electronic health records: current and future use. This paper provides an overview of the current state of the electronic medical record, including benefits and shortcomings, and presents key factors likely to drive development in the next decade and beyond. The current electronic medical record to a large extent represents a digital version of the traditional paper legal record, owned and maintained by the practitioner. The future electronic health record is expected to be a shared tool, engaging patients in decision making, wellness and disease management and providing data for individual decision support, population management and analytics. Many drivers will determine this path, including payment model reform, proliferation of mobile platforms, telemedicine, genomics and individualized medicine and advances in 'big data' technologies.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Provide a summary of how Electronic Health Records have transformed healthcare. ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_146b0bad",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Rewrite the academic definition of electronic health records into language understandable to a layman. “Electronic healt",
+    "correct_answer": "The population health record: concepts, definition, design, and implementation. In 1997, the American Medical Informatics Association proposed a US information strategy that included a population health record (PopHR). Despite subsequent progress on the conceptualization, development, and implementation of electronic health records and personal health records, minimal progress has occurred on the PopHR. Adapting International Organization for Standarization electronic health records standards, we define the PopHR as a repository of statistics, measures, and indicators regarding the state of and influences on the health of a defined population, in computer processable form, stored and transmitted securely, and accessible by multiple authorized users. The PopHR is based upon an explicit population health framework and a standardized logical information model. PopHR purpose and uses, content and content sources, functionalities, business objectives, information",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Rewrite the academic definition of electronic health records into language under",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_cff38fb1",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Develop a policy statement to address issues of privacy and confidentiality in electronic health records. <noinput> Clea?",
+    "correct_answer": "Privacy, confidentiality, and electronic medical records. The enhanced availability of health information in an electronic format is strategic for industry-wide efforts to improve the quality and reduce the cost of health care, yet it brings a concomitant concern of greater risk for loss of privacy among health care participants. The authors review the conflicting goals of accessibility and security for electronic medical records and discuss nontechnical and technical aspects that constitute a reasonable security solution. It is argued that with guiding policy and current technology, an electronic medical record may offer better security than a traditional paper record.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Develop a policy statement to address issues of privacy and confidentiality in e",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_05570c87",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Generate an informative text on how to read clinical notes for medical students. Clinical notes play a crucial role in c",
+    "correct_answer": "of the care and communication of medical decision making are other critical elements of quality documentation. Limited previous work suggests that medical student documentation is at risk for factual errors, highlighting the need for close faculty supervision of all trainee documentation.The highest quality documentation curriculum still cannot take the place of appropriate oversight and ongoing guidance for students who may be encountering complex and unfamiliar clinical scenarios. While some physicians may perceive this additional time spent reviewing student notes as a potential burden, this must be weighed against the time saved by not having to provide wholesale documentation of the patient encounter and the enrichment of the medical student experience.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Generate an informative text on how to read clinical notes for medical students.",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_1ac86130",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Generate an informative text on how to read clinical notes for medical students. Clinical notes play a crucial role in c",
+    "correct_answer": "of the care and communication of medical decision making are other critical elements of quality documentation. Limited previous work suggests that medical student documentation is at risk for factual errors, highlighting the need for close faculty supervision of all trainee documentation.The highest quality documentation curriculum still cannot take the place of appropriate oversight and ongoing guidance for students who may be encountering complex and unfamiliar clinical scenarios. While some physicians may perceive this additional time spent reviewing student notes as a potential burden, this must be weighed against the time saved by not having to provide wholesale documentation of the patient encounter and the enrichment of the medical student experience.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Generate an informative text on how to read clinical notes for medical students.",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_e2942a31",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Provide a summary of how Electronic Health Records have transformed healthcare. <noinput> Increased Patient Engagement: ",
+    "correct_answer": "Electronic health records: current and future use. This paper provides an overview of the current state of the electronic medical record, including benefits and shortcomings, and presents key factors likely to drive development in the next decade and beyond. The current electronic medical record to a large extent represents a digital version of the traditional paper legal record, owned and maintained by the practitioner. The future electronic health record is expected to be a shared tool, engaging patients in decision making, wellness and disease management and providing data for individual decision support, population management and analytics. Many drivers will determine this path, including payment model reform, proliferation of mobile platforms, telemedicine, genomics and individualized medicine and advances in 'big data' technologies.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Provide a summary of how Electronic Health Records have transformed healthcare. ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_9a51cc40",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Develop a policy statement to address issues of privacy and confidentiality in electronic health records. <noinput> This",
+    "correct_answer": "Privacy, confidentiality, and electronic medical records. The enhanced availability of health information in an electronic format is strategic for industry-wide efforts to improve the quality and reduce the cost of health care, yet it brings a concomitant concern of greater risk for loss of privacy among health care participants. The authors review the conflicting goals of accessibility and security for electronic medical records and discuss nontechnical and technical aspects that constitute a reasonable security solution. It is argued that with guiding policy and current technology, an electronic medical record may offer better security than a traditional paper record.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Develop a policy statement to address issues of privacy and confidentiality in e",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_857ac286",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Write a paragraph on what to expect and how to prepare for a general physical examination. <noinput> When preparing for ",
+    "correct_answer": "Communication pitfalls of traditional history and physical write-up documentation. BACKGROUND: An unofficial standardized \"write-up\" outline is commonly used for documenting history and physical examinations, giving oral presentations, and teaching clinical skills. Despite general acceptance, there is an apparent discrepancy between the way clinical encounters are conducted and how they are documented. METHODS: Fifteen medical school websites were randomly selected from search-engine generated lists. One example of a history and physical write-up from each of six sites, one teaching outline from each of nine additional sites, and recommendations for documentation made in two commonly used textbooks were compared for similarities and differences. RESULTS: Except for minor variations in documenting background information, all sampled materials utilized the same standardized format. When the examiners' early perceptions of the patients' degree of",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a paragraph on what to expect and how to prepare for a general physical ex",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_192af449",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Provide a summary of how Electronic Health Records have transformed healthcare. <noinput> This improves care coordinatio",
+    "correct_answer": "Electronic health records: current and future use. This paper provides an overview of the current state of the electronic medical record, including benefits and shortcomings, and presents key factors likely to drive development in the next decade and beyond. The current electronic medical record to a large extent represents a digital version of the traditional paper legal record, owned and maintained by the practitioner. The future electronic health record is expected to be a shared tool, engaging patients in decision making, wellness and disease management and providing data for individual decision support, population management and analytics. Many drivers will determine this path, including payment model reform, proliferation of mobile platforms, telemedicine, genomics and individualized medicine and advances in 'big data' technologies.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Provide a summary of how Electronic Health Records have transformed healthcare. ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_5aa12eca",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Develop a policy statement to address issues of privacy and confidentiality in electronic health records. <noinput> 7. U?",
+    "correct_answer": "Privacy, confidentiality, and electronic medical records. The enhanced availability of health information in an electronic format is strategic for industry-wide efforts to improve the quality and reduce the cost of health care, yet it brings a concomitant concern of greater risk for loss of privacy among health care participants. The authors review the conflicting goals of accessibility and security for electronic medical records and discuss nontechnical and technical aspects that constitute a reasonable security solution. It is argued that with guiding policy and current technology, an electronic medical record may offer better security than a traditional paper record.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Develop a policy statement to address issues of privacy and confidentiality in e",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_8a0446b8",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Provide a summary of how Electronic Health Records have transformed healthcare. <noinput> In summary, Electronic Health ",
+    "correct_answer": "Electronic health records: current and future use. This paper provides an overview of the current state of the electronic medical record, including benefits and shortcomings, and presents key factors likely to drive development in the next decade and beyond. The current electronic medical record to a large extent represents a digital version of the traditional paper legal record, owned and maintained by the practitioner. The future electronic health record is expected to be a shared tool, engaging patients in decision making, wellness and disease management and providing data for individual decision support, population management and analytics. Many drivers will determine this path, including payment model reform, proliferation of mobile platforms, telemedicine, genomics and individualized medicine and advances in 'big data' technologies.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Provide a summary of how Electronic Health Records have transformed healthcare. ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_97f3b102",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/generator_retrieval",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Generate an informative text on how to read clinical notes for medical students.Clinical notes play a crucial role in ca",
+    "correct_answer": "of the care and communication of medical decision making are other critical elements of quality documentation. Limited previous work suggests that medical student documentation is at risk for factual errors, highlighting the need for close faculty supervision of all trainee documentation.The highest quality documentation curriculum still cannot take the place of appropriate oversight and ongoing guidance for students who may be encountering complex and unfamiliar clinical scenarios. While some physicians may perceive this additional time spent reviewing student notes as a potential burden, this must be weighed against the time saved by not having to provide wholesale documentation of the patient encounter and the enrichment of the medical student experience.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Generate an informative text on how to read clinical notes for medical students.",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_f995c6d6",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Provide a summary of how Electronic Health Records have transformed healthcare. <noinput> This enhances care coordinatio?",
+    "correct_answer": "Electronic health records: current and future use. This paper provides an overview of the current state of the electronic medical record, including benefits and shortcomings, and presents key factors likely to drive development in the next decade and beyond. The current electronic medical record to a large extent represents a digital version of the traditional paper legal record, owned and maintained by the practitioner. The future electronic health record is expected to be a shared tool, engaging patients in decision making, wellness and disease management and providing data for individual decision support, population management and analytics. Many drivers will determine this path, including payment model reform, proliferation of mobile platforms, telemedicine, genomics and individualized medicine and advances in 'big data' technologies.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Provide a summary of how Electronic Health Records have transformed healthcare. ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_2575efbd",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Generate an informative text on how to read clinical notes for medical students. Clinical notes play a crucial role in c",
+    "correct_answer": "of the care and communication of medical decision making are other critical elements of quality documentation. Limited previous work suggests that medical student documentation is at risk for factual errors, highlighting the need for close faculty supervision of all trainee documentation.The highest quality documentation curriculum still cannot take the place of appropriate oversight and ongoing guidance for students who may be encountering complex and unfamiliar clinical scenarios. While some physicians may perceive this additional time spent reviewing student notes as a potential burden, this must be weighed against the time saved by not having to provide wholesale documentation of the patient encounter and the enrichment of the medical student experience.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Generate an informative text on how to read clinical notes for medical students.",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_30a96ad9",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/biomedical_instruction",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Based on the given clinical note excerpt, categorize the quality of documentation as good or needs improvement.",
+    "correct_answer": "The quality of documentation for the given clinical note excerpt is good. The note includes relevant information about the patient's blood pressure, their current condition, and the plan to continue monitoring closely.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Based on the given clinical note excerpt, categorize the quality of documentatio",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_5860d73a",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Develop a policy statement to address issues of privacy and confidentiality in electronic health records. <noinput> Esta?",
+    "correct_answer": "Privacy, confidentiality, and electronic medical records. The enhanced availability of health information in an electronic format is strategic for industry-wide efforts to improve the quality and reduce the cost of health care, yet it brings a concomitant concern of greater risk for loss of privacy among health care participants. The authors review the conflicting goals of accessibility and security for electronic medical records and discuss nontechnical and technical aspects that constitute a reasonable security solution. It is argued that with guiding policy and current technology, an electronic medical record may offer better security than a traditional paper record.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Develop a policy statement to address issues of privacy and confidentiality in e",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_516fc129",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Develop a policy statement to address issues of privacy and confidentiality in electronic health records. <noinput> Resp",
+    "correct_answer": "Privacy, confidentiality, and electronic medical records. The enhanced availability of health information in an electronic format is strategic for industry-wide efforts to improve the quality and reduce the cost of health care, yet it brings a concomitant concern of greater risk for loss of privacy among health care participants. The authors review the conflicting goals of accessibility and security for electronic medical records and discuss nontechnical and technical aspects that constitute a reasonable security solution. It is argued that with guiding policy and current technology, an electronic medical record may offer better security than a traditional paper record.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Develop a policy statement to address issues of privacy and confidentiality in e",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_49cab7db",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Generate an informative text on how to read clinical notes for medical students. Clinical notes play a crucial role in c",
+    "correct_answer": "of the care and communication of medical decision making are other critical elements of quality documentation. Limited previous work suggests that medical student documentation is at risk for factual errors, highlighting the need for close faculty supervision of all trainee documentation.The highest quality documentation curriculum still cannot take the place of appropriate oversight and ongoing guidance for students who may be encountering complex and unfamiliar clinical scenarios. While some physicians may perceive this additional time spent reviewing student notes as a potential burden, this must be weighed against the time saved by not having to provide wholesale documentation of the patient encounter and the enrichment of the medical student experience.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Generate an informative text on how to read clinical notes for medical students.",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_b7e675e3",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Develop a policy statement to address issues of privacy and confidentiality in electronic health records. <noinput> Spec",
+    "correct_answer": "Privacy, confidentiality, and electronic medical records. The enhanced availability of health information in an electronic format is strategic for industry-wide efforts to improve the quality and reduce the cost of health care, yet it brings a concomitant concern of greater risk for loss of privacy among health care participants. The authors review the conflicting goals of accessibility and security for electronic medical records and discuss nontechnical and technical aspects that constitute a reasonable security solution. It is argued that with guiding policy and current technology, an electronic medical record may offer better security than a traditional paper record.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Develop a policy statement to address issues of privacy and confidentiality in e",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_0cbb47c1",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Generate an informative text on how to read clinical notes for medical students. Clinical notes play a crucial role in c",
+    "correct_answer": "of the care and communication of medical decision making are other critical elements of quality documentation. Limited previous work suggests that medical student documentation is at risk for factual errors, highlighting the need for close faculty supervision of all trainee documentation.The highest quality documentation curriculum still cannot take the place of appropriate oversight and ongoing guidance for students who may be encountering complex and unfamiliar clinical scenarios. While some physicians may perceive this additional time spent reviewing student notes as a potential burden, this must be weighed against the time saved by not having to provide wholesale documentation of the patient encounter and the enrichment of the medical student experience.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_lab_events",
+          "arguments": {},
+          "info": "Get lab events",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Generate an informative text on how to read clinical notes for medical students.",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_ehr_management_14f7c0f4",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "ehr_management",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: In this task, you are given a medical research paper with summary and abstract. Your job is to summarize the paper into ",
+    "correct_answer": "The Clinical Document Architecture (CDA) enables electronic medical records to wireless mobile computing. The Clinical Document Architecture (CDA) has proved to be a valuable and powerful standard for a structured exchange of clinical documents between heterogeneous software systems like a Hospital Information System and a Physician Office System. In this paper we want to show how the CDA can additionally be used in order to enhance the Hospital Information System's functionality: each patient related document contained in or generated from the HIS can be converted to a CDA/XML document. With the XML/XSLT-based transformation methods, those documents can be device-specifically transformed. We use this method to display HIS-content on mobile devices like Personal Digital Assistants (PDAs) by extracting the respective data fields from the HIS database, converting them to",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_medication_orders",
+          "arguments": {},
+          "info": "Get medications",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_demographics",
+          "arguments": {},
+          "info": "Get demographics",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_admission_info",
+          "arguments": {},
+          "info": "Get admission data",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: In this task, you are given a medical research paper with summary and abstract. ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  }
+]

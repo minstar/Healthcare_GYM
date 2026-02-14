@@ -76,6 +76,7 @@ class AutonomousGymConfig:
     # Logging
     log_dir: str = "logs/autonomous_gym"
     logbook_dir: str = "logs/shared_logbook"
+    wandb_project: str = "pt2-minstar-gym-rl"
 
     # Continuous mode
     continuous: bool = True
@@ -939,6 +940,29 @@ class AutonomousGym:
         self.log_dir = Path(config.log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
+        # W&B session-level logger
+        self._wb = None
+        try:
+            from bioagents.utils.wandb_logger import GymWandbLogger, set_gym_logger
+            self._wb = GymWandbLogger.init_run(
+                agent_id="gym_session",
+                run_type="gym_session",
+                model_name=f"{config.num_gpus}xGPU",
+                config={
+                    "num_gpus": config.num_gpus,
+                    "available_domains": config.available_domains,
+                    "safety_score_floor": config.safety_score_floor,
+                    "max_consecutive_failures": config.max_consecutive_failures,
+                    "continuous": config.continuous,
+                },
+                tags=["gym_session", f"gpus:{config.num_gpus}"],
+                group="gym_sessions",
+                enabled=True,
+            )
+            set_gym_logger(self._wb)
+        except Exception as e:
+            logger.warning(f"[GYM] W&B session init failed: {e}")
+
         logger.info("=" * 70)
         logger.info("  Autonomous Healthcare AI GYM")
         logger.info("=" * 70)
@@ -948,6 +972,7 @@ class AutonomousGym:
             f"  Mode: "
             f"{'CONTINUOUS' if config.continuous else 'FIXED'}"
         )
+        logger.info(f"  W&B Project: pt2-minstar-gym-rl")
 
     def register_agent(self, agent_config) -> str:
         """Register an agent with the gym.
@@ -1122,6 +1147,15 @@ class AutonomousGym:
 
         # Final summary
         self._print_final_summary()
+
+        # ── Refresh living guideline with all accumulated insights ──
+        try:
+            from bioagents.gym.guideline_updater import refresh_guideline
+            refresh_guideline(logbook=self.logbook)
+            logger.info("[GYM] AGENT_GUIDELINE.md refreshed")
+        except Exception:
+            pass
+
         logger.info("[GYM] Doors closed.")
 
     def _assign_agents(self):
@@ -1209,6 +1243,19 @@ class AutonomousGym:
                 "agent_id": agent_id,
                 "timestamp": datetime.now().isoformat(),
                 "result": result,
+            })
+
+        # W&B: log gym-level metrics
+        if self._wb and self._wb.is_active:
+            workout = result.get("workout", {})
+            util = self.scheduler.get_utilization()
+            self._wb.log_step({
+                f"agent/{agent_id}/pre_score": workout.get("pre_score", 0),
+                f"agent/{agent_id}/post_score": workout.get("post_score", 0),
+                "gym/active_workers": len(self._active_workers),
+                "gym/gpu_utilization": util.get("utilization", 0),
+                "gym/total_results": len(self._results),
+                "gym/queue_depth": util.get("queue_depth", 0),
             })
 
         # Handle safety guardrail actions
@@ -1334,6 +1381,13 @@ class AutonomousGym:
 
         print(f"\n  Session log saved to {session_path}")
         print("=" * 70)
+
+        # Finish W&B session
+        if self._wb and self._wb.is_active:
+            self._wb.set_summary("total_workouts", total_workouts)
+            self._wb.set_summary("num_agents", len(self._agents))
+            self._wb.set_summary("total_results", len(self._results))
+            self._wb.finish()
 
     def close(self):
         """Gracefully close the gym."""

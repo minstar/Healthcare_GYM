@@ -87,7 +87,7 @@ environment:
     - "cross_domain"
 
 logging:
-  project: "bioagents-grpo"
+  project: "pt2-minstar-gym-rl"
   run_name: "grpo_p2_multidomain_lingshu_sft"
   use_wandb: false
   log_dir: "logs/runs"

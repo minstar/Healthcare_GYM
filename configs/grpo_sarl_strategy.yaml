@@ -1,0 +1,92 @@
+# ============================================================
+# BIOAgents SARL (Search Agent RL) Config
+# ============================================================
+# Applies SARL reward design optimized for tool-using agents.
+# Best for tasks requiring search, browse, and evidence retrieval.
+#
+# Reference: Search-SARL (trains/snapshot-po/reward_computation/)
+#
+# Usage:
+#   python bioagents/training/grpo_trainer.py --config configs/grpo_sarl_strategy.yaml
+#   python bioagents/training/grpo_trainer.py --config configs/grpo_sarl_strategy.yaml --strategy sarl
+# ============================================================
+
+model:
+  name_or_path: "Qwen/Qwen3-1.7B"
+  torch_dtype: "bfloat16"
+  attn_implementation: "flash_attention_2"
+
+peft:
+  enabled: true
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+dataset:
+  domain: "medical_qa"
+  tasks_path: "data/domains/medical_qa/tasks.json"
+  split_tasks_path: "data/domains/medical_qa/split_tasks.json"
+  train_split: "train"
+  eval_split: "test"
+  max_prompt_length: 2048
+  max_completion_length: 1536  # Longer for search trajectories
+
+training:
+  output_dir: "checkpoints/grpo_sarl_medical_qa"
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-6
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  bf16: true
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 50
+  save_total_limit: 3
+  seed: 42
+  num_generations: 4
+  beta: 0.04
+  temperature: 0.8          # Slightly higher for diverse search trajectories
+
+rewards:
+  strategy: "sarl"
+  strategy_config:
+    # SARL paper parameters (Eq. 2-3)
+    sarl_alpha: 0.8              # Self-assessment decay factor
+    sarl_lambda: 0.5             # Assessment reward weight
+    # Tool usage bonus (prevents parametric shortcutting)
+    sarl_tool_bonus_per_call: 0.1   # +0.1 per tool call
+    sarl_tool_bonus_cap: 0.3        # Max +0.3 tool bonus
+    # Format compliance bonus
+    sarl_format_answer_bonus: 0.1   # +0.1 for <answer> tags
+    sarl_format_tool_bonus: 0.05    # +0.05 for valid tool format
+  bertscore_model: "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"
+
+environment:
+  max_turns: 12  # More turns for search-heavy tasks
+  use_gym_env: true
+
+logging:
+  project: "pt2-minstar-gym-rl"
+  run_name: "grpo_sarl_medical_qa"
+  use_wandb: true
+  log_dir: "logs/runs"
+
+meta:
+  experiment: "SARL strategy for Medical QA"
+  description: >
+    SARL (Search Agent RL) with self-assessment tracking and tool usage bonus.
+    Optimized for tasks requiring active search/browse tool usage.
+    Prevents parametric knowledge shortcutting by rewarding tool calls.
+    Self-assessment decay penalizes excessive correction attempts.

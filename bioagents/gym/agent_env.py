@@ -191,6 +191,13 @@ class BioAgentGymEnv(gym.Env):
                     all_tasks.append(t)
                     seen_ids.add(t["id"])
 
+        # Load auto-generated tasks (from AutoTaskGenerator / knowledge mining)
+        auto_tasks = _load_auto_generated_tasks(self.domain_name, task_split)
+        for t in auto_tasks:
+            if t["id"] not in seen_ids:
+                all_tasks.append(t)
+                seen_ids.add(t["id"])
+
         if not all_tasks:
             logger.warning(
                 f"No tasks found for domain={self.domain_name}, "
@@ -603,6 +610,51 @@ def _load_scaled_tasks(
         if task_split in splits:
             valid_ids = set(splits[task_split])
             return [t for t in tasks if t["id"] in valid_ids]
+
+    return tasks
+
+
+# ══════════════════════════════════════════════════════════════
+#  Auto-Generated Tasks Loader
+# ══════════════════════════════════════════════════════════════
+
+
+def _load_auto_generated_tasks(
+    domain: str,
+    task_split: Optional[str] = None,
+) -> list[dict]:
+    """Load auto-generated tasks from tasks_auto_generated.json.
+
+    These are produced by ``bioagents.data_pipeline.auto_task_generator``
+    from knowledge sources (FTS5 passages, benchmark conversions,
+    instruction mining, guideline synthesis).
+
+    Args:
+        domain: Domain name.
+        task_split: Optional split ('train', 'test').
+            For auto-generated tasks, all are treated as 'train'
+            unless a split file exists.
+
+    Returns:
+        List of auto-generated task dicts.
+    """
+    auto_path = _PROJECT_ROOT / "data" / "domains" / domain / "tasks_auto_generated.json"
+    if not auto_path.exists():
+        return []
+
+    try:
+        with open(auto_path, "r", encoding="utf-8") as f:
+            tasks = json.load(f)
+    except (json.JSONDecodeError, Exception):
+        return []
+
+    if not isinstance(tasks, list):
+        return []
+
+    # Auto-generated tasks are always available for training
+    # but excluded from 'test' split to avoid data leakage
+    if task_split == "test":
+        return []
 
     return tasks
 

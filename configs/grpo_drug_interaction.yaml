@@ -80,7 +80,7 @@ environment:
 
 # --- Logging ---
 logging:
-  project: "bioagents-grpo"
+  project: "pt2-minstar-gym-rl"
   run_name: "grpo_drug_interaction_qwen3_1.7b"
   use_wandb: true
   log_dir: "logs/runs"

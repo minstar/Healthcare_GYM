@@ -2,12 +2,12 @@
 # Autonomous Healthcare AI GYM -- Pure RL (GRPO) Continuous Training
 # ============================================================================
 #
-# 8x A100 80GB GPUs, running 24/7 for ~30 days
-# Multiple agents with different strategies, learning from each other
+# 8x A100 80GB GPUs, running 24/7
+# VL (Vision-Language) models only — full modality coverage
 #
 # Training Philosophy: PURE RL, NO SFT
 # ─────────────────────────────────────
-# Pre-trained 7-8B models already possess medical knowledge.
+# Pre-trained 7-10B VL models already possess medical knowledge.
 # Instead of memorizing answers via SFT, each agent improves through:
 #   1. Multi-turn GRPO with Environment-in-the-Loop
 #   2. 5D Adaptive Reward: accuracy + format + process + safety + coherence
@@ -17,20 +17,17 @@
 #
 # Learning Cycle (per agent, per cycle):
 #   Phase 1: REFLECT — analyze recent performance from SharedLogbook
-#   Phase 2: BENCHMARK — evaluate on 14 external benchmarks (every N cycles)
+#   Phase 2: BENCHMARK — evaluate on 14+ external benchmarks (every N cycles)
 #   Phase 3: CHOOSE — select domain + motivation via intrinsic strategy
 #   Phase 4: GRPO TRAIN — multi-turn environment interaction with 5D reward
 #   Phase 5: RECORD — log results to SharedLogbook
 #
-# ModelProfile system:
-# - Each model auto-detects its capabilities (text-only vs VL)
-# - VL models get visual_diagnosis + radiology_report domains
-# - Text models get text-only domains
+# W&B: All runs logged to project "pt2-minstar-gym-rl"
 #
-# GPU-Aware Auto-Tuning:
-# - Batch size, sequence length, LoRA rank, etc. auto-calculated
-# - Set any param to 0 = auto-tune (default)
-# - Set a specific value to override auto-tuning
+# Models (all VL-capable, <10B):
+#   - LingShu-7B (Qwen2.5-VL based, medical VL)  x3 agents
+#   - Step3-VL-10B (Step3 VL, multi-modal)        x3 agents
+#   - Qwen2.5-VL-7B-Instruct (general VL)         x2 agents
 #
 # Usage:
 #   python scripts/run_autonomous_gym.py --config configs/autonomous_gym.yaml
@@ -42,7 +39,7 @@ gym:
   num_gpus: 8
   gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
 
-  # ALL domains -- ModelProfile auto-filters per model capability
+  # ALL domains -- VL models handle everything including visual_diagnosis & radiology_report
   available_domains:
     - clinical_diagnosis
     - drug_interaction
@@ -64,165 +61,43 @@ gym:
   max_queue_size: 50
   idle_check_interval: 10.0
 
-  # Logging
+  # Logging & W&B
   log_dir: "logs/autonomous_gym"
   logbook_dir: "logs/shared_logbook"
+  wandb_project: "pt2-minstar-gym-rl"
 
   continuous: true
 
 # --- External Benchmark Evaluation ---
-# 14 benchmarks: MedQA, MedMCQA, 6x MMLU, 6x VQA
+# 14+ benchmarks: MedQA, MedMCQA, 6x MMLU, 6x VQA, MedLFQA, EHR
 # Runs every N cycles per agent. Set 0 to disable.
-# Injected into every agent's AutonomousAgentConfig by the launcher.
 benchmark:
   every_n_cycles: 3             # Run external benchmarks every 3rd cycle
-  max_samples: 0                # 0 = full benchmark (6545+ text QA + VQA)
+  max_samples: 0                # 0 = full benchmark
 
 # --- Agent Configurations ---
-# 8 agents = 8 GPUs, each with different strategy personality
-# Mixed: 5x Qwen3-8B (text-only) + 3x LingShu-7B VL (text + vision)
+# 8 agents = 8 GPUs, ALL vision-language capable
 #
-# GPU allocation:
-#   gpus_for_eval:  GPUs needed during evaluation (inference)
-#   gpus_for_train: GPUs needed during GRPO training
-#
-# Example scaling:
-#   8B model:  eval=1, train=1 (single GPU)
-#   70B model: eval=2, train=4 (multi-GPU, others queue up)
-#   FSDP:      eval=1, train=8 (full cluster training)
-#
-# Auto-tuned params (set to 0 for auto, or override with specific value):
-#   inference_batch_size:        0  (auto: ~16-32 for 8B on 80GB)
-#   inference_max_new_tokens:    0  (auto: 2048 for <=10B)
-#   inference_max_length:        0  (auto: 4096 for 8B)
-#   train_batch_size:            0  (auto: ~8-16 for 8B LoRA)
-#   train_max_length:            0  (auto: 2048 for 8B)
-#   gradient_accumulation_steps: 0  (auto: calculated for eff_batch=16)
-#   lora_r:                      0  (auto: 16 for 8B, 32 for <3B)
-#   gpu_memory_utilization:      0  (auto: 0.90)
+# Model lineup:
+#   LingShu-7B          (3 agents) — medical VL specialist
+#   Step3-VL-10B        (3 agents) — strong multi-modal reasoning
+#   Qwen2.5-VL-7B-Inst (2 agents) — general VL with instruction following
 #
 agents:
-  # ===== TEXT-ONLY AGENTS (Qwen3-8B) =====
 
-  # Agent 1: Weakness Fixer -- focuses on fixing lowest-scoring domains
-  - agent_id: "qwen3_weakness_fixer"
-    model_path: "/data/project/private/minstar/models/Qwen3-8B-Base"
-    backend: "transformers"
-    gpus_for_eval: 1
-    gpus_for_train: 1
-    curiosity_weight: 0.10
-    weakness_weight: 0.40
-    peer_learning_weight: 0.20
-    diversity_weight: 0.10
-    mastery_push_weight: 0.15
-    safety_weight: 0.05
-    max_turns: 15
-    eval_tasks_per_domain: 15
-    training_epochs: 2
-    learning_rate: 0.00002
-    quality_threshold: 0.4
-    mastery_threshold: 0.90
-    output_dir: "checkpoints/autonomous/qwen3_weakness_fixer"
-    log_dir: "logs/autonomous/qwen3_weakness_fixer"
+  # ===== LingShu-7B VL Agents (Medical VL Specialist) =====
 
-  # Agent 2: Explorer -- high curiosity, tries new domains first
-  - agent_id: "qwen3_explorer"
-    model_path: "/data/project/private/minstar/models/Qwen3-8B-Base"
-    backend: "transformers"
-    gpus_for_eval: 1
-    gpus_for_train: 1
-    curiosity_weight: 0.30
-    weakness_weight: 0.15
-    peer_learning_weight: 0.15
-    diversity_weight: 0.30
-    mastery_push_weight: 0.05
-    safety_weight: 0.05
-    max_turns: 15
-    eval_tasks_per_domain: 12
-    training_epochs: 2
-    learning_rate: 0.00003
-    quality_threshold: 0.35
-    mastery_threshold: 0.90
-    output_dir: "checkpoints/autonomous/qwen3_explorer"
-    log_dir: "logs/autonomous/qwen3_explorer"
-
-  # Agent 3: Peer Learner -- studies what other agents do well
-  - agent_id: "qwen3_peer_learner"
-    model_path: "/data/project/private/minstar/models/Qwen3-8B-Base"
-    backend: "transformers"
-    gpus_for_eval: 1
-    gpus_for_train: 1
-    curiosity_weight: 0.10
-    weakness_weight: 0.25
-    peer_learning_weight: 0.30
-    diversity_weight: 0.15
-    mastery_push_weight: 0.15
-    safety_weight: 0.05
-    max_turns: 15
-    eval_tasks_per_domain: 15
-    training_epochs: 3
-    learning_rate: 0.000015
-    quality_threshold: 0.45
-    mastery_threshold: 0.90
-    output_dir: "checkpoints/autonomous/qwen3_peer_learner"
-    log_dir: "logs/autonomous/qwen3_peer_learner"
-
-  # Agent 4: Safety Specialist -- healthcare safety is #1 priority
-  - agent_id: "qwen3_safety_specialist"
-    model_path: "/data/project/private/minstar/models/Qwen3-8B-Base"
-    backend: "transformers"
-    gpus_for_eval: 1
-    gpus_for_train: 1
-    curiosity_weight: 0.05
-    weakness_weight: 0.20
-    peer_learning_weight: 0.15
-    diversity_weight: 0.10
-    mastery_push_weight: 0.10
-    safety_weight: 0.40
-    max_turns: 20
-    eval_tasks_per_domain: 20
-    training_epochs: 3
-    learning_rate: 0.00001
-    quality_threshold: 0.55
-    mastery_threshold: 0.90
-    output_dir: "checkpoints/autonomous/qwen3_safety_specialist"
-    log_dir: "logs/autonomous/qwen3_safety_specialist"
-
-  # Agent 5: Balanced Generalist -- even weights across all motivations
-  - agent_id: "qwen3_generalist"
-    model_path: "/data/project/private/minstar/models/Qwen3-8B-Base"
-    backend: "transformers"
-    gpus_for_eval: 1
-    gpus_for_train: 1
-    curiosity_weight: 0.17
-    weakness_weight: 0.22
-    peer_learning_weight: 0.22
-    diversity_weight: 0.17
-    mastery_push_weight: 0.12
-    safety_weight: 0.10
-    max_turns: 15
-    eval_tasks_per_domain: 15
-    training_epochs: 2
-    learning_rate: 0.00002
-    quality_threshold: 0.45
-    mastery_threshold: 0.90
-    output_dir: "checkpoints/autonomous/qwen3_generalist"
-    log_dir: "logs/autonomous/qwen3_generalist"
-
-  # ===== VISION-LANGUAGE AGENTS (LingShu-7B VL) =====
-  # These can handle ALL domains including visual_diagnosis & radiology_report
-
-  # Agent 6: LingShu VL Base -- visual diagnosis focus
-  - agent_id: "lingshu_vl_visual"
+  # Agent 1: LingShu Weakness Fixer — aggressive weakness targeting
+  - agent_id: "lingshu_weakness_fixer"
     model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
     base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
     backend: "transformers"
     gpus_for_eval: 1
     gpus_for_train: 1
-    curiosity_weight: 0.15
-    weakness_weight: 0.25
-    peer_learning_weight: 0.20
-    diversity_weight: 0.15
+    curiosity_weight: 0.10
+    weakness_weight: 0.40
+    peer_learning_weight: 0.15
+    diversity_weight: 0.10
     mastery_push_weight: 0.15
     safety_weight: 0.10
     max_turns: 15
@@ -231,10 +106,10 @@ agents:
     learning_rate: 0.00002
     quality_threshold: 0.4
     mastery_threshold: 0.90
-    output_dir: "checkpoints/autonomous/lingshu_vl_visual"
-    log_dir: "logs/autonomous/lingshu_vl_visual"
+    output_dir: "checkpoints/autonomous/lingshu_weakness_fixer"
+    log_dir: "logs/autonomous/lingshu_weakness_fixer"
 
-  # Agent 7: LingShu Safety -- safety-focused VL agent (GRPO with safety boost)
+  # Agent 2: LingShu Safety — healthcare safety is #1 priority
   - agent_id: "lingshu_safety"
     model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
     base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
@@ -256,7 +131,7 @@ agents:
     output_dir: "checkpoints/autonomous/lingshu_safety"
     log_dir: "logs/autonomous/lingshu_safety"
 
-  # Agent 8: LingShu Mastery -- mastery pusher VL agent
+  # Agent 3: LingShu Mastery — push near-conquered domains over the line
   - agent_id: "lingshu_mastery"
     model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
     base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Lingshu-7B"
@@ -277,3 +152,117 @@ agents:
     mastery_threshold: 0.90
     output_dir: "checkpoints/autonomous/lingshu_mastery"
     log_dir: "logs/autonomous/lingshu_mastery"
+
+  # ===== Step3-VL-10B Agents (Strong Multi-Modal Reasoning) =====
+
+  # Agent 4: Step3 Explorer — high curiosity, explores new domains
+  - agent_id: "step3vl_explorer"
+    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Step3-VL-10B"
+    base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Step3-VL-10B"
+    backend: "transformers"
+    gpus_for_eval: 1
+    gpus_for_train: 1
+    curiosity_weight: 0.30
+    weakness_weight: 0.15
+    peer_learning_weight: 0.15
+    diversity_weight: 0.25
+    mastery_push_weight: 0.10
+    safety_weight: 0.05
+    max_turns: 15
+    eval_tasks_per_domain: 12
+    training_epochs: 2
+    learning_rate: 0.00002
+    quality_threshold: 0.35
+    mastery_threshold: 0.90
+    output_dir: "checkpoints/autonomous/step3vl_explorer"
+    log_dir: "logs/autonomous/step3vl_explorer"
+
+  # Agent 5: Step3 Peer Learner — studies what other agents do well
+  - agent_id: "step3vl_peer_learner"
+    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Step3-VL-10B"
+    base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Step3-VL-10B"
+    backend: "transformers"
+    gpus_for_eval: 1
+    gpus_for_train: 1
+    curiosity_weight: 0.10
+    weakness_weight: 0.25
+    peer_learning_weight: 0.30
+    diversity_weight: 0.15
+    mastery_push_weight: 0.10
+    safety_weight: 0.10
+    max_turns: 15
+    eval_tasks_per_domain: 15
+    training_epochs: 3
+    learning_rate: 0.000015
+    quality_threshold: 0.45
+    mastery_threshold: 0.90
+    output_dir: "checkpoints/autonomous/step3vl_peer_learner"
+    log_dir: "logs/autonomous/step3vl_peer_learner"
+
+  # Agent 6: Step3 Generalist — balanced approach across all domains
+  - agent_id: "step3vl_generalist"
+    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Step3-VL-10B"
+    base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Step3-VL-10B"
+    backend: "transformers"
+    gpus_for_eval: 1
+    gpus_for_train: 1
+    curiosity_weight: 0.17
+    weakness_weight: 0.22
+    peer_learning_weight: 0.18
+    diversity_weight: 0.17
+    mastery_push_weight: 0.13
+    safety_weight: 0.13
+    max_turns: 15
+    eval_tasks_per_domain: 15
+    training_epochs: 2
+    learning_rate: 0.00002
+    quality_threshold: 0.45
+    mastery_threshold: 0.90
+    output_dir: "checkpoints/autonomous/step3vl_generalist"
+    log_dir: "logs/autonomous/step3vl_generalist"
+
+  # ===== Qwen2.5-VL-7B-Instruct Agents (General VL + Instruction) =====
+
+  # Agent 7: Qwen VL Weakness Fixer — fixes weak spots with good instruction following
+  - agent_id: "qwen25vl_weakness_fixer"
+    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Qwen2.5-VL-7B-Instruct"
+    base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Qwen2.5-VL-7B-Instruct"
+    backend: "transformers"
+    gpus_for_eval: 1
+    gpus_for_train: 1
+    curiosity_weight: 0.10
+    weakness_weight: 0.35
+    peer_learning_weight: 0.20
+    diversity_weight: 0.10
+    mastery_push_weight: 0.15
+    safety_weight: 0.10
+    max_turns: 15
+    eval_tasks_per_domain: 15
+    training_epochs: 2
+    learning_rate: 0.00002
+    quality_threshold: 0.4
+    mastery_threshold: 0.90
+    output_dir: "checkpoints/autonomous/qwen25vl_weakness_fixer"
+    log_dir: "logs/autonomous/qwen25vl_weakness_fixer"
+
+  # Agent 8: Qwen VL Safety — safety-focused with strong instruction compliance
+  - agent_id: "qwen25vl_safety"
+    model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Qwen2.5-VL-7B-Instruct"
+    base_model_path: "/data/project/private/minstar/workspace/BIOAgents/checkpoints/models/Qwen2.5-VL-7B-Instruct"
+    backend: "transformers"
+    gpus_for_eval: 1
+    gpus_for_train: 1
+    curiosity_weight: 0.05
+    weakness_weight: 0.20
+    peer_learning_weight: 0.15
+    diversity_weight: 0.10
+    mastery_push_weight: 0.10
+    safety_weight: 0.40
+    max_turns: 20
+    eval_tasks_per_domain: 20
+    training_epochs: 3
+    learning_rate: 0.00001
+    quality_threshold: 0.55
+    mastery_threshold: 0.90
+    output_dir: "checkpoints/autonomous/qwen25vl_safety"
+    log_dir: "logs/autonomous/qwen25vl_safety"

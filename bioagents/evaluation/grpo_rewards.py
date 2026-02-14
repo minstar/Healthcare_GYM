@@ -352,6 +352,33 @@ def grpo_tool_use_reward(
     return rewards
 
 
+def grpo_coherence_reward(
+    completions: list,
+    **kwargs,
+) -> list[float]:
+    """GRPO-compatible coherence reward.
+
+    Measures response structure, logical flow, no contradictions,
+    clear final answer, appropriate length.
+
+    Returns:
+        List of coherence scores in [0, 1].
+    """
+    from bioagents.evaluation.rewards import _compute_coherence_score
+
+    rewards = []
+    for completion in completions:
+        if isinstance(completion, list):
+            text = completion[-1].get("content", "") if completion else ""
+        elif isinstance(completion, dict):
+            text = completion.get("content", "")
+        else:
+            text = str(completion)
+        score = _compute_coherence_score(text, is_final=True)
+        rewards.append(score)
+    return rewards
+
+
 def grpo_composite_reward(
     completions: list,
     solution: list = None,
@@ -362,10 +389,11 @@ def grpo_composite_reward(
     weights: dict = None,
     **kwargs,
 ) -> list[float]:
-    """GRPO-compatible composite reward combining all signals.
-    
-    Default weights: accuracy=0.4, format=0.2, process=0.4
-    
+    """GRPO-compatible 5D composite reward combining all signals.
+
+    Default weights: accuracy=0.30, format=0.15, process=0.25, safety=0.20, coherence=0.10
+    (matches the 5D system in rewards.py)
+
     Args:
         completions: List of model completions (TRL format)
         solution: Ground truth answers
@@ -374,13 +402,19 @@ def grpo_composite_reward(
         tool_call_logs: Actual tool call logs
         bert_scorer: Pre-initialized BERTScorer
         weights: Custom weights dict
-        
+
     Returns:
         List of composite reward scores
     """
     if weights is None:
-        weights = {"accuracy": 0.4, "format": 0.2, "process": 0.4}
-    
+        weights = {
+            "accuracy": 0.30,
+            "format": 0.15,
+            "process": 0.25,
+            "safety": 0.20,
+            "coherence": 0.10,
+        }
+
     accuracy_scores = grpo_accuracy_reward(
         completions, solution=solution, answer=answer,
         bert_scorer=bert_scorer, **kwargs,
@@ -389,16 +423,37 @@ def grpo_composite_reward(
     process_scores = grpo_process_reward(
         completions, solution=solution, **kwargs,
     )
-    
+
+    # Safety reward (lazy-loaded, graceful fallback)
+    safety_scores = None
+    if weights.get("safety", 0) > 0:
+        try:
+            safety_scores = _get_grpo_safety_reward()(completions, **kwargs)
+        except Exception:
+            safety_scores = [1.0] * len(completions)
+
+    # Coherence reward
+    coherence_scores = None
+    if weights.get("coherence", 0) > 0:
+        coherence_scores = grpo_coherence_reward(completions, **kwargs)
+
     rewards = []
-    for acc, fmt, proc in zip(accuracy_scores, format_scores, process_scores):
+    for i in range(len(completions)):
+        acc = accuracy_scores[i] if i < len(accuracy_scores) else 0.0
+        fmt = format_scores[i] if i < len(format_scores) else 0.0
+        proc = process_scores[i] if i < len(process_scores) else 0.0
+        safe = safety_scores[i] if safety_scores and i < len(safety_scores) else 1.0
+        coh = coherence_scores[i] if coherence_scores and i < len(coherence_scores) else 0.5
+
         total = (
-            weights["accuracy"] * acc
-            + weights["format"] * fmt
-            + weights["process"] * proc
+            weights.get("accuracy", 0.30) * acc
+            + weights.get("format", 0.15) * fmt
+            + weights.get("process", 0.25) * proc
+            + weights.get("safety", 0.20) * safe
+            + weights.get("coherence", 0.10) * coh
         )
         rewards.append(total)
-    
+
     return rewards
 
 
@@ -776,16 +831,43 @@ class _LazyRewardRegistry(dict):
         return list(super().keys()) + list(self._lazy_loaders.keys())
 
 
+def _get_mrpo_strategy_reward():
+    """Lazy-load MRPO strategy reward."""
+    from bioagents.evaluation.reward_strategies import create_reward_strategy, make_grpo_reward_fn
+    strategy = create_reward_strategy("mrpo")
+    return make_grpo_reward_fn(strategy)
+
+
+def _get_sarl_strategy_reward():
+    """Lazy-load SARL strategy reward."""
+    from bioagents.evaluation.reward_strategies import create_reward_strategy, make_grpo_reward_fn
+    strategy = create_reward_strategy("sarl")
+    return make_grpo_reward_fn(strategy)
+
+
+def _get_adaptive_strategy_reward():
+    """Lazy-load Adaptive strategy reward."""
+    from bioagents.evaluation.reward_strategies import create_reward_strategy, make_grpo_reward_fn
+    strategy = create_reward_strategy("adaptive")
+    return make_grpo_reward_fn(strategy)
+
+
 GRPO_REWARD_REGISTRY: Dict[str, Callable] = _LazyRewardRegistry({
     "accuracy": grpo_accuracy_reward,
     "format": grpo_format_reward,
     "process": grpo_process_reward,
     "tool_use": grpo_tool_use_reward,
+    "coherence": grpo_coherence_reward,
     "composite": grpo_composite_reward,
     # FairGRPO reward functions
     "fairness": grpo_fairness_reward,
     "fair_composite": grpo_fair_composite_reward,
 })
+
+# Register strategy-based rewards (lazy-loaded to avoid circular imports)
+GRPO_REWARD_REGISTRY._lazy_loaders["mrpo"] = _get_mrpo_strategy_reward
+GRPO_REWARD_REGISTRY._lazy_loaders["sarl"] = _get_sarl_strategy_reward
+GRPO_REWARD_REGISTRY._lazy_loaders["adaptive"] = _get_adaptive_strategy_reward
 
 
 def get_grpo_reward_functions(names: list[str]) -> list[Callable]:

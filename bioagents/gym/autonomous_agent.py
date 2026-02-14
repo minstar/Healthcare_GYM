@@ -32,6 +32,7 @@ Usage:
 """
 
 import json
+import os
 import random
 import time
 from dataclasses import dataclass, field
@@ -72,6 +73,7 @@ class AgentDecision:
     reasoning: str = ""
     priority_score: float = 0.0
     training_method: str = "grpo"
+    reward_strategy: str = "grpo"        # grpo, mrpo, sarl, adaptive
     estimated_difficulty: str = "moderate"
     timestamp: str = ""
 
@@ -393,6 +395,11 @@ class StrategySelector:
             best["domain"], reflection
         )
 
+        # Adaptively select reward strategy
+        reward_strategy = self._select_reward_strategy(
+            best["domain"], reflection
+        )
+
         # Estimate difficulty
         difficulty = self._estimate_difficulty(best["domain"], reflection)
 
@@ -403,6 +410,7 @@ class StrategySelector:
             reasoning=self._generate_reasoning(best, reflection),
             priority_score=best["total_score"],
             training_method=training_method,
+            reward_strategy=reward_strategy,
             estimated_difficulty=difficulty,
             timestamp=datetime.now().isoformat(),
         )
@@ -502,6 +510,62 @@ class StrategySelector:
         """
         return "grpo"
 
+    def _select_reward_strategy(self, domain: str, reflection: dict) -> str:
+        """Adaptively select the best reward strategy for this domain/task.
+
+        Strategy selection logic:
+        - GRPO:     Default for stable domains with good accuracy
+        - MRPO:     For domains needing token-level quality (open-ended, reasoning-heavy)
+        - SARL:     For tool-heavy domains where search/browse usage is critical
+        - Adaptive: For new/untried domains or when agent is uncertain
+
+        Returns:
+            One of: "grpo", "mrpo", "sarl", "adaptive"
+        """
+        domain_scores = reflection.get("domain_scores", {})
+        my_score = domain_scores.get(domain, 0.0)
+        weaknesses = reflection.get("weaknesses", [])
+        error_patterns = reflection.get("error_patterns", {})
+        is_new = reflection.get("is_new", False)
+
+        # Tool-heavy domains benefit from SARL
+        tool_heavy_domains = {
+            "clinical_diagnosis", "ehr_management", "drug_interaction",
+            "triage_emergency", "cross_domain",
+        }
+
+        # Knowledge-heavy domains benefit from MRPO (token-level shaping)
+        knowledge_heavy_domains = {
+            "medical_qa", "radiology_report", "psychiatry", "obstetrics",
+        }
+
+        # New agent or untried domain → adaptive (let the system decide)
+        if is_new or domain not in domain_scores:
+            return "adaptive"
+
+        # If many reasoning errors → MRPO for better token-level quality
+        reasoning_errors = error_patterns.get("reasoning_error", 0)
+        if reasoning_errors > 3:
+            return "mrpo"
+
+        # If premature stops → SARL (encourages tool usage + self-assessment)
+        premature_stops = error_patterns.get("premature_stop", 0)
+        if premature_stops > 2:
+            return "sarl"
+
+        # Domain-based default
+        if domain in tool_heavy_domains and my_score < 0.7:
+            return "sarl"
+        elif domain in knowledge_heavy_domains and my_score < 0.7:
+            return "mrpo"
+
+        # Strong performer → keep GRPO (don't fix what isn't broken)
+        if my_score >= 0.8:
+            return "grpo"
+
+        # Moderate performer → adaptive
+        return "adaptive"
+
     def _estimate_difficulty(self, domain: str, reflection: dict) -> str:
         """Estimate task difficulty for the chosen domain."""
         my_score = reflection.get("domain_scores", {}).get(domain, 0.0)
@@ -595,6 +659,9 @@ class WorkoutExecutor:
         }
 
         try:
+            # Step 0a: Bootstrap task pool if critically low
+            self._ensure_task_pool(domain)
+
             # Step 1: Evaluate on internal GYM tasks
             logger.info(
                 f"[{self.config.agent_id}] Evaluating on {domain}..."
@@ -604,12 +671,19 @@ class WorkoutExecutor:
             results["tasks_completed"] = eval_result.get("num_tasks", 0)
             results["errors"] = eval_result.get("error_types", [])
 
+            # Step 0b: ADAPTIVE data generation — now with eval insight
+            # The agent analyses its errors and decides what data to mine.
+            self._ensure_task_pool(domain, eval_result=eval_result)
+
             # Step 2: RL Training via Multi-Turn GRPO
             # No SFT — the model learns directly from environment
             # interaction rewards (5D: accuracy, format, process, safety, coherence)
             logger.info(
                 f"[{self.config.agent_id}] Pre-score: "
-                f"{results['pre_score']:.1%}, starting GRPO training..."
+                f"{results['pre_score']:.1%} "
+                f"(composite={eval_result.get('composite_score', 0.0):.1%}, "
+                f"tool-use={eval_result.get('action_score_raw', 0.0):.1%}), "
+                f"starting GRPO training..."
             )
             new_model = self._train_grpo(domain, eval_result, decision)
             if new_model:
@@ -651,6 +725,296 @@ class WorkoutExecutor:
         results["duration_ms"] = (time.time() - start_time) * 1000
         return results
 
+    # ── Autonomous Data Strategist ───────────────────────────────
+    # The agent decides FOR ITSELF what data to generate, from which
+    # knowledge sources, targeting which weaknesses, and how many.
+    # No hardcoded thresholds — the agent reasons about its needs.
+
+    _TASK_POOL_CHECKED: set = set()  # class-level, per-domain-per-process
+
+    def _ensure_task_pool(
+        self,
+        domain: str,
+        eval_result: Optional[dict] = None,
+    ):
+        """Agent-driven data generation strategy.
+
+        Instead of a fixed threshold, the agent analyses its own
+        performance profile and decides:
+          1. WHETHER more data is needed
+          2. WHICH sources to mine (benchmarks, evidence, instructions, guidelines)
+          3. HOW MANY tasks to generate
+          4. WHAT difficulty level to target
+
+        Called at the start of each workout cycle.
+        """
+        cache_key = f"{domain}_{os.getpid()}"
+        has_eval = eval_result is not None
+        # first_call = pure bootstrap (no eval); second call = eval-driven
+        eval_key = f"{cache_key}_eval"
+        if has_eval:
+            if eval_key in self.__class__._TASK_POOL_CHECKED:
+                return  # already did eval-driven generation this cycle
+            self.__class__._TASK_POOL_CHECKED.add(eval_key)
+        first_call = cache_key not in self.__class__._TASK_POOL_CHECKED
+        if not has_eval:
+            self.__class__._TASK_POOL_CHECKED.add(cache_key)
+
+        try:
+            from pathlib import Path
+            import json as _json
+
+            data_dir = (
+                Path(__file__).parent.parent.parent / "data" / "domains" / domain
+            )
+            auto_path = data_dir / "tasks_auto_generated.json"
+
+            # ── Inventory: how many tasks do we currently have? ──
+            pool_size = 0
+            for fname in [
+                "tasks.json", "tasks_scaled.json", "tasks_auto_generated.json",
+            ]:
+                fpath = data_dir / fname
+                if fpath.exists():
+                    try:
+                        with open(fpath, "r") as f:
+                            pool_size += len(_json.load(f))
+                    except Exception:
+                        pass
+
+            # ── Reason about whether we need more data ──
+            strategy = self._plan_data_strategy(
+                domain, pool_size, eval_result, first_call,
+            )
+
+            if strategy["action"] == "skip":
+                logger.debug(
+                    f"[{self.config.agent_id}] DataStrategy({domain}): "
+                    f"SKIP — {strategy['reason']}"
+                )
+                return
+
+            # ── Execute the generation plan ──
+            target = strategy["target_count"]
+            sources = strategy["sources"]
+            logger.info(
+                f"[{self.config.agent_id}] DataStrategy({domain}): "
+                f"GENERATE {target} tasks from {sources} — "
+                f"{strategy['reason']}"
+            )
+
+            try:
+                from bioagents.data_pipeline.auto_task_generator import (
+                    AutoTaskGenerator,
+                )
+                gen = AutoTaskGenerator()
+                new_tasks = gen.generate(
+                    domain=domain,
+                    target=target,
+                    sources=sources,
+                )
+                if new_tasks:
+                    data_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Merge with existing auto-generated
+                    existing_auto = []
+                    if auto_path.exists():
+                        try:
+                            with open(auto_path, "r") as f:
+                                existing_auto = _json.load(f)
+                        except Exception:
+                            pass
+
+                    existing_ids = {t.get("id") for t in existing_auto}
+                    merged = existing_auto + [
+                        t for t in new_tasks if t.get("id") not in existing_ids
+                    ]
+                    actually_added = len(merged) - len(existing_auto)
+
+                    with open(auto_path, "w") as f:
+                        _json.dump(merged, f, indent=2, ensure_ascii=False)
+
+                    logger.info(
+                        f"[{self.config.agent_id}] DataStrategy({domain}): "
+                        f"+{actually_added} tasks (pool: {pool_size} → "
+                        f"{pool_size + actually_added})"
+                    )
+            except ImportError:
+                logger.debug("AutoTaskGenerator not available")
+            except Exception as e:
+                logger.warning(
+                    f"[{self.config.agent_id}] Data generation failed: {e}"
+                )
+
+        except Exception as e:
+            logger.debug(f"Task pool check failed: {e}")
+
+    def _plan_data_strategy(
+        self,
+        domain: str,
+        pool_size: int,
+        eval_result: Optional[dict],
+        first_call: bool,
+    ) -> dict:
+        """Agent reasons about its data needs and produces a plan.
+
+        The agent considers:
+        - Current task pool size vs. domain complexity
+        - Error patterns from the latest evaluation
+        - Score trajectory (improving? plateaued? declining?)
+        - Which knowledge sources are most relevant
+
+        Returns a strategy dict:
+            action: "generate" or "skip"
+            target_count: how many new tasks
+            sources: list of source names
+            reason: human-readable explanation
+        """
+        # ── 1. Domain complexity profile ──
+        # Some domains inherently need more data diversity
+        DOMAIN_COMPLEXITY = {
+            "clinical_diagnosis": {"ideal_pool": 500, "rich_sources": ["mcqa", "evidence", "guidelines"]},
+            "medical_qa":         {"ideal_pool": 500, "rich_sources": ["mcqa", "lfqa", "evidence"]},
+            "drug_interaction":   {"ideal_pool": 300, "rich_sources": ["lfqa", "evidence", "guidelines"]},
+            "ehr_management":     {"ideal_pool": 200, "rich_sources": ["evidence", "instructions"]},
+            "triage_emergency":   {"ideal_pool": 200, "rich_sources": ["evidence", "guidelines"]},
+            "visual_diagnosis":   {"ideal_pool": 200, "rich_sources": ["evidence"]},
+            "psychiatry":         {"ideal_pool": 200, "rich_sources": ["evidence", "lfqa"]},
+            "obstetrics":         {"ideal_pool": 200, "rich_sources": ["evidence", "guidelines"]},
+            "radiology_report":   {"ideal_pool": 200, "rich_sources": ["evidence"]},
+            "cross_domain":       {"ideal_pool": 100, "rich_sources": ["evidence"]},
+        }
+
+        profile = DOMAIN_COMPLEXITY.get(
+            domain,
+            {"ideal_pool": 150, "rich_sources": ["evidence"]},
+        )
+        ideal = profile["ideal_pool"]
+        rich_sources = profile["rich_sources"]
+
+        # ── 2. If first call and pool is small → bootstrap ──
+        if first_call and pool_size < 50:
+            need = max(ideal - pool_size, 100)
+            return {
+                "action": "generate",
+                "target_count": need,
+                "sources": rich_sources,
+                "reason": (
+                    f"First visit, pool critically low ({pool_size} tasks). "
+                    f"Bootstrapping with {need} tasks."
+                ),
+            }
+
+        # ── 3. If pool is already at ideal → check error-driven needs ──
+        if pool_size >= ideal and eval_result is None:
+            return {
+                "action": "skip",
+                "reason": f"Pool adequate ({pool_size}/{ideal}), no eval data yet.",
+            }
+
+        # ── 4. Analyse evaluation results for targeted generation ──
+        if eval_result:
+            error_types = eval_result.get("error_types", [])
+            composite = eval_result.get("composite_score", 0.0)
+            action_raw = eval_result.get("action_score_raw", 0.0)
+            num_tasks = eval_result.get("num_tasks", 0)
+
+            # Count error patterns
+            from collections import Counter
+            errors = Counter(error_types)
+            premature = errors.get("premature_stop", 0)
+            tool_fail = errors.get("tool_use_failure", 0)
+            reasoning = errors.get("reasoning_error", 0)
+            over_inv = errors.get("over_investigation", 0)
+
+            sources_to_use = []
+            reason_parts = []
+            target = 0
+
+            # ── 4a. Too many premature stops → need diverse scenarios ──
+            if premature > num_tasks * 0.5 and num_tasks > 0:
+                # Agent stops too early — needs more practice scenarios
+                # with clear tool-use expectations
+                sources_to_use.extend(["evidence", "guidelines"])
+                target += max(50, premature * 10)
+                reason_parts.append(
+                    f"premature_stop={premature}/{num_tasks} "
+                    f"→ +{premature * 10} evidence/guideline tasks"
+                )
+
+            # ── 4b. Tool use failure → need MCQA + instructions ──
+            if tool_fail > 2 or action_raw < 0.2:
+                sources_to_use.extend(["mcqa", "instructions"])
+                bonus = max(50, tool_fail * 15)
+                target += bonus
+                reason_parts.append(
+                    f"tool_use_weak (raw={action_raw:.0%}) "
+                    f"→ +{bonus} mcqa/instruction tasks"
+                )
+
+            # ── 4c. Reasoning errors → need long-form QA ──
+            if reasoning > 2:
+                sources_to_use.extend(["lfqa", "evidence"])
+                bonus = max(30, reasoning * 10)
+                target += bonus
+                reason_parts.append(
+                    f"reasoning_errors={reasoning} "
+                    f"→ +{bonus} lfqa/evidence tasks"
+                )
+
+            # ── 4d. Low composite score but pool is small → bulk up ──
+            if composite < 0.4 and pool_size < ideal:
+                gap = ideal - pool_size
+                target = max(target, gap)
+                sources_to_use = list(set(sources_to_use + rich_sources))
+                reason_parts.append(
+                    f"low composite ({composite:.0%}), pool gap={gap}"
+                )
+
+            # ── 4e. Score is decent but pool could still grow ──
+            if composite >= 0.4 and pool_size < ideal * 0.7:
+                bonus = min(ideal - pool_size, 100)
+                target = max(target, bonus)
+                sources_to_use = sources_to_use or rich_sources[:2]
+                reason_parts.append(
+                    f"growing pool ({pool_size}→{pool_size + bonus})"
+                )
+
+            # ── 4f. Everything looks good → skip ──
+            if target == 0:
+                return {
+                    "action": "skip",
+                    "reason": (
+                        f"Pool OK ({pool_size}), composite={composite:.0%}, "
+                        f"no critical error patterns."
+                    ),
+                }
+
+            # Deduplicate sources
+            sources_to_use = list(dict.fromkeys(sources_to_use))
+
+            return {
+                "action": "generate",
+                "target_count": min(target, 500),  # cap per cycle
+                "sources": sources_to_use,
+                "reason": " | ".join(reason_parts),
+            }
+
+        # ── 5. No eval result, first call, moderate pool → small top-up ──
+        if first_call and pool_size < ideal:
+            top_up = min(ideal - pool_size, 100)
+            return {
+                "action": "generate",
+                "target_count": top_up,
+                "sources": rich_sources[:2],
+                "reason": f"First visit, pool below ideal ({pool_size}/{ideal}).",
+            }
+
+        return {
+            "action": "skip",
+            "reason": f"No action needed (pool={pool_size}).",
+        }
+
     def _evaluate(self, domain: str) -> dict:
         """Evaluate current model on a domain."""
         try:
@@ -677,16 +1041,29 @@ class WorkoutExecutor:
             runner.load_model()
             task_results = runner.run_all_tasks()
 
-            # Compute stats
-            scores = [r.action_score for r in task_results]
+            # Compute stats – use composite reward (5D) as primary score
+            # action_score only measures tool-call matching, which gives 0.0
+            # for models that haven't learned tool-use yet.  composite reward
+            # (accuracy+format+process+safety+coherence) is a much better
+            # proxy for real capability.
+            action_scores = [r.action_score for r in task_results]
+            composite_scores = [r.final_reward for r in task_results]
+            # Blended score: 30% action (tool-use) + 70% composite (overall)
+            blended_scores = [
+                0.3 * a + 0.7 * c
+                for a, c in zip(action_scores, composite_scores)
+            ]
+
             error_types = []
             for r in task_results:
-                if r.action_score < 0.8:
+                if r.final_reward < 0.6:
                     # Quick error categorization
                     if r.total_turns <= 2:
                         error_types.append("premature_stop")
                     elif r.total_turns >= 12:
                         error_types.append("over_investigation")
+                    elif r.action_score < 0.3:
+                        error_types.append("tool_use_failure")
                     else:
                         error_types.append("reasoning_error")
 
@@ -697,12 +1074,27 @@ class WorkoutExecutor:
             except ImportError:
                 pass
 
+            avg_blended = (
+                sum(blended_scores) / len(blended_scores)
+                if blended_scores else 0.0
+            )
+            avg_composite = (
+                sum(composite_scores) / len(composite_scores)
+                if composite_scores else 0.0
+            )
+            avg_action = (
+                sum(action_scores) / len(action_scores)
+                if action_scores else 0.0
+            )
+
             return {
-                "action_score": (
-                    sum(scores) / len(scores) if scores else 0.0
-                ),
+                "action_score": avg_blended,
+                "action_score_raw": avg_action,
+                "composite_score": avg_composite,
                 "num_tasks": len(task_results),
-                "num_passed": sum(1 for s in scores if s >= 0.8),
+                "num_passed": sum(
+                    1 for s in blended_scores if s >= 0.5
+                ),
                 "error_types": error_types,
                 "task_results": task_results,
             }
@@ -1161,11 +1553,15 @@ class WorkoutExecutor:
                 domain, eval_result
             )
 
+            # Get reward strategy from decision
+            reward_strategy = decision.reward_strategy if hasattr(decision, "reward_strategy") else "grpo"
+
             logger.info(
                 f"[{self.config.agent_id}] GRPO config: "
                 f"domain={domain}, batch={train_batch}, "
                 f"grad_accum={grad_accum}, lora_r={lora_r}, "
                 f"rollouts={num_rollouts}, "
+                f"reward_strategy={reward_strategy}, "
                 f"rewards={reward_functions}"
             )
 
@@ -1191,7 +1587,10 @@ class WorkoutExecutor:
                 max_turns=self.config.max_turns,
                 use_gym_env=True,
                 reward_functions=reward_functions,
-                use_wandb=False,
+                reward_strategy=reward_strategy,
+                use_wandb=True,
+                wandb_project="pt2-minstar-gym-rl",
+                run_name=f"{self.config.agent_id}_{domain}_{reward_strategy}",
                 log_dir=str(
                     Path(self.config.log_dir) / self.config.agent_id
                 ),
@@ -1459,6 +1858,9 @@ class AutonomousAgent:
         self.decision_history: list = []
         self._stop_requested = False
 
+        # W&B logger for agent-level metrics
+        self._wb = None
+
         # Paths
         Path(config.output_dir).mkdir(parents=True, exist_ok=True)
         Path(config.log_dir).mkdir(parents=True, exist_ok=True)
@@ -1472,6 +1874,37 @@ class AutonomousAgent:
         logger.info(
             f"  Domains: {config.available_domains}"
         )
+
+    def _ensure_wandb(self):
+        """Lazily initialize W&B for this agent's lifecycle."""
+        if self._wb is not None:
+            return
+        try:
+            from bioagents.utils.wandb_logger import GymWandbLogger
+            model_short = Path(self.config.model_path).name
+            self._wb = GymWandbLogger.init_run(
+                agent_id=self.config.agent_id,
+                run_type="autonomous_agent",
+                model_name=model_short,
+                config={
+                    "model_path": self.config.model_path,
+                    "available_domains": self.config.available_domains,
+                    "weakness_weight": self.config.weakness_weight,
+                    "curiosity_weight": self.config.curiosity_weight,
+                    "peer_learning_weight": self.config.peer_learning_weight,
+                    "safety_weight": self.config.safety_weight,
+                    "max_turns": self.config.max_turns,
+                    "training_epochs": self.config.training_epochs,
+                    "learning_rate": self.config.learning_rate,
+                },
+                tags=["autonomous", f"model:{model_short}"],
+                group=self.config.agent_id,
+                enabled=True,
+            )
+        except Exception as e:
+            logger.warning(f"[{self.config.agent_id}] W&B init failed: {e}")
+            from bioagents.utils.wandb_logger import GymWandbLogger
+            self._wb = GymWandbLogger(run=None, enabled=False)
 
     @property
     def agent_id(self) -> str:
@@ -1609,6 +2042,7 @@ class AutonomousAgent:
         )
         logger.info(
             f"    Method: {decision.training_method} | "
+            f"Reward: {decision.reward_strategy} | "
             f"Difficulty: {decision.estimated_difficulty}"
         )
 
@@ -1616,6 +2050,7 @@ class AutonomousAgent:
             "domain": decision.domain,
             "motivation": decision.motivation,
             "training_method": decision.training_method,
+            "reward_strategy": decision.reward_strategy,
             "reasoning": decision.reasoning,
         }
 
@@ -1661,6 +2096,18 @@ class AutonomousAgent:
         )
         self.logbook.record_workout(entry)
 
+        # ── Update living guideline ──
+        try:
+            from bioagents.gym.guideline_updater import update_from_cycle_results
+            update_from_cycle_results(
+                agent_id=self.config.agent_id,
+                domain=decision.domain,
+                cycle_result=cycle_result,
+                logbook=self.logbook,
+            )
+        except Exception:
+            pass  # never block the main loop
+
         # Done
         self.state = AgentState.IDLE
         cycle_ms = (time.time() - cycle_start) * 1000
@@ -1683,6 +2130,15 @@ class AutonomousAgent:
             f"  Leaderboard rank in {decision.domain}: "
             f"#{my_rank}/{len(leaderboard)}"
         )
+
+        # W&B: log full cycle metrics
+        try:
+            self._ensure_wandb()
+            if self._wb:
+                cycle_result["leaderboard_rank"] = my_rank
+                self._wb.log_cycle(cycle_result)
+        except Exception:
+            pass
 
         return cycle_result
 
@@ -1726,6 +2182,11 @@ class AutonomousAgent:
             f"[{self.config.agent_id}] Stopped after "
             f"{cycle} cycles"
         )
+
+        # Finish W&B run
+        if self._wb:
+            self._wb.set_summary("total_cycles", cycle)
+            self._wb.finish()
 
     def get_status(self) -> dict:
         """Get current agent status."""

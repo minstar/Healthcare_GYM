@@ -1,0 +1,116 @@
+# ============================================================
+# BIOAgents Adaptive Reward Strategy Config
+# ============================================================
+# Uses the adaptive reward strategy that dynamically selects
+# GRPO / MRPO / SARL per task based on task characteristics.
+#
+# Usage:
+#   python bioagents/training/grpo_trainer.py --config configs/grpo_adaptive_strategy.yaml
+#   python bioagents/training/grpo_trainer.py --config configs/grpo_adaptive_strategy.yaml --strategy adaptive
+#   python bioagents/training/grpo_trainer.py --config configs/grpo_adaptive_strategy.yaml --dry_run
+# ============================================================
+
+# --- Model ---
+model:
+  name_or_path: "Qwen/Qwen3-1.7B"
+  torch_dtype: "bfloat16"
+  attn_implementation: "flash_attention_2"
+
+# --- LoRA / PEFT ---
+peft:
+  enabled: true
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+# --- Dataset ---
+dataset:
+  domain: "medical_qa"
+  tasks_path: "data/domains/medical_qa/tasks.json"
+  split_tasks_path: "data/domains/medical_qa/split_tasks.json"
+  train_split: "train"
+  eval_split: "test"
+  max_prompt_length: 2048
+  max_completion_length: 1024
+
+# --- GRPO Training ---
+training:
+  output_dir: "checkpoints/grpo_adaptive_medical_qa"
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-6
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  bf16: true
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 50
+  save_total_limit: 3
+  seed: 42
+  num_generations: 4
+  beta: 0.04
+  temperature: 0.7
+
+# --- Reward Strategy ---
+# The adaptive strategy auto-selects GRPO/MRPO/SARL per task:
+#   - Search-heavy tasks → SARL (rewards tool usage & self-assessment)
+#   - Hard open-ended tasks → MRPO (token-level reward shaping)
+#   - Simple MC tasks → GRPO (standard composite)
+rewards:
+  strategy: "adaptive"
+  strategy_config:
+    # GRPO weights (used when GRPO is selected)
+    grpo_weights:
+      accuracy: 0.4
+      format: 0.2
+      process: 0.4
+    # MRPO parameters (used when MRPO is selected)
+    mrpo_alignment_weight: 0.3
+    mrpo_relevance_weight: 0.3
+    mrpo_factuality_weight: 0.4
+    # SARL parameters (used when SARL is selected)
+    sarl_alpha: 0.8
+    sarl_lambda: 0.5
+    sarl_tool_bonus_per_call: 0.1
+    sarl_tool_bonus_cap: 0.3
+  # Fallback individual functions (for reference, not used in adaptive mode)
+  functions:
+    - name: "accuracy"
+      weight: 0.4
+    - name: "format"
+      weight: 0.2
+    - name: "process"
+      weight: 0.4
+  bertscore_model: "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"
+
+# --- Environment ---
+environment:
+  max_turns: 10
+  use_gym_env: true
+
+# --- Logging ---
+logging:
+  project: "pt2-minstar-gym-rl"
+  run_name: "grpo_adaptive_medical_qa"
+  use_wandb: true
+  log_dir: "logs/runs"
+
+# --- Experiment metadata ---
+meta:
+  experiment: "Adaptive Reward Strategy for Medical QA"
+  description: >
+    Uses the adaptive reward strategy system that dynamically selects
+    the optimal reward computation (GRPO/MRPO/SARL) per task based on
+    task characteristics. Search-heavy tasks use SARL, hard open-ended
+    tasks use MRPO, and simple MC tasks use standard GRPO.

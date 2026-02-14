@@ -88,12 +88,16 @@ class BioAgentGRPOConfig:
     )
     bertscore_model: str = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"
 
+    # Reward Strategy (GRPO / MRPO / SARL / Adaptive)
+    reward_strategy: str = "grpo"  # "grpo", "mrpo", "sarl", "adaptive"
+    reward_strategy_config: dict = field(default_factory=dict)
+
     # Environment
     max_turns: int = 10
     use_gym_env: bool = True
 
     # Logging
-    wandb_project: str = "bioagents-grpo"
+    wandb_project: str = "pt2-minstar-gym-rl"
     run_name: str = "grpo_medical_qa"
     use_wandb: bool = True
     log_dir: str = "logs/runs"
@@ -141,6 +145,8 @@ class BioAgentGRPOConfig:
         if "rewards" in raw:
             kwargs["reward_functions"] = raw["rewards"].get("functions", [])
             kwargs["bertscore_model"] = raw["rewards"].get("bertscore_model", cls.bertscore_model)
+            kwargs["reward_strategy"] = raw["rewards"].get("strategy", cls.reward_strategy)
+            kwargs["reward_strategy_config"] = raw["rewards"].get("strategy_config", {})
         if "environment" in raw:
             kwargs["max_turns"] = raw["environment"].get("max_turns", cls.max_turns)
             kwargs["use_gym_env"] = raw["environment"].get("use_gym_env", cls.use_gym_env)
@@ -267,10 +273,19 @@ def _build_prompt_from_task(task: dict, domain: str) -> list[dict]:
 def build_reward_functions(config: BioAgentGRPOConfig) -> list:
     """Build GRPO-compatible reward functions from config.
 
+    Supports two modes:
+    1. Legacy: list of named reward functions from GRPO_REWARD_REGISTRY
+    2. Strategy-based: use reward_strategy to select GRPO/MRPO/SARL/Adaptive
+
     Returns:
         List of callables matching TRL GRPOTrainer reward_funcs signature:
             fn(completions, **kwargs) -> list[float]
     """
+    # --- Strategy-based reward (new system) ---
+    if config.reward_strategy and config.reward_strategy != "grpo":
+        return _build_strategy_reward_functions(config)
+
+    # --- Legacy: individual reward functions ---
     from bioagents.evaluation.grpo_rewards import GRPO_REWARD_REGISTRY
 
     reward_fns = []
@@ -284,6 +299,61 @@ def build_reward_functions(config: BioAgentGRPOConfig) -> list:
         logger.info(f"  Reward function: {name} (weight applied inside composite)")
 
     return reward_fns
+
+
+def _build_strategy_reward_functions(config: BioAgentGRPOConfig) -> list:
+    """Build reward functions using the adaptive reward strategy system.
+
+    Creates a single reward function from the selected strategy (MRPO, SARL, etc.)
+    that encapsulates the entire reward computation pipeline.
+    """
+    from bioagents.evaluation.reward_strategies import (
+        RewardStrategyConfig,
+        create_reward_strategy,
+        make_grpo_reward_fn,
+    )
+
+    # Build strategy config from YAML overrides
+    strategy_kwargs = {}
+    sc = config.reward_strategy_config or {}
+
+    # Map YAML keys to RewardStrategyConfig fields
+    if "grpo_weights" in sc:
+        strategy_kwargs["grpo_weights"] = sc["grpo_weights"]
+    if "mrpo_alignment_weight" in sc:
+        strategy_kwargs["mrpo_alignment_weight"] = sc["mrpo_alignment_weight"]
+    if "mrpo_relevance_weight" in sc:
+        strategy_kwargs["mrpo_relevance_weight"] = sc["mrpo_relevance_weight"]
+    if "mrpo_factuality_weight" in sc:
+        strategy_kwargs["mrpo_factuality_weight"] = sc["mrpo_factuality_weight"]
+    if "sarl_alpha" in sc:
+        strategy_kwargs["sarl_alpha"] = sc["sarl_alpha"]
+    if "sarl_lambda" in sc:
+        strategy_kwargs["sarl_lambda"] = sc["sarl_lambda"]
+    if "sarl_tool_bonus_per_call" in sc:
+        strategy_kwargs["sarl_tool_bonus_per_call"] = sc["sarl_tool_bonus_per_call"]
+    if "sarl_tool_bonus_cap" in sc:
+        strategy_kwargs["sarl_tool_bonus_cap"] = sc["sarl_tool_bonus_cap"]
+
+    # Also pull weights from reward_functions list if provided
+    if config.reward_functions and "grpo_weights" not in strategy_kwargs:
+        weights = {}
+        for rf in config.reward_functions:
+            weights[rf["name"]] = rf["weight"]
+        if weights:
+            strategy_kwargs["grpo_weights"] = weights
+
+    strategy_config = RewardStrategyConfig(**strategy_kwargs)
+    strategy = create_reward_strategy(config.reward_strategy, config=strategy_config)
+
+    logger.info(f"  Reward strategy: {strategy.name}")
+    logger.info(f"  Strategy type: {config.reward_strategy}")
+    if strategy_kwargs:
+        logger.info(f"  Strategy config overrides: {strategy_kwargs}")
+
+    # Create TRL-compatible reward function
+    reward_fn = make_grpo_reward_fn(strategy)
+    return [reward_fn]
 
 
 # ============================================================
@@ -379,6 +449,15 @@ def train(config: BioAgentGRPOConfig):
     # --- Reward Functions ---
     logger.info("Setting up reward functions...")
     reward_funcs = build_reward_functions(config)
+
+    # --- W&B Init for TRL (set env vars before GRPOConfig) ---
+    if config.use_wandb:
+        os.environ["WANDB_PROJECT"] = config.wandb_project
+        # Also init via our centralized logger for consistency
+        from bioagents.utils.wandb_logger import GymWandbLogger, WANDB_PROJECT
+        _wb_project = config.wandb_project if config.wandb_project != "bioagents-grpo" else WANDB_PROJECT
+        os.environ["WANDB_PROJECT"] = _wb_project
+        logger.info(f"W&B project: {_wb_project}, run: {config.run_name}")
 
     # --- GRPO Training Config (TRL 0.28+) ---
     os.makedirs(config.output_dir, exist_ok=True)
@@ -837,6 +916,14 @@ def train_multiturn(config: BioAgentGRPOConfig):
     # --- Reward function (with adaptive weights from config) ---
     from bioagents.evaluation.rewards import compute_composite_reward
 
+    # Check if using adaptive reward strategy
+    _use_strategy = mt_config.reward_strategy and mt_config.reward_strategy != "grpo"
+    _reward_strategy = None
+    if _use_strategy:
+        from bioagents.evaluation.reward_strategies import create_reward_strategy
+        _reward_strategy = create_reward_strategy(mt_config.reward_strategy)
+        logger.info(f"Using reward strategy: {_reward_strategy.name}")
+
     # Convert reward_functions list to weights dict for compute_composite_reward
     _reward_weights = {}
     for rw_spec in mt_config.reward_functions:
@@ -848,11 +935,37 @@ def train_multiturn(config: BioAgentGRPOConfig):
     # --- Output directory ---
     os.makedirs(mt_config.output_dir, exist_ok=True)
 
+    # --- W&B Logging ---
+    from bioagents.utils.wandb_logger import GymWandbLogger
+    wb = GymWandbLogger.init_run(
+        agent_id=mt_config.run_name or "multiturn_grpo",
+        run_type="multiturn_grpo",
+        domain=mt_config.domain,
+        reward_strategy=mt_config.reward_strategy,
+        model_name=mt_config.model_name_or_path,
+        config={
+            "model": mt_config.model_name_or_path,
+            "domain": mt_config.domain,
+            "reward_strategy": mt_config.reward_strategy,
+            "max_turns": mt_config.max_turns,
+            "num_rollouts_per_task": mt_config.num_rollouts_per_task,
+            "num_train_epochs": mt_config.num_train_epochs,
+            "learning_rate": mt_config.learning_rate,
+            "beta": mt_config.beta,
+            "temperature": mt_config.rollout_temperature,
+            "peft_r": mt_config.peft_r,
+            "reward_weights": _reward_weights,
+        },
+        tags=["multiturn", f"domain:{mt_config.domain}", f"strategy:{mt_config.reward_strategy}"],
+        enabled=mt_config.use_wandb,
+    )
+
     # ========================================
     # Main Training Loop
     # ========================================
     all_trajectories = []
     best_mean_reward = -1.0
+    global_step = 0
 
     for epoch in range(mt_config.num_train_epochs):
         logger.info(f"\n{'='*50}")
@@ -887,20 +1000,34 @@ def train_multiturn(config: BioAgentGRPOConfig):
                 )
                 task_rollouts.append(trajectory)
 
-            # --- Compute rewards for each rollout (with adaptive weights) ---
+            # --- Compute rewards for each rollout ---
             task_rewards = []
             for traj in task_rollouts:
-                reward_result = compute_composite_reward(
-                    response=traj["final_response"],
-                    correct_answer=correct_answer,
-                    tool_call_log=traj["tool_calls"],
-                    expected_actions=expected_actions,
-                    is_final=True,
-                    weights=_reward_weights,
-                )
-                traj["reward"] = reward_result["total"]
-                traj["reward_detail"] = reward_result
-                task_rewards.append(reward_result["total"])
+                if _use_strategy and _reward_strategy is not None:
+                    # Use adaptive reward strategy (MRPO, SARL, etc.)
+                    completions = [[{"content": traj["final_response"], "role": "assistant"}]]
+                    strategy_rewards = _reward_strategy.compute_reward(
+                        completions, solution=[correct_answer], task=task,
+                    )
+                    strategy_breakdowns = _reward_strategy.get_reward_breakdown(
+                        completions, solution=[correct_answer], task=task,
+                    )
+                    traj["reward"] = strategy_rewards[0]
+                    traj["reward_detail"] = strategy_breakdowns[0] if strategy_breakdowns else {"total": strategy_rewards[0]}
+                    task_rewards.append(strategy_rewards[0])
+                else:
+                    # Standard composite reward
+                    reward_result = compute_composite_reward(
+                        response=traj["final_response"],
+                        correct_answer=correct_answer,
+                        tool_call_log=traj["tool_calls"],
+                        expected_actions=expected_actions,
+                        is_final=True,
+                        weights=_reward_weights,
+                    )
+                    traj["reward"] = reward_result["total"]
+                    traj["reward_detail"] = reward_result
+                    task_rewards.append(reward_result["total"])
 
             # --- Compute GRPO group-relative advantages ---
             mean_reward = sum(task_rewards) / max(len(task_rewards), 1)
@@ -920,6 +1047,16 @@ def train_multiturn(config: BioAgentGRPOConfig):
                     f"best_R={max(task_rewards):.3f}, "
                     f"worst_R={min(task_rewards):.3f}"
                 )
+
+            # W&B per-task logging
+            global_step += 1
+            wb.log_step({
+                "task/mean_reward": mean_reward,
+                "task/best_reward": max(task_rewards),
+                "task/worst_reward": min(task_rewards),
+                "task/std_reward": std_reward,
+                "task/num_turns_avg": sum(t.get("num_turns", 0) for t in task_rollouts) / max(len(task_rollouts), 1),
+            }, step=global_step)
 
         # --- Filter trajectories ---
         positive_trajs = [t for t in epoch_trajectories if t["advantage"] > 0]
@@ -949,6 +1086,15 @@ def train_multiturn(config: BioAgentGRPOConfig):
         mean_epoch_reward = sum(epoch_rewards) / max(len(epoch_rewards), 1)
         logger.info(f"Epoch {epoch+1} mean reward: {mean_epoch_reward:.4f}")
 
+        # W&B epoch logging
+        wb.log_epoch(
+            epoch=epoch + 1,
+            mean_reward=mean_epoch_reward,
+            num_trajectories=len(epoch_trajectories),
+            positive_trajectories=len(positive_trajs),
+            loss=loss_total if positive_trajs else 0.0,
+        )
+
         if mean_epoch_reward > best_mean_reward:
             best_mean_reward = mean_epoch_reward
             # Save best checkpoint
@@ -956,6 +1102,7 @@ def train_multiturn(config: BioAgentGRPOConfig):
             model.save_pretrained(best_path)
             tokenizer.save_pretrained(best_path)
             logger.info(f"  New best model saved (reward={best_mean_reward:.4f})")
+            wb.set_summary("best_mean_reward", best_mean_reward)
 
         # --- Save trajectories ---
         if mt_config.save_trajectories:
@@ -988,6 +1135,13 @@ def train_multiturn(config: BioAgentGRPOConfig):
     logger.info(f"Total trajectories: {len(all_trajectories)}")
     logger.info(f"Models saved to: {mt_config.output_dir}")
     logger.info(f"{'='*50}")
+
+    # W&B final summary
+    wb.set_summary("total_trajectories", len(all_trajectories))
+    wb.set_summary("best_mean_reward", best_mean_reward)
+    wb.set_summary("domain", mt_config.domain)
+    wb.set_summary("reward_strategy", mt_config.reward_strategy)
+    wb.finish()
 
     return all_trajectories
 
@@ -1072,14 +1226,22 @@ def _run_single_rollout(
             action = json.dumps(parsed_tool)
             obs_new, reward, terminated, truncated, step_info = env.step(action)
 
+            # Normalize observation
+            if isinstance(obs_new, dict):
+                tool_response_str = obs_new.get("tool_response", json.dumps(obs_new, ensure_ascii=False))
+            elif isinstance(obs_new, str):
+                tool_response_str = obs_new
+            else:
+                tool_response_str = str(obs_new) if obs_new is not None else ""
+
             tool_calls.append({
                 "tool_name": parsed_tool.get("name", ""),
                 "arguments": parsed_tool.get("arguments", {}),
-                "response": obs_new.get("tool_response", ""),
+                "response": tool_response_str,
             })
 
             messages.append({"role": "assistant", "content": response})
-            messages.append({"role": "user", "content": obs_new.get("tool_response", "")})
+            messages.append({"role": "user", "content": tool_response_str})
 
             if terminated or truncated:
                 final_response = response
@@ -1103,19 +1265,27 @@ def _run_single_rollout(
 
 
 def _parse_tool_call_from_response(text: str) -> Optional[dict]:
-    """Parse a tool call from model output text."""
+    """Parse a tool call from model output text.
+
+    Delegates to the canonical ``parse_tool_call`` in agent_runner which
+    supports JSON, code-blocks, XML tags, ReAct format, and alternative
+    key names (function/tool/action).
+    """
+    try:
+        from bioagents.evaluation.agent_runner import parse_tool_call
+        return parse_tool_call(text)
+    except ImportError:
+        pass
+
+    # ── inline fallback (should never be reached) ──
     import re
     text = text.strip()
-
-    # Try direct JSON parse
     try:
         parsed = json.loads(text)
         if isinstance(parsed, dict) and "name" in parsed:
             return parsed
     except json.JSONDecodeError:
         pass
-
-    # Try JSON in code block
     code_match = re.search(r'```(?:json)?\s*\n?({.*?})\s*\n?```', text, re.DOTALL)
     if code_match:
         try:
@@ -1124,17 +1294,6 @@ def _parse_tool_call_from_response(text: str) -> Optional[dict]:
                 return parsed
         except json.JSONDecodeError:
             pass
-
-    # Try to find JSON object in text
-    json_match = re.search(r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*[,}].*?\}', text, re.DOTALL)
-    if json_match:
-        try:
-            parsed = json.loads(json_match.group(0))
-            if "name" in parsed:
-                return parsed
-        except json.JSONDecodeError:
-            pass
-
     return None
 
 
@@ -1269,6 +1428,11 @@ def main():
         help="Training mode: single_turn (TRL GRPO), multi_turn (env-in-the-loop), or fair_grpo (FairGRPO)",
     )
     parser.add_argument(
+        "--strategy", type=str, default=None,
+        choices=["grpo", "mrpo", "sarl", "adaptive"],
+        help="Reward strategy override: grpo (standard), mrpo (token shaping), sarl (search agent RL), adaptive (auto-select per task)",
+    )
+    parser.add_argument(
         "--dry_run", action="store_true",
         help="Build datasets and reward functions without training",
     )
@@ -1278,10 +1442,16 @@ def main():
     config = BioAgentGRPOConfig.from_yaml(args.config)
     logger.info(f"Loaded config from {args.config}")
 
+    # Override strategy from CLI if provided
+    if args.strategy:
+        config.reward_strategy = args.strategy
+        logger.info(f"Reward strategy overridden to: {args.strategy}")
+
     if args.dry_run:
         logger.info("=== DRY RUN ===")
         logger.info(f"Model: {config.model_name_or_path}")
         logger.info(f"Domain: {config.domain}")
+        logger.info(f"Reward strategy: {config.reward_strategy}")
 
         # Build and validate dataset
         train_ds = build_grpo_dataset(config, split=config.train_split)
@@ -1296,7 +1466,25 @@ def main():
         test_completions = [[{"content": "The answer is B", "role": "assistant"}]]
         for fn in reward_fns:
             scores = fn(test_completions, solution=["B"])
-            logger.info(f"  {fn.__name__}: test_score={scores}")
+            fn_name = getattr(fn, "__name__", str(fn))
+            logger.info(f"  {fn_name}: test_score={scores}")
+
+        # If adaptive strategy, show selection analysis
+        if config.reward_strategy == "adaptive":
+            from bioagents.evaluation.reward_strategies import (
+                create_reward_strategy,
+                AdaptiveRewardStrategy,
+            )
+            strategy = create_reward_strategy("adaptive")
+            if isinstance(strategy, AdaptiveRewardStrategy):
+                # Analyze first few tasks
+                tasks_path = Path(config.tasks_path)
+                with open(tasks_path, "r", encoding="utf-8") as f:
+                    sample_tasks = json.load(f)[:10]
+                for task in sample_tasks:
+                    strategy.select_strategy(task)
+                summary = strategy.get_selection_summary()
+                logger.info(f"  Adaptive strategy selection preview: {summary}")
 
         logger.info("✅ Dry run complete!")
         return
@@ -1312,4 +1500,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-main()

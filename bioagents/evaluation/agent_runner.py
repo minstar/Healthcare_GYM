@@ -78,8 +78,119 @@ class TaskResult:
     total_latency: float = 0.0
 
 
-def build_system_prompt(policy: str, tools: list[dict], domain: str = "clinical_diagnosis") -> str:
-    """Build the system prompt with policy and tool definitions."""
+def _build_onboarding_guidance(domain: str) -> str:
+    """Build compact agent onboarding guidance for the system prompt.
+
+    This injects essential behavioral tips so that ANY model — even one
+    that has never seen the full AGENT_GUIDELINE.md — can perform well
+    in the GYM on its first attempt.
+    """
+
+    _DOMAIN_TIPS = {
+        "clinical_diagnosis": (
+            "1. Gather info first: patient summary → vitals → labs → history\n"
+            "2. Use think() to build differential diagnosis\n"
+            "3. Search guidelines for evidence-based management\n"
+            "4. Record your diagnosis with ICD-10 code before submitting"
+        ),
+        "drug_interaction": (
+            "1. Get patient medications first\n"
+            "2. Check each interaction pair systematically\n"
+            "3. Search for safer alternatives if severe interaction found\n"
+            "4. Assess cumulative risk before recommending"
+        ),
+        "ehr_management": (
+            "1. Start with patient summary (hadm_id)\n"
+            "2. Check lab trends + vital alerts for dynamic patterns\n"
+            "3. Calculate clinical scores (SOFA, NEWS) for severity\n"
+            "4. Review procedures + discharge summary for full picture"
+        ),
+        "medical_qa": (
+            "1. Analyze the question and identify key concepts\n"
+            "2. Search PubMed or medical wiki for evidence\n"
+            "3. Browse relevant articles for detailed information\n"
+            "4. Use analyze_answer_options for MCQA before submitting"
+        ),
+        "triage_emergency": (
+            "1. Get presentation → ABC assessment immediately\n"
+            "2. Vitals + GCS for acuity level\n"
+            "3. Calculate ESI level using the algorithm\n"
+            "4. Order STAT labs/imaging per protocol\n"
+            "5. Submit with ESI level + disposition + orders"
+        ),
+        "psychiatry": (
+            "1. Get presentation → psychiatric history\n"
+            "2. Perform mental status exam\n"
+            "3. Use validated scales: PHQ-9, GAD-7, Columbia-SSRS\n"
+            "4. Screen substance use (AUDIT/DAST)\n"
+            "5. Submit: diagnosis + risk level + treatment plan + disposition"
+        ),
+        "obstetrics": (
+            "1. Get patient demographics + obstetric history\n"
+            "2. Assess fetal status (FHR, BPP)\n"
+            "3. Evaluate labor progress + Bishop score if applicable\n"
+            "4. Check medication safety (teratogenicity)\n"
+            "5. Follow ACOG protocols for management"
+        ),
+        "visual_diagnosis": (
+            "1. Analyze the medical image with focus areas\n"
+            "2. Get patient context for clinical correlation\n"
+            "3. Search similar cases for comparison\n"
+            "4. Compare with prior studies if available\n"
+            "5. Record diagnosis with confidence level"
+        ),
+        "radiology_report": (
+            "1. Get study info + clinical history\n"
+            "2. Analyze findings systematically\n"
+            "3. Get prior reports for comparison\n"
+            "4. Use reporting checklist for completeness\n"
+            "5. Submit structured report: indication → technique → findings → impression"
+        ),
+        "cross_domain": (
+            "1. Identify the primary clinical concern\n"
+            "2. Use domain-specific tools as needed across specialties\n"
+            "3. Ensure continuity of care between phases\n"
+            "4. Provide a comprehensive multi-specialty assessment"
+        ),
+    }
+
+    tips = _DOMAIN_TIPS.get(domain, "")
+    tip_block = f"\n### Domain-Specific Workflow\n{tips}" if tips else ""
+
+    return f"""## Agent Behavior Guide
+**You are scored on 5 dimensions**: Accuracy (30%), Process (25%), Safety (20%), Format (15%), Coherence (10%).
+
+### Critical Rules
+- **Use tools before answering.** Gathering evidence is mandatory. Never answer from memory alone.
+- **Use think() liberally.** Show your clinical reasoning. It improves Process and Coherence scores.
+- **Use 3-8 turns.** 1-turn answers get premature_stop penalty. 12+ turns get over_investigation penalty.
+- **Always end with submit_answer.** Your response is only recorded when you submit.
+- **One tool call per turn.** Respond with ONLY the JSON object — no extra text.
+- **Check safety.** Drug interactions, contraindications, critical values — flag them explicitly.
+{tip_block}"""
+
+
+def build_system_prompt(
+    policy: str,
+    tools: list[dict],
+    domain: str = "clinical_diagnosis",
+    task: Optional[dict] = None,
+    agent_profile: Optional[dict] = None,
+    reward_strategy: str = "grpo",
+) -> str:
+    """Build the system prompt with policy, tool definitions, and adaptive guidance.
+
+    Args:
+        policy: Environment policy text
+        tools: Tool definitions (OpenAI format)
+        domain: Task domain name
+        task: Optional task dict for adaptive guidance
+        agent_profile: Optional agent reflection/profile for weakness-aware guidance
+        reward_strategy: Current reward strategy (grpo/mrpo/sarl/adaptive)
+
+    Returns:
+        Complete system prompt with adaptive tool usage guidance
+    """
     tool_section = json.dumps(tools, indent=2, ensure_ascii=False)
     
     # Domain-specific system prompts for optimal agent performance
@@ -134,10 +245,15 @@ def build_system_prompt(policy: str, tools: list[dict], domain: str = "clinical_
         role = "You are a medical AI assistant operating in a clinical environment. Follow the policy below and use the available tools to help with patient care."
         final_instruction = "When you have gathered enough information and want to give your final assessment, respond with your clinical analysis as plain text (no JSON)."
     
-    return f"""{role}
+    # ── Build agent onboarding guidance ──
+    onboarding = _build_onboarding_guidance(domain)
+
+    base_prompt = f"""{role}
 
 ## Policy
 {policy}
+
+{onboarding}
 
 ## Available Tools
 You have access to the following tools. To use a tool, respond with ONLY a JSON object in this exact format:
@@ -152,51 +268,154 @@ Do NOT include any other text when making a tool call. One tool call per respons
 ## Tool Definitions
 {tool_section}"""
 
+    # Inject adaptive tool usage guidance if task info is available
+    if task is not None:
+        try:
+            from bioagents.gym.tool_guidance import GuidanceInjector
+            injector = GuidanceInjector(
+                agent_profile=agent_profile,
+                reward_strategy=reward_strategy,
+            )
+            base_prompt = injector.inject(
+                system_prompt=base_prompt,
+                domain=domain,
+                task=task,
+                tools=tools,
+            )
+        except Exception:
+            pass  # Graceful fallback: no guidance
+
+    return base_prompt
+
+
+def _normalize_tool_call(parsed: dict) -> Optional[dict]:
+    """Normalize various tool-call dict shapes to {name, arguments}."""
+    # Standard: {"name": "...", "arguments": {...}}
+    if "name" in parsed and isinstance(parsed.get("arguments"), dict):
+        return {"name": parsed["name"], "arguments": parsed["arguments"]}
+    if "name" in parsed:
+        args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("params") or {}
+        return {"name": parsed["name"], "arguments": args if isinstance(args, dict) else {}}
+    # Alt key: {"function": "...", "arguments": {...}}
+    if "function" in parsed:
+        args = parsed.get("arguments") or parsed.get("parameters") or {}
+        return {"name": parsed["function"], "arguments": args if isinstance(args, dict) else {}}
+    # Alt key: {"tool": "...", "args": {...}} (common in some frameworks)
+    if "tool" in parsed:
+        args = parsed.get("args") or parsed.get("arguments") or parsed.get("input") or {}
+        return {"name": parsed["tool"], "arguments": args if isinstance(args, dict) else {}}
+    # Alt key: {"action": "...", "action_input": {...}} (ReAct / LangChain style)
+    if "action" in parsed and parsed["action"] not in ("Final Answer",):
+        args = parsed.get("action_input") or parsed.get("arguments") or {}
+        return {"name": parsed["action"], "arguments": args if isinstance(args, dict) else {}}
+    return None
+
 
 def parse_tool_call(text: str) -> Optional[dict]:
     """Parse a tool call from model output.
     
     Supports formats:
     1. Pure JSON: {"name": "...", "arguments": {...}}
-    2. JSON in code block: ```json\n{...}\n```
+    2. JSON in code block: ```json\\n{...}\\n```
     3. JSON embedded in text with markers
+    4. XML-style: <tool_call>...</tool_call>, <|tool_call|>...<|/tool_call|>
+    5. ReAct: Action: tool_name\\nAction Input: {...}
+    6. Alt keys: function/tool/action instead of name
     """
     text = text.strip()
     
-    # Try 1: Extract JSON from code blocks
-    code_block_match = re.search(r'```(?:json)?\s*\n?({.*?})\s*\n?```', text, re.DOTALL)
+    # ── Pre-check: skip obviously non-tool-call text ──
+    # If the text is very short and has no JSON / XML indicators, skip
+    has_json_hint = "{" in text
+    has_xml_hint = "<tool_call" in text.lower() or "<|tool_call" in text
+    has_react_hint = "Action:" in text or "action:" in text
+    
+    # ── Try 0: XML-style tool call tags ──
+    # Qwen-style: <|tool_call|>{...}<|/tool_call|>
+    xml_patterns = [
+        r'<\|tool_call\|>\s*(.*?)\s*<\|/tool_call\|>',
+        r'<tool_call>\s*(.*?)\s*</tool_call>',
+        r'<function_call>\s*(.*?)\s*</function_call>',
+        r'<\|plugin\|>\s*(.*?)\s*<\|/plugin\|>',
+    ]
+    for pat in xml_patterns:
+        xml_match = re.search(pat, text, re.DOTALL)
+        if xml_match:
+            inner = xml_match.group(1).strip()
+            try:
+                parsed = json.loads(inner)
+                if isinstance(parsed, dict):
+                    norm = _normalize_tool_call(parsed)
+                    if norm:
+                        return norm
+            except json.JSONDecodeError:
+                pass
+    
+    # ── Try 1: Extract JSON from code blocks ──
+    code_block_match = re.search(r'```(?:json|tool_call)?\s*\n?({.*?})\s*\n?```', text, re.DOTALL)
     if code_block_match:
         try:
             parsed = json.loads(code_block_match.group(1))
-            if "name" in parsed:
-                return parsed
+            if isinstance(parsed, dict):
+                norm = _normalize_tool_call(parsed)
+                if norm:
+                    return norm
         except json.JSONDecodeError:
             pass
     
-    # Try 2: Direct JSON parse
-    try:
-        parsed = json.loads(text)
-        if isinstance(parsed, dict) and "name" in parsed:
-            return parsed
-    except json.JSONDecodeError:
-        pass
+    # ── Try 2: Direct JSON parse ──
+    if has_json_hint:
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                norm = _normalize_tool_call(parsed)
+                if norm:
+                    return norm
+        except json.JSONDecodeError:
+            pass
     
-    # Try 3: Find JSON-like pattern in text
-    json_match = re.search(r'(\{[^{}]*"name"\s*:\s*"[^"]+?"[^{}]*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\})', text, re.DOTALL)
+    # ── Try 3: ReAct format ──
+    # "Action: search_pubmed\nAction Input: {"query": "..."}"
+    if has_react_hint:
+        react_match = re.search(
+            r'[Aa]ction\s*:\s*([^\n{]+?)(?:\n|\s+)[Aa]ction\s*[Ii]nput\s*:\s*(.+)',
+            text, re.DOTALL
+        )
+        if react_match:
+            tool_name = react_match.group(1).strip().strip('"').strip("'")
+            args_str = react_match.group(2).strip()
+            if tool_name:
+                try:
+                    args = json.loads(args_str)
+                    if isinstance(args, dict):
+                        return {"name": tool_name, "arguments": args}
+                except json.JSONDecodeError:
+                    # args might be plain text
+                    return {"name": tool_name, "arguments": {"input": args_str}}
+    
+    if not has_json_hint:
+        return None
+
+    # ── Try 4: Find JSON-like pattern in text ──
+    json_match = re.search(
+        r'(\{[^{}]*"name"\s*:\s*"[^"]+?"[^{}]*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\})',
+        text, re.DOTALL,
+    )
     if json_match:
         try:
             parsed = json.loads(json_match.group(1))
-            if "name" in parsed:
-                return parsed
+            norm = _normalize_tool_call(parsed)
+            if norm:
+                return norm
         except json.JSONDecodeError:
             pass
     
-    # Try 4: More lenient nested JSON search
+    # ── Try 5: More lenient nested JSON search ──
     matches = list(re.finditer(r'\{', text))
-    for m in matches:
+    for m in matches[:10]:  # limit iterations for large outputs
         start = m.start()
         depth = 0
-        for i in range(start, len(text)):
+        for i in range(start, min(start + 2000, len(text))):  # cap scan length
             if text[i] == '{':
                 depth += 1
             elif text[i] == '}':
@@ -205,8 +424,10 @@ def parse_tool_call(text: str) -> Optional[dict]:
                     candidate = text[start:i+1]
                     try:
                         parsed = json.loads(candidate)
-                        if isinstance(parsed, dict) and "name" in parsed:
-                            return parsed
+                        if isinstance(parsed, dict):
+                            norm = _normalize_tool_call(parsed)
+                            if norm:
+                                return norm
                     except json.JSONDecodeError:
                         pass
                     break
@@ -590,8 +811,15 @@ class AgentRunner:
         # Reset environment
         obs, info = env.reset(options={"task_id": task_id})
         
-        # Build conversation
-        system_prompt = build_system_prompt(info["policy"], info["tools"], domain=self.config.domain)
+        # Build conversation with adaptive tool guidance
+        system_prompt = build_system_prompt(
+            info["policy"],
+            info["tools"],
+            domain=self.config.domain,
+            task=task,
+            agent_profile=getattr(self, "_agent_profile", None),
+            reward_strategy=getattr(self, "_reward_strategy", "grpo"),
+        )
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": obs},
@@ -646,13 +874,21 @@ class AgentRunner:
                     action = json.dumps(tool_call)
                     observation, reward, terminated, truncated, step_info = env.step(action)
                     
-                    turn.tool_response = observation
-                    
+                    # Normalize observation to string
+                    if isinstance(observation, dict):
+                        observation_str = json.dumps(observation, indent=2, ensure_ascii=False)
+                    elif isinstance(observation, (list, tuple)):
+                        observation_str = json.dumps(observation, indent=2, ensure_ascii=False)
+                    else:
+                        observation_str = str(observation) if observation is not None else ""
+
+                    turn.tool_response = observation_str
+
                     # Add to messages
                     messages.append({"role": "assistant", "content": json.dumps(tool_call)})
                     messages.append({
                         "role": "user",
-                        "content": f"Tool result for {tool_name}:\n{observation}"
+                        "content": f"Tool result for {tool_name}:\n{observation_str}"
                     })
                     
                     result.turns.append(turn)
