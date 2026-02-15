@@ -12,6 +12,8 @@ from bioagents.domains.ehr_management.data_model import (
 )
 from bioagents.domains.ehr_management.tools import EHRTools
 from bioagents.environment.environment import Environment
+from bioagents.environment.toolkit import CompositeToolKit
+from bioagents.tools.knowledge_tools import KnowledgeTools
 
 
 def get_environment(
@@ -30,7 +32,9 @@ def get_environment(
     if db is None:
         db = EHRDB.load(DB_PATH)
 
-    tools = EHRTools(db)
+    domain_tools = EHRTools(db)
+    knowledge_tools = KnowledgeTools(db=db)
+    tools = CompositeToolKit(domain_tools, knowledge_tools)
 
     with open(POLICY_PATH, "r", encoding="utf-8") as f:
         policy = f.read()

@@ -12,6 +12,8 @@ from bioagents.domains.triage_emergency.data_model import (
 )
 from bioagents.domains.triage_emergency.tools import TriageEmergencyTools
 from bioagents.environment.environment import Environment
+from bioagents.environment.toolkit import CompositeToolKit
+from bioagents.tools.knowledge_tools import KnowledgeTools
 
 
 def get_environment(
@@ -22,7 +24,9 @@ def get_environment(
     if db is None:
         db = TriageEmergencyDB.load(DB_PATH)
 
-    tools = TriageEmergencyTools(db)
+    domain_tools = TriageEmergencyTools(db)
+    knowledge_tools = KnowledgeTools(db=db)
+    tools = CompositeToolKit(domain_tools, knowledge_tools)
 
     with open(POLICY_PATH, "r", encoding="utf-8") as f:
         policy = f.read()

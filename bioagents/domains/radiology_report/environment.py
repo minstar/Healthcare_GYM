@@ -12,6 +12,8 @@ from bioagents.domains.radiology_report.data_model import (
 )
 from bioagents.domains.radiology_report.tools import RadiologyReportTools
 from bioagents.environment.environment import Environment
+from bioagents.environment.toolkit import CompositeToolKit
+from bioagents.tools.knowledge_tools import KnowledgeTools
 
 
 def get_environment(
@@ -22,7 +24,9 @@ def get_environment(
     if db is None:
         db = RadiologyReportDB.load(DB_PATH)
 
-    tools = RadiologyReportTools(db)
+    domain_tools = RadiologyReportTools(db)
+    knowledge_tools = KnowledgeTools(db=db)
+    tools = CompositeToolKit(domain_tools, knowledge_tools)
 
     with open(POLICY_PATH, "r", encoding="utf-8") as f:
         policy = f.read()

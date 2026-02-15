@@ -33,13 +33,14 @@ from typing import Optional
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
-# Model configs
+# Model configs — 3 VL models (fixed)
+# All models support Vision+Text and are used in the Autonomous GYM
 MODELS = {
-    "qwen3": {
-        "name": "Qwen3-8B-Base",
-        "path": "/data/project/private/minstar/models/Qwen3-8B-Base",
+    "lingshu": {
+        "name": "Lingshu-7B",
+        "path": str(PROJECT_ROOT / "checkpoints/models/Lingshu-7B"),
         "gpus": "0,1",
-        "type": "causal",
+        "type": "vlm",
     },
     "qwen2vl": {
         "name": "Qwen2.5-VL-7B-Instruct",
@@ -47,9 +48,9 @@ MODELS = {
         "gpus": "2,3",
         "type": "vlm",
     },
-    "lingshu": {
-        "name": "Lingshu-7B",
-        "path": str(PROJECT_ROOT / "checkpoints/models/Lingshu-7B"),
+    "step3vl": {
+        "name": "Step3-VL-10B",
+        "path": str(PROJECT_ROOT / "checkpoints/models/Step3-VL-10B"),
         "gpus": "4,5",
         "type": "vlm",
     },

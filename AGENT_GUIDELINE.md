@@ -1,6 +1,6 @@
 # Healthcare AI GYM — Agent Guideline
 
-> **Last Updated**: 2026-02-14 14:51 (auto-updated by GYM system)
+> **Last Updated**: 2026-02-15 17:31 (auto-updated by GYM system)
 > **Version**: 1.0
 > **For**: Any model (7B-10B+) entering the Healthcare AI GYM
 
@@ -108,147 +108,210 @@ The system will:
 | `radiology_report` | Generate structured radiology reports | Structured reporting, measurements | **Yes** |
 | `cross_domain` | Multi-phase complex cases | All of the above | Varies |
 
-### 3.2 Domain Tool Reference
+### 3.2 Knowledge Tools (Available in ALL Domains)
 
-Every domain provides a set of tools you must learn to use effectively. Always make tool calls using this JSON format:
+Every domain has access to a **unified medical knowledge search system** backed by:
+- **828K medical passages** (PubMed, MedCPT, biomedical QA) via FTS5 BM25
+- **26M Wikipedia articles** (188 GB) via FTS5 + FAISS
+- **10 clinical guidelines** (AHA, ACOG, SSC, IDSA, ...)
+- **Domain-specific articles, wiki entries, and evidence** from each domain's `db.json`
+
+These 8 tools are injected into every domain automatically via `KnowledgeTools`:
+
+```
+search(queries, max_results=8)
+    → Unified search across ALL knowledge sources (PubMed, Wiki, Evidence, Guidelines, Wikipedia).
+      Comma-separated for multiple queries: "pneumonia treatment, antibiotic resistance"
+      Returns merged, deduplicated results ranked by relevance.
+
+search_pubmed(query, max_results=5)
+    → Search PubMed-style medical literature. Returns title, abstract snippet, PMID.
+
+search_medical_wiki(query, max_results=5)
+    → Search medical encyclopedia entries + Wikipedia dump (26M articles).
+
+search_evidence(query, max_results=5, category="")
+    → Retrieve evidence passages from 581K MedCPT PubMed/PMC entries + domain evidence.
+      Optional category filter: "pharmacology", "pathology", etc.
+
+search_guidelines(condition)
+    → Search clinical guidelines for a specific condition (e.g., "hypertension", "sepsis").
+
+browse(url_or_id, query="")
+    → Browse any knowledge source by PMID, entry ID, or Wikipedia URL.
+      Optional query highlights relevant sections.
+
+browse_article(pmid, section="")
+    → Read a specific PubMed article by PMID, optionally a specific section.
+
+browse_wiki_entry(entry_id)
+    → Read a specific medical encyclopedia entry.
+```
+
+**Best Practice**: Always search evidence BEFORE answering. Use `search()` for broad queries, then `browse()` for deep dives.
+
+### 3.3 Universal Tools (Available in ALL Domains)
+
+```
+think(thought)
+    → Internal reasoning scratchpad. Use liberally to plan and reflect.
+      Not scored, but shows your reasoning process.
+
+submit_answer(answer, reasoning="")
+    → Submit your final answer. **Always required to end a task.**
+      Some domains have specialized submit formats (see below).
+```
+
+### 3.4 Domain-Specific Tool Reference
+
+Always make tool calls using this JSON format:
 
 ```json
 {"name": "tool_name", "arguments": {"arg1": "value1", "arg2": "value2"}}
 ```
 
-**Universal Tools** (available in ALL domains):
-- `think(thought)` — Internal reasoning scratchpad. Use liberally.
-- `submit_answer(answer, reasoning)` — Submit your final answer. **Always required.**
-
-#### clinical_diagnosis
+#### clinical_diagnosis (18 domain + 8 knowledge = 26 tools)
 ```
-get_patient_info(patient_id)          → Demographics, allergies, summary
-get_patient_history(patient_id)       → Complete medical history
-get_vital_signs(patient_id)           → Latest vitals (HR, BP, SpO2, etc.)
-get_vital_signs_trend(patient_id, num_readings=5)
+get_patient_info(patient_id)              → Demographics, allergies, conditions, medications
+get_patient_history(patient_id)           → Complete medical history (conditions, past meds, family)
+get_vital_signs(patient_id)               → Latest vitals (HR, BP, SpO2, Temp, RR)
+get_vital_signs_trend(patient_id, num_readings=5)  → Vital signs over time
 get_lab_results(patient_id, category="")  → Lab results (CBC, BMP, etc.)
-order_lab_test(patient_id, test_name, priority="routine")
-get_medications(patient_id)           → Current medication list
-check_drug_interaction(drug_a, drug_b)
+order_lab_test(patient_id, test_name, priority="routine")  → Order + simulate results
+get_medications(patient_id)               → Current medication list
+check_drug_interaction(drug_a, drug_b)    → Check DDI between two drugs
 prescribe_medication(patient_id, drug_name, dosage, frequency, route="oral")
-get_clinical_notes(patient_id, note_type="")
+get_clinical_notes(patient_id, note_type="")  → Clinical notes (progress, consult, etc.)
 add_clinical_note(patient_id, note_type, content, diagnosis_codes="")
-get_differential_diagnosis(symptoms)  → DDx list with probabilities
-search_clinical_guidelines(condition) → Evidence-based guidelines
+get_differential_diagnosis(symptoms)      → DDx list with probabilities
+search_clinical_guidelines(condition)     → Evidence-based guidelines
 record_diagnosis(patient_id, diagnosis, icd10_code="", confidence="moderate")
-search_medical_literature(query)
+search_medical_literature(query)          → PubMed-style literature search
 transfer_to_specialist(summary, specialty)
++ 8 Knowledge Tools (search, browse, search_pubmed, search_medical_wiki, search_evidence, search_guidelines, browse_article, browse_wiki_entry)
 ```
 
-#### drug_interaction
+#### drug_interaction (9 domain + 8 knowledge = 17 tools)
 ```
-get_drug_info(drug_name)              → Mechanism, indications, side effects
-search_drugs_by_class(drug_class)     → Find drugs by class (SSRI, etc.)
-check_interaction(drug_a, drug_b)     → Interaction severity + management
-check_all_interactions(patient_id, new_drug="")
-get_patient_medications(patient_id)
-search_alternatives(drug_name)        → Safer alternatives
-check_dosage(drug_name, patient_id="") → Dosage guidelines
+get_drug_info(drug_name)                  → Mechanism, indications, side effects, metabolism
+search_drugs_by_class(drug_class)         → Find drugs by class (SSRI, ACE inhibitor, etc.)
+check_interaction(drug_a, drug_b)         → Severity, mechanism, management
+check_all_interactions(patient_id, new_drug="")  → Check all DDIs for patient's med list
+get_patient_medications(patient_id)       → Current meds + health info
+search_alternatives(drug_name)            → Safer alternatives when interaction found
+check_dosage(drug_name, patient_id="")    → Dosage guidelines + patient-specific adjustments
++ 8 Knowledge Tools
 ```
 
-#### ehr_management
+#### ehr_management (14 domain + 8 knowledge = 22 tools)
 ```
-get_patient_summary(hadm_id)          → Admission summary
-get_admission_history(patient_id)     → All admissions
-get_lab_results(hadm_id, lab_name="", last_n=10)
-get_lab_trend(hadm_id, lab_name)      → Lab value trend analysis
-get_vital_signs(hadm_id, last_n=12)
-detect_vital_alerts(hadm_id)          → Abnormal patterns
+get_patient_summary(hadm_id)              → Comprehensive admission summary
+get_admission_history(patient_id)         → All past hospital visits
+get_lab_results(hadm_id, lab_name="", last_n=10)  → Time-series lab data
+get_lab_trend(hadm_id, lab_name)          → Trend analysis (rising/falling/stable)
+get_vital_signs(hadm_id, last_n=12)       → Recent vital measurements
+detect_vital_alerts(hadm_id)              → Abnormal patterns (tachy, brady, hypo, etc.)
 get_medication_orders(hadm_id, active_only=False)
-get_clinical_scores(hadm_id)          → SOFA, NEWS, APACHE-II
-get_quality_indicators(hadm_id)       → Quality/outcome metrics
-get_procedures(hadm_id)
-get_discharge_summary(hadm_id)
-lookup_icd_code(code)                 → ICD-10 description
+get_clinical_scores(hadm_id)              → SOFA, NEWS, APACHE-II, SAPS-II
+get_quality_indicators(hadm_id)           → Readmission risk, mortality, LOS, sepsis flag
+get_procedures(hadm_id)                   → Procedures performed
+get_discharge_summary(hadm_id)            → Diagnoses, discharge meds, follow-up
+lookup_icd_code(code)                     → ICD-10 description lookup
++ 8 Knowledge Tools
 ```
 
-#### medical_qa
+#### medical_qa (7 domain + 8 knowledge = ~15 tools)
 ```
-search_pubmed(query, max_results=5)   → Literature search
-browse_article(pmid, section="")      → Read article
+search_pubmed(query, max_results=5)       → Literature search (also in KnowledgeTools)
+browse_article(pmid, section="")          → Read article by PMID
 search_medical_wiki(query, max_results=5) → Encyclopedia search
-browse_wiki_entry(entry_id)           → Read encyclopedia entry
-retrieve_evidence(query, max_results=5, category="")
-analyze_answer_options(question, options) → Option analysis
+browse_wiki_entry(entry_id)               → Read encyclopedia entry
+retrieve_evidence(query, max_results=5, category="")  → Evidence passage retrieval
+analyze_answer_options(question, options)  → Option analysis for MCQA
++ Knowledge Tools (search, search_evidence, search_guidelines, browse)
 ```
+Note: medical_qa's domain tools overlap significantly with KnowledgeTools. Domain versions take priority for matching names.
 
-#### triage_emergency
+#### triage_emergency (12 domain + 8 knowledge = 20 tools)
 ```
-get_patient_presentation(patient_id)  → ED presentation
-get_vital_signs(patient_id)           → Detailed vitals
-assess_airway_breathing(patient_id)   → ABC assessment
-get_medical_history(patient_id)       → History, meds, allergies
-calculate_gcs(patient_id)             → Glasgow Coma Scale
-calculate_esi_level(patient_id)       → ESI triage level
-get_ed_status()                       → ED operational status
-check_protocol(protocol_name)         → Emergency protocols
-order_stat_labs(patient_id, tests)    → STAT lab orders
-order_imaging(patient_id, modality, body_part, indication="")
+get_patient_presentation(patient_id)      → Chief complaint, arrival, vitals, symptoms, pain
+get_vital_signs(patient_id)               → Detailed vital signs
+assess_airway_breathing(patient_id)       → ABC assessment
+get_medical_history(patient_id)           → PMH, medications, allergies
+calculate_gcs(patient_id)                 → Glasgow Coma Scale
+calculate_esi_level(patient_id)           → ESI triage algorithm
+get_ed_status()                           → ED beds, wait times, resources
+check_protocol(protocol_name)             → Emergency protocols (STEMI, Stroke, Sepsis, etc.)
+order_stat_labs(patient_id, tests)        → STAT lab orders
+order_imaging(patient_id, modality, body_part, indication="")  → STAT imaging
++ 8 Knowledge Tools
 ```
 Submit: `submit_answer(esi_level, disposition, reasoning, initial_orders="")`
 
-#### psychiatry
+#### psychiatry (14 domain + 8 knowledge = 22 tools)
 ```
-get_patient_presentation(patient_id)
-get_psychiatric_history(patient_id)
-perform_mental_status_exam(patient_id)
-administer_phq9(patient_id)           → Depression screening
-administer_gad7(patient_id)           → Anxiety screening
-assess_suicide_risk(patient_id)       → Columbia-SSRS
-screen_substance_use(patient_id)      → AUDIT/DAST
-administer_mmse(patient_id)           → Cognitive screening
-get_current_medications(patient_id)
-check_drug_interactions(drug_a, drug_b)
-get_social_history(patient_id)
-review_treatment_guidelines(condition)
+get_patient_presentation(patient_id)      → Chief complaint, referral, demographics, vitals
+get_psychiatric_history(patient_id)       → Past diagnoses, hospitalizations, trauma, family
+perform_mental_status_exam(patient_id)    → Full MSE (appearance, behavior, speech, mood, etc.)
+administer_phq9(patient_id)              → Depression screening (score + severity)
+administer_gad7(patient_id)              → Anxiety screening (score + severity)
+assess_suicide_risk(patient_id)          → Columbia-SSRS (risk level + ideation + plan)
+screen_substance_use(patient_id)         → AUDIT (alcohol) + DAST (drugs)
+administer_mmse(patient_id)              → Cognitive screening (score + domains)
+get_current_medications(patient_id)      → Psychiatric + non-psychiatric meds
+check_drug_interactions(drug_a, drug_b)  → Serotonin syndrome, QTc, CYP interactions
+get_social_history(patient_id)           → Support, housing, employment, legal, risk factors
+review_treatment_guidelines(condition)   → First-line, second-line, contraindications
++ 8 Knowledge Tools
 ```
 Submit: `submit_answer(diagnosis, risk_level, treatment_plan, disposition, reasoning)`
 
-#### obstetrics
+#### obstetrics (14 domain + 8 knowledge = 22 tools)
 ```
-get_patient_presentation(patient_id)  → Demographics + OB info
-get_prenatal_labs(patient_id, trimester=0)
-get_obstetric_history(patient_id)     → G/P, prior pregnancies
-assess_fetal_status(patient_id)       → FHR monitoring
-assess_labor_progress(patient_id)     → Cervical dilation, contractions
-calculate_bishop_score(patient_id)    → Induction readiness
-get_biophysical_profile(patient_id)   → BPP score
-check_medication_safety(drug_name, trimester=0)
-get_risk_assessment(patient_id)       → ACOG risk screening
-check_ob_protocol(protocol_name)      → OB emergency protocols
-get_gyn_assessment(patient_id)
-order_labs(patient_id, tests)
+get_patient_presentation(patient_id)      → Demographics, chief complaint, gestational age, vitals
+get_prenatal_labs(patient_id, trimester=0) → Prenatal labs (filter by trimester)
+get_obstetric_history(patient_id)         → G/P, prior pregnancies, complications, deliveries
+assess_fetal_status(patient_id)           → FHR baseline, variability, accelerations, decels
+assess_labor_progress(patient_id)         → Cervical dilation, station, membranes, contractions
+calculate_bishop_score(patient_id)        → Cervical readiness for induction
+get_biophysical_profile(patient_id)       → BPP score (fetal well-being via ultrasound)
+check_medication_safety(drug_name, trimester=0)  → Pregnancy risk category + teratogenicity
+get_risk_assessment(patient_id)           → ACOG risk factor screening
+check_ob_protocol(protocol_name)          → OB emergency protocols (shoulder dystocia, PPH, etc.)
+get_gyn_assessment(patient_id)            → Menstrual, contraception, Pap, STI history
+order_labs(patient_id, tests)             → Prenatal/GYN lab orders
++ 8 Knowledge Tools
 ```
 Submit: `submit_answer(diagnosis, management_plan, urgency, reasoning)`
 
-#### visual_diagnosis
+#### visual_diagnosis (9 domain + 8 knowledge = 17 tools)
 ```
-analyze_medical_image(image_id, focus_area="")
-get_image_report(image_id)            → Existing report
-get_patient_context(patient_id)
-search_similar_cases(image_id, max_results=3)
-compare_with_prior(current_image_id, prior_image_id)
-search_imaging_knowledge(query, modality="")
+analyze_medical_image(image_id, focus_area="")  → Pre-computed findings for the image
+get_image_report(image_id)                → Existing radiology/pathology report
+get_patient_context(patient_id)           → Clinical context for image interpretation
+search_similar_cases(image_id, max_results=3)  → Similar cases for comparison
+compare_with_prior(current_image_id, prior_image_id)  → Compare with prior study
+search_imaging_knowledge(query, modality="")  → Imaging knowledge base search
 record_visual_diagnosis(image_id, diagnosis, confidence, reasoning)
++ 8 Knowledge Tools
 ```
 
-#### radiology_report
+#### radiology_report (11 domain + 8 knowledge = 19 tools)
 ```
-get_study_info(study_id)              → Modality, body part, indication
-get_clinical_history(study_id)
-get_prior_reports(study_id)           → For comparison
-get_report_template(modality, body_part)
-analyze_findings(study_id)            → AI findings
-search_radiology_knowledge(query)
-get_reporting_checklist(modality, body_part)
-calculate_measurements(study_id, measurement_type)
+get_study_info(study_id)                  → Modality, body part, indication, technique
+get_clinical_history(study_id)            → Patient history relevant to study
+get_prior_reports(study_id)               → Prior reports for comparison
+get_report_template(modality, body_part)  → Structured report template
+analyze_findings(study_id)                → AI-detected findings
+search_radiology_knowledge(query)         → Radiology knowledge base (BI-RADS, TI-RADS, etc.)
+get_reporting_checklist(modality, body_part)  → Quality checklist
+calculate_measurements(study_id, measurement_type)  → Standardized measurements
+submit_report(study_id, indication, technique, comparison, findings, impression)
++ 8 Knowledge Tools
 ```
-Submit: `submit_report(study_id, indication, technique, comparison, findings, impression)`
+
+#### cross_domain (6 clinical pathways, variable tools)
+Cross-domain pathways delegate to the appropriate domain for each phase. For example, a chest pain pathway uses triage tools (Phase 1), clinical_diagnosis tools (Phase 2), radiology tools (Phase 3), drug_interaction tools (Phase 4), and ehr tools (Phase 5).
 
 ---
 
@@ -303,17 +366,33 @@ Every response is scored across **5 dimensions**:
 
 ### 5.1 Ideal Tool-Use Pattern
 
+**Example: Clinical Diagnosis with Knowledge Search**
 ```
 Turn 1: think("Let me analyze this case systematically...")
 Turn 2: get_patient_info(patient_id="P001")
 Turn 3: get_vital_signs(patient_id="P001")
 Turn 4: get_lab_results(patient_id="P001")
 Turn 5: think("Vitals show fever + tachycardia, labs show elevated WBC...")
-Turn 6: search_clinical_guidelines(condition="community-acquired pneumonia")
-Turn 7: get_differential_diagnosis(symptoms="fever, cough, dyspnea")
-Turn 8: record_diagnosis(patient_id="P001", diagnosis="CAP", icd10_code="J18.9")
-Turn 9: submit_answer(answer="...", reasoning="...")
+Turn 6: search("community-acquired pneumonia diagnosis criteria, CAP antibiotic treatment")
+Turn 7: search_evidence(query="pneumonia empirical therapy", category="pharmacology")
+Turn 8: search_clinical_guidelines(condition="community-acquired pneumonia")
+Turn 9: get_differential_diagnosis(symptoms="fever, cough, dyspnea")
+Turn 10: record_diagnosis(patient_id="P001", diagnosis="CAP", icd10_code="J18.9")
+Turn 11: submit_answer(answer="...", reasoning="...")
 ```
+
+**Example: Drug Interaction with Evidence Retrieval**
+```
+Turn 1: think("Need to check safety of adding sertraline to current meds...")
+Turn 2: get_patient_medications(patient_id="DI_P003")
+Turn 3: check_all_interactions(patient_id="DI_P003", new_drug="sertraline")
+Turn 4: search_evidence(query="SSRI drug interactions serotonin syndrome risk")
+Turn 5: search_pubmed(query="sertraline tramadol interaction mechanism")
+Turn 6: search_alternatives(drug_name="sertraline")
+Turn 7: submit_answer(answer="...", reasoning="...")
+```
+
+**Key**: Use `search()` for broad multi-source queries, `search_evidence()` for deep PubMed/PMC retrieval, and `search_guidelines()` for clinical protocols. Always search **before** making clinical decisions.
 
 ### 5.2 Common Mistakes to Avoid
 
@@ -605,12 +684,18 @@ All training is logged to Weights & Biases under project `pt2-minstar-gym-rl`.
 BIOAgents/
 ├── configs/
 │   └── autonomous_gym.yaml          # GYM + agent configuration
-├── data/domains/
-│   ├── {domain}/
+├── data/
+│   ├── domains/{domain}/
 │   │   ├── tasks.json                # Original training tasks
 │   │   ├── tasks_scaled.json         # Template-scaled tasks
 │   │   ├── tasks_auto_generated.json # Knowledge-mined tasks
 │   │   └── db.json                   # Domain knowledge database
+│   └── knowledge/
+│       ├── medical_fts5.db           # 828K medical passages (BM25)
+│       ├── wiki_2018/
+│       │   ├── fts5_full.db          # 26M Wikipedia articles (FTS5)
+│       │   └── faiss_index/          # Dense retrieval index
+│       └── medcpt/                   # 581K PubMed/PMC entries
 ├── bioagents/
 │   ├── gym/
 │   │   ├── autonomous_agent.py       # Agent logic + data strategy
@@ -626,46 +711,85 @@ BIOAgents/
 │   │   └── grpo_trainer.py           # GRPO training loop
 │   ├── data_pipeline/
 │   │   └── auto_task_generator.py    # Knowledge mining
+│   ├── tools/
+│   │   └── knowledge_tools.py        # KnowledgeTools (8 unified search tools)
+│   ├── environment/
+│   │   ├── environment.py            # Base Environment class
+│   │   └── toolkit.py                # ToolKitBase + CompositeToolKit
 │   └── domains/
 │       └── {domain}/
-│           ├── tools.py              # Domain tools
-│           └── environment.py        # Domain environment
+│           ├── tools.py              # Domain-specific tools (@is_tool)
+│           ├── environment.py        # Domain env (CompositeToolKit)
+│           └── data_model.py         # Pydantic data models
 └── checkpoints/models/               # Model checkpoints
 ```
 
 
+
+
+
+
+
+
 ## 13. Live Intelligence (Auto-Updated)
 
-> Last auto-update: 2026-02-14 14:51 | Based on 3 recent cycles
+> Last auto-update: 2026-02-15 17:50 | System reset after Phase 1.5 integration
 
-### 13.1 Current Score Baselines
+### 13.1 Current Domain Status
 
-| Domain | Avg Score | Best Agent | Common Errors |
-|--------|-----------|------------|---------------|
-| clinical_diagnosis | 52.0% | qwen2_5_vl_7b (52.0%) | reasoning_error(1), premature_stop(1) |
-| drug_interaction | 33.0% | lingshu_7b (33.0%) | tool_use_failure(2), premature_stop(1) |
-| ehr_management | 39.0% | step3_vl_10b (39.0%) | over_investigation(1) |
+| Domain | Tools | Status | Notes |
+|--------|-------|--------|-------|
+| clinical_diagnosis | 26 | ✅ Ready | 18 domain + 8 knowledge |
+| drug_interaction | 17 | ✅ Ready | 9 domain + 8 knowledge |
+| ehr_management | 22 | ✅ Ready | 14 domain + 8 knowledge |
+| triage_emergency | 20 | ✅ Ready | 12 domain + 8 knowledge |
+| radiology_report | 19 | ✅ Ready | 11 domain + 8 knowledge |
+| visual_diagnosis | 17 | ✅ Ready | 9 domain + 8 knowledge |
+| psychiatry | 22 | ✅ Ready | 14 domain + 8 knowledge |
+| obstetrics | 22 | ✅ Ready | 14 domain + 8 knowledge |
+| cross_domain | variable | ✅ Ready | Delegates to phase-specific domains |
+| **Total** | **165** | | 101 domain + 64 knowledge |
+### 13.2 Knowledge Infrastructure
 
-### 13.2 Discovered Best Practices
+| Source | Status | Volume |
+|--------|--------|--------|
+| Medical FTS5 (BM25) | ✅ Connected | 828K passages (2.4 GB) |
+| Wikipedia 2018 FTS5 | ✅ Connected | 26M articles (97 GB) |
+| Domain DB (per domain) | ✅ Connected | Variable (articles, wiki, evidence) |
+| Clinical Guidelines | ✅ Connected | 10 guidelines (AHA, ACOG, SSC, IDSA, ...) |
 
-**What works (from successful training cycles):**
+### 13.3 Models (3 VL, fixed)
 
-- **qwen2_5_vl_7b** improved **17.0%** on `clinical_diagnosis` (tasks: 20)
+| Model | Size | Modality | Baseline |
+|-------|------|----------|----------|
+| LingShu-7B | 7B | Vision+Text | Pending |
+| Qwen2.5-VL-7B-Instruct | 7B | Vision+Text | Pending |
+| Step3-VL-10B | ~10B | Vision+Text | Pending |
 
-### 13.3 Known Pitfalls (from real agent experience)
+### 13.4 Resolved Issues (Phase 1.5)
 
-- **`premature_stop`** (2 occurrences): Most common in `clinical_diagnosis` (1x)
-- **`tool_use_failure`** (2 occurrences): Most common in `drug_interaction` (2x)
-- **`reasoning_error`** (1 occurrences): Most common in `clinical_diagnosis` (1x)
-- **`over_investigation`** (1 occurrences): Most common in `ehr_management` (1x)
+| Issue | Status | Resolution |
+|-------|--------|------------|
+| Psychiatry/Obstetrics/Visual DB validation errors | ✅ Fixed | Updated `data_model.py` field types |
+| 4 domains had 0 registered tools | ✅ Fixed | Fixed `@is_tool` decorator for dual syntax |
+| KnowledgeTools disconnected from domains | ✅ Fixed | `CompositeToolKit` integrates into all 9 domains |
+| `premature_stop` in ehr_management (28x) | ⚠️ Monitor | Agents need SARL strategy to encourage tool use |
+| `medical_qa/db.json` empty | ⚠️ Known | Data file needs regeneration |
 
-### 13.5 Recommended Focus Areas
+### 13.5 Recommended Next Steps
 
-- `drug_interaction` (avg: 33.0%) — needs more training
-- `ehr_management` (avg: 39.0%) — needs more training
-- `clinical_diagnosis` (avg: 52.0%) — needs more training
+1. Run `python scripts/run_full_baseline_eval.py --parallel` for all 3 models
+2. Start Autonomous GYM: `python -m bioagents.gym.autonomous_gym --config configs/autonomous_gym.yaml`
+3. Monitor W&B dashboard: `pt2-minstar-gym-rl`
 
+### 13.6 Peer Leaderboard
+
+> Baselines not yet established. Leaderboard will populate after first evaluation cycle.
+
+| Rank | Agent | Avg Score | Best Domain | Trend |
+|------|-------|-----------|-------------|-------|
+| - | - | - | - | - |
 
 ---
 
-*This guideline is maintained by the Healthcare AI GYM system. It reflects the current state of all domains, tools, benchmarks, and training strategies.*
+*This guideline is maintained by the Healthcare AI GYM system. It reflects the current state of all domains, tools, benchmarks, and training strategies. Section 13 is auto-updated during training cycles.*

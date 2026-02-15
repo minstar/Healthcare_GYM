@@ -7,12 +7,16 @@ from typing import Optional
 from bioagents.domains.obstetrics.data_model import ObstetricsDB, DB_PATH, POLICY_PATH, TASKS_PATH
 from bioagents.domains.obstetrics.tools import ObstetricsTools
 from bioagents.environment.environment import Environment
+from bioagents.environment.toolkit import CompositeToolKit
+from bioagents.tools.knowledge_tools import KnowledgeTools
 
 
 def get_environment(db: Optional[ObstetricsDB] = None, max_turns: int = 20) -> Environment:
     if db is None:
         db = ObstetricsDB.load(DB_PATH)
-    tools = ObstetricsTools(db)
+    domain_tools = ObstetricsTools(db)
+    knowledge_tools = KnowledgeTools(db=db)
+    tools = CompositeToolKit(domain_tools, knowledge_tools)
     with open(POLICY_PATH, "r", encoding="utf-8") as f:
         policy = f.read()
     return Environment(domain_name="obstetrics", policy=policy, tools=tools, max_turns=max_turns)

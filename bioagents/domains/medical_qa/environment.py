@@ -12,6 +12,8 @@ from bioagents.domains.medical_qa.data_model import (
 )
 from bioagents.domains.medical_qa.tools import MedicalQATools
 from bioagents.environment.environment import Environment
+from bioagents.environment.toolkit import CompositeToolKit
+from bioagents.tools.knowledge_tools import KnowledgeTools
 
 
 def get_environment(
@@ -30,7 +32,12 @@ def get_environment(
     if db is None:
         db = MedicalQADB.load(DB_PATH)
 
-    tools = MedicalQATools(db)
+    # MedicalQATools already has search_pubmed, search_medical_wiki, etc.
+    # KnowledgeTools adds 828K FTS5 medical passages + Wikipedia search.
+    # CompositeToolKit merges them: domain tools take precedence on name conflicts.
+    domain_tools = MedicalQATools(db)
+    knowledge_tools = KnowledgeTools(db=db)
+    tools = CompositeToolKit(domain_tools, knowledge_tools)
 
     with open(POLICY_PATH, "r", encoding="utf-8") as f:
         policy = f.read()

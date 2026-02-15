@@ -70,15 +70,23 @@
 
 | Phase | 기간 | 상태 | 완료율 |
 |-------|------|------|--------|
-| **Phase 1**: 기반 구축 | 02/12 ~ 03/15 | ✅ **완료** | 100% |
-| **Phase 2**: 학습 파이프라인 | 03/15 ~ 04/15 | 🔲 대기 | 0% |
+| **Phase 1**: 기반 구축 | 02/12 ~ 02/15 | ✅ **완료** | 100% |
+| **Phase 1.5**: 통합 & Baseline | 02/15 ~ 02/28 | 🔄 **진행중** | 0% |
+| **Phase 2**: Autonomous RL 학습 | 03/01 ~ 04/15 | 🔲 대기 | 0% |
 | **Phase 3**: 반복 개선 | 04/15 ~ 05/15 | 🔲 대기 | 0% |
 | **Phase 4**: 논문 작성 | 05/15 ~ 06/01 | 🔲 대기 | 0% |
 
+> **모델 (3종 고정, 모두 VL)**:
+> - LingShu-7B, Qwen2.5-VL-7B-Instruct, Step3-VL-10B
+>
+> **학습 방식: Pure RL (SFT 없음)**
+> - Pre-trained VL 모델에서 바로 Multi-Turn GRPO 시작
+> - SFT warmup 불필요 — 모델이 이미 의료 지식 보유
+>
 > **즉시 실행 가능한 다음 단계**:
-> 1. GPU 학습 실행: `python -m bioagents.training.grpo_trainer --config configs/grpo_adaptive_strategy.yaml`
-> 2. Autonomous GYM 실행: `python -m bioagents.gym.autonomous_gym --config configs/autonomous_gym.yaml`
-> 3. Baseline 평가: `python scripts/run_full_benchmark_suite.py --model Qwen/Qwen3-8B`
+> 1. KnowledgeTools 도메인 통합: 828K FTS5 + Wikipedia 검색을 모든 도메인에 연결
+> 2. Baseline 평가: `python scripts/run_full_baseline_eval.py --parallel`
+> 3. Autonomous GYM 실행: `python scripts/run_autonomous_gym.py --config configs/autonomous_gym.yaml`
 
 ---
 
@@ -636,34 +644,51 @@ make_grpo_reward_fn(strategy)       # → TRL-compatible fn(completions, **kwarg
 | Day 3 | 데이터셋 전처리 파이프라인 | medqa_loader, vqa_loader, image_catalog, sft_generator | ✅ 완료 |
 | Day 3 | 평가 파이프라인 구축 | benchmark_eval, vqa_benchmark_eval, safety_eval, ehr_benchmark_eval | ✅ 완료 |
 
-### Phase 2: 학습 파이프라인 (2026.03.15 ~ 2026.04.15) [4주]
+### Phase 1.5: 통합 & Baseline (2026.02.15 ~ 2026.02.28) [2주]
+
+> Phase 1에서 구축한 시스템의 실제 연결성과 동작 검증. Autonomous GYM 실행 전 필수.
 
 | 주차 | 작업 | 산출물 | 상태 |
 |---|---|---|---|
-| W5 (03/15~03/22) | SFT 데이터 구성 (instruction + tool-use) | SFT jsonl 데이터 | ⬜ 대기 |
-| W5 | 모델 선정 & baseline 평가 | baseline 결과 로그 | ⬜ 대기 |
-| W6 (03/22~03/29) | SFT 학습 (Oumi) | SFT 체크포인트 | ⬜ 대기 |
-| W6 | additional Medical Domain 구현 (medical_qa, visual_diagnosis) | 추가 도메인 코드 | ⬜ 대기 |
-| W7 (03/29~04/05) | RL 학습 시작 (GRPO, GYM 환경 연동) | RL 체크포인트 | ⬜ 대기 |
-| W7 | Trajectory 로깅 시스템 구축 | trajectory 파일들 | ⬜ 대기 |
-| W8 (04/05~04/15) | ScalingInter-RL 적용 실험 | 학습 곡선, 비교 결과 | ⬜ 대기 |
-| W8 | 중간 평가 (Text QA + Visual QA) | 중간 결과 리포트 | ⬜ 대기 |
+| W4 (02/15~02/22) | **KnowledgeTools 도메인 통합** — 828K FTS5 + Wikipedia 검색을 모든 도메인에 연결 | 10개 도메인 environment.py 업데이트 | 🔄 진행중 |
+| W4 | **Baseline 평가 실행** — 3개 모델 × 21 벤치마크 전체 평가 | baseline 결과 JSON + 비교 테이블 | ⬜ 대기 |
+| W4 | `run_full_baseline_eval.py` 수정 — Step3-VL-10B 추가, Qwen3-8B 제거 | 수정된 스크립트 | 🔄 진행중 |
+| W5 (02/22~02/28) | **Task Data 확장** — LLM-based generation (600 → 2,000+ tasks) | tasks_generated.json per domain | ⬜ 대기 |
+| W5 | **Autonomous GYM Dry-run** — 1-cycle 테스트 (REFLECT→CHOOSE→TRAIN→RECORD) | 1-cycle 로그 + W&B 확인 | ⬜ 대기 |
+| W5 | **FAISS Dense Retrieval + FTS5 Hybrid Search** 구현 | knowledge_tools.py 확장 | ⬜ 대기 |
 
-### Phase 3: 반복 개선 (2026.04.15 ~ 2026.05.15) [4주]
+### Phase 2: Autonomous RL 학습 (2026.03.01 ~ 2026.04.15) [6주]
+
+> **SFT 없이** pre-trained VL 모델에서 바로 Multi-Turn GRPO 학습 시작.
+> 모델: LingShu-7B, Qwen2.5-VL-7B-Instruct, Step3-VL-10B (3종 고정)
 
 | 주차 | 작업 | 산출물 | 상태 |
 |---|---|---|---|
-| W9 | EHR Domain 구현 & 학습 | EHR 도메인 코드 | ⬜ 대기 |
-| W10 | Reward function 개선 & 실험 | ablation 결과 | ⬜ 대기 |
-| W11 | Multi-domain 통합 학습 | 통합 체크포인트 | ⬜ 대기 |
-| W12 | 전체 벤치마크 평가 | 최종 결과 테이블 | ⬜ 대기 |
+| W6 (03/01~03/08) | **Autonomous GYM 본격 실행** — 3모델 × 8 agents 학습 시작 | W&B 대시보드, 학습 로그 | ⬜ 대기 |
+| W6 | Trajectory 로깅 & 분석 시스템 검증 | trajectory 파일들 | ⬜ 대기 |
+| W7 (03/08~03/15) | **Cross-Domain Pathway 학습** — 6개 임상 경로 RL | pathway 결과 | ⬜ 대기 |
+| W7 | Reward Strategy Ablation (GRPO vs MRPO vs SARL vs Adaptive) | ablation 결과 | ⬜ 대기 |
+| W8 (03/15~03/22) | **중간 평가** — 3모델 × 21 벤치마크 (학습 전후 비교) | 중간 결과 리포트 | ⬜ 대기 |
+| W8 | FairGRPO 공정성 실험 | demographic별 성능 비교 | ⬜ 대기 |
+| W9 (03/22~03/29) | **ScalingInter-RL 적용 실험** | 학습 곡선, scaling 분석 | ⬜ 대기 |
+| W10 (03/29~04/08) | Safety Hardening — adversarial 학습 강화 | safety score 개선 결과 | ⬜ 대기 |
+| W11 (04/08~04/15) | **전체 벤치마크 최종 평가** — 학습 완료 모델 전체 테스트 | 최종 결과 테이블 | ⬜ 대기 |
+
+### Phase 3: 반복 개선 & 추가 실험 (2026.04.15 ~ 2026.05.15) [4주]
+
+| 주차 | 작업 | 산출물 | 상태 |
+|---|---|---|---|
+| W12 | Reward function ablation (5D dimension별 기여도) | ablation 결과 테이블 | ⬜ 대기 |
+| W13 | Multi-domain 통합 vs 단일 도메인 비교 실험 | 비교 결과 | ⬜ 대기 |
+| W14 | Peer Learning (SharedLogbook) 효과 분석 | peer learning ablation | ⬜ 대기 |
+| W15 | Tool Usage 분석 + Adaptive Guidance 효과 측정 | tool usage 통계 | ⬜ 대기 |
 
 ### Phase 4: 논문 작성 (2026.05.15 ~ 2026.06.01) [2주]
 
 | 주차 | 작업 | 산출물 | 상태 |
 |---|---|---|---|
-| W13 | 논문 초안 작성 | paper draft | ⬜ 대기 |
-| W14 | 추가 실험 + 논문 완성 | final paper | ⬜ 대기 |
+| W16 | 논문 초안 작성 (실험 결과 + 분석) | paper draft | ⬜ 대기 |
+| W17 | 추가 실험 + rebuttal 준비 + 논문 완성 | final paper for NeurIPS 2026 | ⬜ 대기 |
 
 ---
 

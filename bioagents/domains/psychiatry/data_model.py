@@ -9,7 +9,7 @@ Simulates a psychiatric clinic and emergency setting with:
 """
 
 import os
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -71,21 +71,21 @@ class PsychPatient(BaseModel):
     sex: Literal["M", "F", "NB"] = "M"
     chief_complaint: str = ""
     referral_source: str = Field(default="self", description="self, PCP, ED, court, family")
-    psychiatric_history: List[str] = Field(default_factory=list)
+    psychiatric_history: Union[List[str], Dict[str, Any]] = Field(default_factory=list)
     current_diagnoses: List[Dict] = Field(default_factory=list, description="[{diagnosis, icd10, status}]")
     medications: List[PsychMedication] = Field(default_factory=list)
     allergies: List[str] = Field(default_factory=list)
     medical_comorbidities: List[str] = Field(default_factory=list)
     substance_use: Dict = Field(default_factory=dict, description="{alcohol, tobacco, cannabis, opioids, stimulants, ...}")
     mental_status_exam: Optional[MentalStatusExam] = None
-    screening_scores: List[ScreeningScore] = Field(default_factory=list)
+    screening_scores: Union[List[ScreeningScore], Dict[str, Any]] = Field(default_factory=list)
     safety_plan: Optional[SafetyPlan] = None
     social_support: str = ""
     housing_status: str = Field(default="stable")
     employment: str = ""
     legal_issues: str = ""
     trauma_history: str = ""
-    family_psychiatric_history: List[str] = Field(default_factory=list)
+    family_psychiatric_history: Union[List[str], str] = Field(default_factory=list)
     vitals: Dict = Field(default_factory=dict)
     correct_diagnosis: str = ""
     correct_treatment_plan: List[str] = Field(default_factory=list)

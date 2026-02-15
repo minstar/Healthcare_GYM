@@ -5398,5 +5398,1409 @@
         "NL_ASSERTION"
       ]
     }
+  },
+  {
+    "id": "evid_triage_emergency_cc676312",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Pulseless electric activity due to ? Ionic abnormality",
+    "correct_answer": "UK ambulance service resuscitation management of pulseless electrical activity: a systematic review protocol of text and opinion. BACKGROUND: Out-of-hospital cardiac arrest patients with pulseless electrical activity are treated by paramedics using basic and advanced life support resuscitation. When resuscitation fails to achieve return of spontaneous circulation, there are limited evidence and national guidelines on when to continue or stop resuscitation. This has led to ambulance services in the United Kingdom developing local guidelines to support paramedics in the resuscitative management of pulseless electrical activity. The content of each guideline is unknown, as is any association between guideline implementation and patient survival. We aim to identify and synthesise local ambulance service guidelines to help improve the consistency of paramedic-led decision-making for the resuscitation of pulseless electrical activity in out-of-hospital",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Pulseless electric activity due to ? Ionic abnormality",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_dc03033e",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_92e76638",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat?",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_0"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_6f323c32",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat?",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_9c43092e",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat?",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_0"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_525b5bde",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_0343df90",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_1"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_5f0f89cc",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_ece51395",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_896df2e6",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_b2a7bda6",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_8fcea848",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_b0f2edf7",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_0"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_2648d3bc",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Write a short reflection on the ethical issues that might arise when discussing do-not-resuscitate (DNR) orders with pat",
+    "correct_answer": "Family consent to orders not resuscitate. Reconsidering hospital policy. Hospital policies typically require that cardiopulmonary resuscitation be attempted unless a do-not-resuscitate order has been written, and they further require that family permission for the order be obtained. This sometimes forces physicians to perform procedures that are useless or that add to the patient's suffering without corresponding benefit. Policies should be changed to allow physicians to write a do-not-resuscitate order over family objections when (1) the patient lacks decision-making capacity, (2) the burdens of treatment clearly outweigh the benefits, (3) the surrogate does not give an appropriate reason in terms of patient values, preferences, or best interests, and (4) the physician has made serious efforts to communicate with the family and to mediate the disagreement. Furthermore, when resuscitation would",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a short reflection on the ethical issues that might arise when discussing ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_71cdc3b9",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Can Ambu self-inflating bag and Neopuff infant resuscitator provide adequate and safe manual inflations for infants up t?",
+    "correct_answer": "Can Ambu self-inflating bag and Neopuff infant resuscitator provide adequate and safe manual inflations for infants up to 10 kg weight? BACKGROUND: Manual resuscitation devices for infants and newborns must be able to provide adequate ventilation in a safe and consistent manner across a wide range of patient sizes (0.5-10 kg) and differing clinical states. There are little comparative data assessing biomechanical performance of common infant manual resuscitation devices across the manufacturers' recommended operating weight ranges. We aimed to compare performance of the Ambu self-inflating bag (SIB) with the Neopuff T-piece resuscitator in three resuscitation models. METHODS: Five experienced clinicians delivered targeted ventilation to three lung models differing in compliance, delivery pressures and inflation rates; Preterm (0.5 mL/cmH2O, 25/5 cmH2O, 60 per minute), Term (3 mL/cmH2O, 30/5 cmH2O,",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Can Ambu self-inflating bag and Neopuff infant resuscitator provide adequate and",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_c49eb729",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Can Ambu self-inflating bag and Neopuff infant resuscitator provide adequate and safe manual inflations for infants up t?",
+    "correct_answer": "Can Ambu self-inflating bag and Neopuff infant resuscitator provide adequate and safe manual inflations for infants up to 10 kg weight? BACKGROUND: Manual resuscitation devices for infants and newborns must be able to provide adequate ventilation in a safe and consistent manner across a wide range of patient sizes (0.5-10 kg) and differing clinical states. There are little comparative data assessing biomechanical performance of common infant manual resuscitation devices across the manufacturers' recommended operating weight ranges. We aimed to compare performance of the Ambu self-inflating bag (SIB) with the Neopuff T-piece resuscitator in three resuscitation models. METHODS: Five experienced clinicians delivered targeted ventilation to three lung models differing in compliance, delivery pressures and inflation rates; Preterm (0.5 mL/cmH2O, 25/5 cmH2O, 60 per minute), Term (3 mL/cmH2O, 30/5 cmH2O,",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Can Ambu self-inflating bag and Neopuff infant resuscitator provide adequate and",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_6faf60e2",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Outcomes of severely injured adult trauma patients in an Australian health service: does trauma center level make a diff",
+    "correct_answer": "Outcomes of severely injured adult trauma patients in an Australian health service: does trauma center level make a difference? BACKGROUND: Trauma centers are designated to provide systematized multidisciplinary care to injured patients. Effective trauma systems reduce patient mortality by facilitating the treatment of injured patients at appropriately resourced hospitals. Several U.S. studies report reduced mortality among patients admitted directly to a level I trauma center compared with those admitted to hospitals with less resources. It has yet to be shown whether there is an outcome benefit associated with the \"level of hospital\" initially treating severely injured trauma patients in Australia. This study was designed to determine whether the level of trauma center providing treatment impacts mortality and/or hospital length of stay. METHODS: Outcomes were evaluated for severely injured",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Outcomes of severely injured adult trauma patients in an Australian health servi",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_1b8554b3",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Outcomes of severely injured adult trauma patients in an Australian health service: does trauma center level make a diff",
+    "correct_answer": "Outcomes of severely injured adult trauma patients in an Australian health service: does trauma center level make a difference? BACKGROUND: Trauma centers are designated to provide systematized multidisciplinary care to injured patients. Effective trauma systems reduce patient mortality by facilitating the treatment of injured patients at appropriately resourced hospitals. Several U.S. studies report reduced mortality among patients admitted directly to a level I trauma center compared with those admitted to hospitals with less resources. It has yet to be shown whether there is an outcome benefit associated with the \"level of hospital\" initially treating severely injured trauma patients in Australia. This study was designed to determine whether the level of trauma center providing treatment impacts mortality and/or hospital length of stay. METHODS: Outcomes were evaluated for severely injured",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Outcomes of severely injured adult trauma patients in an Australian health servi",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_3b04956a",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Outcomes of severely injured adult trauma patients in an Australian health service: does trauma center level make a diff",
+    "correct_answer": "Outcomes of severely injured adult trauma patients in an Australian health service: does trauma center level make a difference? BACKGROUND: Trauma centers are designated to provide systematized multidisciplinary care to injured patients. Effective trauma systems reduce patient mortality by facilitating the treatment of injured patients at appropriately resourced hospitals. Several U.S. studies report reduced mortality among patients admitted directly to a level I trauma center compared with those admitted to hospitals with less resources. It has yet to be shown whether there is an outcome benefit associated with the \"level of hospital\" initially treating severely injured trauma patients in Australia. This study was designed to determine whether the level of trauma center providing treatment impacts mortality and/or hospital length of stay. METHODS: Outcomes were evaluated for severely injured",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Outcomes of severely injured adult trauma patients in an Australian health servi",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_c2c9d7ea",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/generator_retrieval",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Most common cause of subarachnoid haemorrhage is",
+    "correct_answer": "Trauma.>>According to Harrison \"...[No Retrieval].Excluding head trauma, the most common cause of SAH is rupture of a saccular aneurysm....\"[No Retrieval]Head trauma is not a spontaneous cause of SAH.>>>[No Retrieval]Vasospasm is the major cause of delayed neurological deficit.>[No Retrieval]Excluding trauma, the most common cause of subarachnoid hemorrhag e is rupture of aneurysm# Causes of subarachnoid hemorrhage:[No Retrieval]Trauma (most common); Rupture of Berry's aneurysm; Rupture of A.V. malformation>[Utility:4]",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Most common cause of subarachnoid haemorrhage is",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_34fe7b97",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Write a nursing care plan for a trauma patient. <noinput> Assessment: Perform a thorough assessment of the trauma patien",
+    "correct_answer": "staff (a key worker, often a senior nurse) assigned at each stage of the care pathway who coordinates the patient's care. ## Recommendation for senior managers and key workers in major trauma centres The key worker should: act as a single point of contact for patients, family members and carers, and the healthcare professionals involved in their care provide information on how the hospital and the trauma system works (major trauma centres, trauma units and teams) attend ward rounds and ensure that all action plans from the ward round are carried out in a timely manner provide patient advocacy ensure that there is a management plan and identify any conflicts -rganise ongoing care including discharge planning, transfers and rehabilitation. # Documentation The NICE guideline on major trauma contains",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_0"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a nursing care plan for a trauma patient. <noinput> Assessment: Perform a ",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_ac87c3d4",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Using medical literature, answer: What is known about Write a nursing care plan for a trauma patient. <noinput> A nursing care plan for a trauma patient typically includes th?",
+    "correct_answer": "staff (a key worker, often a senior nurse) assigned at each stage of the care pathway who coordinates the patient's care. ## Recommendation for senior managers and key workers in major trauma centres The key worker should: act as a single point of contact for patients, family members and carers, and the healthcare professionals involved in their care provide information on how the hospital and the trauma system works (major trauma centres, trauma units and teams) attend ward rounds and ensure that all action plans from the ward round are carried out in a timely manner provide patient advocacy ensure that there is a management plan and identify any conflicts -rganise ongoing care including discharge planning, transfers and rehabilitation. # Documentation The NICE guideline on major trauma contains",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_1"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a nursing care plan for a trauma patient. <noinput> A nursing care plan fo",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_8002008b",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Provide a comprehensive evidence-based explanation of: Therapeutic anticoagulation in the trauma patient: is it safe? No, trauma patients have a significant complication rate ",
+    "correct_answer": "Therapeutic anticoagulation in the trauma patient: is it safe? PURPOSE: Trauma patients who require therapeutic anticoagulation pose a difficult treatment problem. The purpose of this study was to determine: (1) the incidence of complications using therapeutic anticoagulation in trauma patients, and (2) if any patient factors are associated with these complications. METHODS: An 18-month retrospective review was performed on trauma patients >or= 15 years old who received therapeutic anticoagulation using unfractionated heparin (UH) and/or fractionated heparin (FH). Forty different pre-treatment and treatment patient characteristics were recorded. Complications of anticoagulation were documented and defined as any unanticipated discontinuation of the anticoagulant for bleeding or other adverse events. RESULTS: One-hundred-fourteen trauma patients were initiated on therapeutic anticoagulation. The most common indication for anticoagulation was deep venous thrombosis (46%). Twenty-four patients",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_1"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Therapeutic anticoagulation in the trauma patient: is it safe? No, trauma patien",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_a48e4b1e",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/generator_retrieval",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Write a nursing care plan for a trauma patient.<noinput>",
+    "correct_answer": "staff (a key worker, often a senior nurse) assigned at each stage of the care pathway who coordinates the patient's care. ## Recommendation for senior managers and key workers in major trauma centres The key worker should: act as a single point of contact for patients, family members and carers, and the healthcare professionals involved in their care provide information on how the hospital and the trauma system works (major trauma centres, trauma units and teams) attend ward rounds and ensure that all action plans from the ward round are carried out in a timely manner provide patient advocacy ensure that there is a management plan and identify any conflicts -rganise ongoing care including discharge planning, transfers and rehabilitation. # Documentation The NICE guideline on major trauma contains",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_0"
+        },
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Write a nursing care plan for a trauma patient.<noinput>",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_683ef17b",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Based on current medical evidence, explain the following: Pierre who is diagnosed with acute pancreatitis is under the care of Nurse Bryan. Which intervention should the nurse in",
+    "correct_answer": "Treating pancreatitis in the acute care setting. Acute pancreatitis is associated with significant complications and mortality. This article describes the pathophysiology and complications of, and treatments for acute pancreatitis, and the nurse's role in caring for a patient in the acute care setting.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "get_vital_signs",
+          "arguments": {},
+          "info": "Check vitals",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Pierre who is diagnosed with acute pancreatitis is under the care of Nurse Bryan",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "evid_triage_emergency_e20f3dc2",
+    "description": {
+      "purpose": "Evidence-grounded medical explanation",
+      "difficulty": "hard",
+      "source": "evidence_mining/medcpt_evidence",
+      "category": "triage_emergency",
+      "generated_from": "knowledge_miner"
+    },
+    "ticket": "Search the medical evidence and explain: Pierre who is diagnosed with acute pancreatitis is under the care of Nurse Bryan. Which intervention should the nurse in",
+    "correct_answer": "Treating pancreatitis in the acute care setting. Acute pancreatitis is associated with significant complications and mortality. This article describes the pathophysiology and complications of, and treatments for acute pancreatitis, and the nurse's role in caring for a patient in the acute care setting.",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "name": "search_clinical_guidelines",
+          "arguments": {},
+          "info": "Search protocols",
+          "action_id": "action_0"
+        },
+        {
+          "name": "get_patient_info",
+          "arguments": {},
+          "info": "Triage patient info",
+          "action_id": "action_1"
+        },
+        {
+          "name": "assess_severity",
+          "arguments": {},
+          "info": "ESI scoring",
+          "action_id": "action_2"
+        },
+        {
+          "name": "submit_answer",
+          "arguments": {
+            "answer": ""
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit final answer",
+          "action_id": "action_3"
+        }
+      ],
+      "nl_assertions": [
+        "The response addresses the core topic: Pierre who is diagnosed with acute pancreatitis is under the care of Nurse Bryan",
+        "The agent used evidence search tools before answering",
+        "The response is factually consistent with medical literature"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    }
   }
 ]

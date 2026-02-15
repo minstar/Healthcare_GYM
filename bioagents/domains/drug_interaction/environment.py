@@ -12,6 +12,8 @@ from bioagents.domains.drug_interaction.data_model import (
 )
 from bioagents.domains.drug_interaction.tools import DrugInteractionTools
 from bioagents.environment.environment import Environment
+from bioagents.environment.toolkit import CompositeToolKit
+from bioagents.tools.knowledge_tools import KnowledgeTools
 
 
 def get_environment(
@@ -30,7 +32,9 @@ def get_environment(
     if db is None:
         db = DrugInteractionDB.load(DB_PATH)
 
-    tools = DrugInteractionTools(db)
+    domain_tools = DrugInteractionTools(db)
+    knowledge_tools = KnowledgeTools(db=db)
+    tools = CompositeToolKit(domain_tools, knowledge_tools)
 
     with open(POLICY_PATH, "r", encoding="utf-8") as f:
         policy = f.read()

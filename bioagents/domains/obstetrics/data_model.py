@@ -9,9 +9,9 @@ Simulates a prenatal clinic and labor & delivery unit with:
 """
 
 import os
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from bioagents.environment.db import DB
 
@@ -23,24 +23,27 @@ class PrenatalLab(BaseModel):
     unit: str = ""
     reference_range: str = ""
     flag: str = Field(default="normal", description="normal/high/low/critical")
-    trimester: int = Field(default=1, description="1, 2, or 3")
+    trimester: Union[int, str] = Field(default=1, description="1, 2, or 3")
     date: str = ""
 
 
 class FetalMonitoring(BaseModel):
     """Fetal heart rate monitoring strip interpretation."""
-    baseline_fhr: int = Field(description="Baseline fetal heart rate (bpm)")
-    variability: str = Field(description="absent/minimal/moderate/marked")
-    accelerations: bool = Field(default=True, description="Presence of accelerations")
+    baseline_fhr: Optional[int] = Field(default=None, description="Baseline fetal heart rate (bpm)")
+    variability: Optional[str] = Field(default=None, description="absent/minimal/moderate/marked")
+    accelerations: Union[bool, str] = Field(default=True, description="Presence of accelerations")
     decelerations: str = Field(default="none", description="none/early/variable/late/prolonged")
-    contractions: Dict = Field(default_factory=dict, description="Frequency, duration, intensity")
-    category: int = Field(default=1, description="Category I, II, or III")
+    contractions: Union[Dict, str] = Field(default_factory=dict, description="Frequency, duration, intensity")
+    category: Union[int, str] = Field(default=1, description="Category I, II, or III")
     interpretation: str = ""
 
 
 class LaborProgress(BaseModel):
     """Labor progress record."""
-    cervical_dilation_cm: float = Field(description="0-10 cm")
+    cervical_dilation_cm: float = Field(
+        description="0-10 cm",
+        validation_alias=AliasChoices('cervical_dilation_cm', 'dilation_cm'),
+    )
     effacement_percent: int = Field(description="0-100%")
     station: int = Field(description="-5 to +5")
     membrane_status: str = Field(default="intact", description="intact/ruptured/AROM/SROM")
@@ -59,7 +62,7 @@ class ObPatient(BaseModel):
     gestational_age_weeks: Optional[float] = Field(default=None, description="Gestational age in weeks")
     edd: str = Field(default="", description="Estimated due date")
     chief_complaint: str = ""
-    prenatal_labs: List[PrenatalLab] = Field(default_factory=list)
+    prenatal_labs: Union[List[PrenatalLab], Dict[str, Any]] = Field(default_factory=list)
     fetal_monitoring: Optional[FetalMonitoring] = None
     labor_progress: Optional[LaborProgress] = None
     risk_factors: List[str] = Field(default_factory=list)
@@ -73,16 +76,16 @@ class ObPatient(BaseModel):
     gbs_status: str = Field(default="unknown", description="positive/negative/unknown")
     placenta_location: str = ""
     amniotic_fluid_index: Optional[float] = None
-    bishop_score: Optional[int] = None
+    bishop_score: Union[int, Dict[str, Any], None] = None
     biophysical_profile: Optional[Dict] = None
     correct_diagnosis: str = ""
-    correct_management: List[str] = Field(default_factory=list)
+    correct_management: Union[List[str], str] = Field(default_factory=list)
     urgency: str = Field(default="routine", description="routine/urgent/emergent")
 
     # Gynecology-specific
-    gyn_complaint: str = ""
+    gyn_complaint: Union[str, Dict[str, Any]] = ""
     last_menstrual_period: str = ""
-    menstrual_history: str = ""
+    menstrual_history: Union[str, Dict[str, Any]] = ""
     contraceptive_use: str = ""
     pap_smear_history: str = ""
     stis_history: List[str] = Field(default_factory=list)

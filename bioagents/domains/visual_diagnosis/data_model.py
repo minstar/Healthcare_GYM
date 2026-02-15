@@ -23,7 +23,8 @@ class ImageMetadata(BaseModel):
     image_id: str = Field(description="Unique image identifier")
     modality: Literal[
         "xray", "ct", "mri", "ultrasound", "pathology",
-        "dermoscopy", "fundoscopy", "endoscopy", "other"
+        "dermoscopy", "fundoscopy", "endoscopy",
+        "mammography", "echocardiogram", "other"
     ] = Field(description="Imaging modality")
     body_part: str = Field(default="", description="Body part / region (e.g., 'chest', 'abdomen', 'brain')")
     view: str = Field(default="", description="View type (e.g., 'AP', 'lateral', 'axial')")
@@ -47,7 +48,8 @@ class ImageReport(BaseModel):
     report_id: str = Field(description="Unique report identifier")
     image_id: str = Field(description="Associated image ID")
     report_type: Literal[
-        "radiology", "pathology", "dermatology", "ophthalmology", "other"
+        "radiology", "pathology", "dermatology", "ophthalmology",
+        "cardiology", "other"
     ] = Field(default="radiology")
     indication: str = Field(default="", description="Clinical indication for the study")
     findings: List[ImageFinding] = Field(default_factory=list, description="Detailed findings")

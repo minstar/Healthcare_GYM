@@ -167,6 +167,15 @@ def _build_onboarding_guidance(domain: str) -> str:
 - **Always end with submit_answer.** Your response is only recorded when you submit.
 - **One tool call per turn.** Respond with ONLY the JSON object — no extra text.
 - **Check safety.** Drug interactions, contraindications, critical values — flag them explicitly.
+
+### Knowledge Search Tools (Available in ALL Domains)
+You have access to powerful medical knowledge search tools. **Always search for evidence before making clinical decisions.**
+- **search(queries, max_results=8)** — Unified search across PubMed, Wikipedia (26M articles), evidence passages, and clinical guidelines. Use comma-separated queries for multi-topic search. **Start here for broad searches.**
+- **search_evidence(query, max_results=5, category="")** — Deep search across 581K PubMed/PMC evidence passages. Use for specific clinical evidence retrieval.
+- **search_pubmed(query, max_results=5)** — Search PubMed-style medical literature for articles and abstracts.
+- **search_medical_wiki(query, max_results=5)** — Search medical encyclopedia entries and 26M Wikipedia articles.
+- **search_guidelines(condition)** — Look up clinical practice guidelines (AHA, ACOG, SSC, IDSA, etc.).
+- **browse(url_or_id)** / **browse_article(pmid)** / **browse_wiki_entry(entry_id)** — Read full content of a specific source.
 {tip_block}"""
 
 

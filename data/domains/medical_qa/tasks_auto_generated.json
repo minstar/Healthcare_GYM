@@ -24775,5 +24775,2455 @@
       "D": "Hydrolysis of ATP to ADP and Pi\nOption:"
     },
     "raw_answer": "Binding of ATP to head"
+  },
+  {
+    "id": "mcqa_mmlu_medical_genetics_3cafc560",
+    "description": {
+      "purpose": "Answer a MMLU test medicalgenetics question",
+      "difficulty": "medium",
+      "source": "mmlu_medical_genetics",
+      "category": "MMLU_test_medicalgenetics",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Which of the following conditions is not caused by a mutation in FGFR3?\nOption A: Achondroplasia\nOption B: Crouzon syndrome\nOption C: Thanatophoric dysplasia\nOption D: Waardenburg syndrome\nOption: ",
+    "correct_answer": "D",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "D"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test medicalgenetics reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Achondroplasia",
+      "B": "Crouzon syndrome",
+      "C": "Thanatophoric dysplasia",
+      "D": "Waardenburg syndrome\nOption:"
+    },
+    "raw_answer": "Waardenburg syndrome"
+  },
+  {
+    "id": "mcqa_medmc_qa_train_fb224baf",
+    "description": {
+      "purpose": "Answer a MedMCQA train question",
+      "difficulty": "medium",
+      "source": "medmc_qa_train",
+      "category": "MedMCQA_train",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Parkland formulas used for Burn's resuscitation is:\nOption A:4 mL/kg/% TBSA\nOption B:5 mL/kg/% TBSA\nOption C:6 mL/kg/%TBSA\nOption D:8 mL/kg/% TBSA\n",
+    "correct_answer": "Answer: (A)",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "Answer: (A)"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA train reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "4 mL/kg/% TBSA",
+      "B": "5 mL/kg/% TBSA",
+      "C": "6 mL/kg/%TBSA",
+      "D": "8 mL/kg/% TBSA"
+    },
+    "raw_answer": "Answer: (A)"
+  },
+  {
+    "id": "mcqa_medmc_qa_d56a1592",
+    "description": {
+      "purpose": "Answer a MedMCQA dev question",
+      "difficulty": "medium",
+      "source": "medmc_qa",
+      "category": "MedMCQA_dev",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Splinting of cervical root fracture is done for\nOption A: 40 days\nOption B: 4 months\nOption C: 4 weeks\nOption D: 14 days\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA dev reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "40 days",
+      "B": "4 months",
+      "C": "4 weeks",
+      "D": "14 days\nOption:"
+    },
+    "raw_answer": "4 months"
+  },
+  {
+    "id": "mcqa_medmc_qa_train_620e3f5d",
+    "description": {
+      "purpose": "Answer a MedMCQA train question",
+      "difficulty": "medium",
+      "source": "medmc_qa_train",
+      "category": "MedMCQA_train",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Palmer's sign is pregnancy refers to (8-12 weeks):\nOption A:Rhythmic contractions of uterus\nOption B:Pulsations in the lateral fornix\nOption C:Discoloration of vagina\nOption D:None\n",
+    "correct_answer": "Answer: (A)",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "Answer: (A)"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA train reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Rhythmic contractions of uterus",
+      "B": "Pulsations in the lateral fornix",
+      "C": "Discoloration of vagina",
+      "D": "None"
+    },
+    "raw_answer": "Answer: (A)"
+  },
+  {
+    "id": "mcqa_medmc_qa_train_19da96b2",
+    "description": {
+      "purpose": "Answer a MedMCQA train question",
+      "difficulty": "medium",
+      "source": "medmc_qa_train",
+      "category": "MedMCQA_train",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: The most potent stimulator of native T-cell is:\nOption A:Follicular dendrite cells\nOption B:Mature dendrite cells\nOption C:Epithelial cells\nOption D:Macrophage\n",
+    "correct_answer": "Answer: (B)",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "Answer: (B)"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA train reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Follicular dendrite cells",
+      "B": "Mature dendrite cells",
+      "C": "Epithelial cells",
+      "D": "Macrophage"
+    },
+    "raw_answer": "Answer: (B)"
+  },
+  {
+    "id": "mcqa_mmlu_anatomy_1d8080df",
+    "description": {
+      "purpose": "Answer a MMLU test anatomy question",
+      "difficulty": "medium",
+      "source": "mmlu_anatomy",
+      "category": "MMLU_test_anatomy",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Loss of somatic sensation over the anterior two-thirds of the tongue indicates damage to the\nOption A: lingual branch of the mandibular trigeminal nerve.\nOption B: chorda tympani branch of the facial nerve.\nOption C: lingual branch of the glossopharyngeal nerve.\nOption D: hypoglossal nerve.\nOption: ",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test anatomy reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "lingual branch of the mandibular trigeminal nerve.",
+      "B": "chorda tympani branch of the facial nerve.",
+      "C": "lingual branch of the glossopharyngeal nerve.",
+      "D": "hypoglossal nerve.\nOption:"
+    },
+    "raw_answer": "lingual branch of the mandibular trigeminal nerve."
+  },
+  {
+    "id": "mcqa_mmlu_clinical_knowledge_03e28195",
+    "description": {
+      "purpose": "Answer a MMLU test clinicalknowledge question",
+      "difficulty": "medium",
+      "source": "mmlu_clinical_knowledge",
+      "category": "MMLU_test_clinicalknowledge",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: What size of cannula would you use in a patient who needed a rapid blood transfusion (as of 2020 medical knowledge)?\nOption A: 18 gauge.\nOption B: 20 gauge.\nOption C: 22 gauge.\nOption D: 24 gauge.\nOption: ",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test clinicalknowledge reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "18 gauge.",
+      "B": "20 gauge.",
+      "C": "22 gauge.",
+      "D": "24 gauge.\nOption:"
+    },
+    "raw_answer": "18 gauge."
+  },
+  {
+    "id": "mcqa_med_qa_523ba976",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 13-year-old boy is brought to the emergency department because of pain in his right knee for the past week. The pain is exacerbated by jogging and climbing up stairs. He has no history of trauma to the knee. He is otherwise healthy. He is an active member of his school's gymnastics team. His vital signs are within normal limits. Examination of the right knee shows a tender swelling at the proximal tibia; range of motion is full. Knee extension against resistance causes pain in the anterior proximal tibia. The remainder of the examinations shows no abnormalities. X-ray of the right knee shows anterior tibial soft tissue swelling with fragmentation of the tibial tuberosity. Which of the following is the most appropriate next step?\nOption A: Administration of oral ketorolac\nOption B: Perform joint aspiration\nOption C: Open reduction of the tuberosity\nOption D: Application of a lower leg cast\n\"\n",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Administration of oral ketorolac",
+      "B": "Perform joint aspiration",
+      "C": "Open reduction of the tuberosity",
+      "D": "Application of a lower leg cast\n\""
+    },
+    "raw_answer": "Administration of oral ketorolac"
+  },
+  {
+    "id": "mcqa_medmc_qa_9e867802",
+    "description": {
+      "purpose": "Answer a MedMCQA dev question",
+      "difficulty": "medium",
+      "source": "medmc_qa",
+      "category": "MedMCQA_dev",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: In a patient with heart disease, which of the following should not be used to control PPH:\nOption A: Methylergometrine\nOption B: Oxytocin\nOption C: Misoprostol\nOption D: Carboprost\nOption: ",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA dev reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Methylergometrine",
+      "B": "Oxytocin",
+      "C": "Misoprostol",
+      "D": "Carboprost\nOption:"
+    },
+    "raw_answer": "Methylergometrine"
+  },
+  {
+    "id": "mcqa_med_qa_train_cb796911",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa_train",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "Question: A 36-year-old man presents to a psychiatrist for management of nicotine dependence. He has been a heavy smoker for the past 20 years. He has unsuccessfully attempted to quit smoking many times. He has seen multiple physicians for nicotine dependence. They prescribed nicotine replacement therapy and varenicline. He has also taken two antidepressants and participated in talk therapy. He asks the psychiatrist whether there are other alternatives. The psychiatrist explains that nicotine replacement therapy, non-nicotine pharmacotherapy, and talk therapy are the best options for the management of nicotine dependence. He tells the patient he can take a second-line medication for non-nicotine pharmacotherapy because the first-line medication failed. Which of the following medications would the psychiatrist most likely use to manage this patient’s nicotine dependence?\nOption A: Buprenorphine\nOption B: Clonidine\nOption C: Lorazepam\nOption D: Methadone",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Buprenorphine",
+      "B": "Clonidine",
+      "C": "Lorazepam",
+      "D": "Methadone"
+    },
+    "raw_answer": "Clonidine"
+  },
+  {
+    "id": "mcqa_medmc_qa_112fe9fc",
+    "description": {
+      "purpose": "Answer a MedMCQA dev question",
+      "difficulty": "medium",
+      "source": "medmc_qa",
+      "category": "MedMCQA_dev",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Most constant and valuable trait to differentiate among maxillary 1st , 2nd and 3rd molars is\nOption A: Relative position of DL groove\nOption B: Relative position of ML groove\nOption C: ML cusp size\nOption D: Oblique ridge size\nOption: ",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA dev reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Relative position of DL groove",
+      "B": "Relative position of ML groove",
+      "C": "ML cusp size",
+      "D": "Oblique ridge size\nOption:"
+    },
+    "raw_answer": "Relative position of DL groove"
+  },
+  {
+    "id": "mcqa_mmlu_college_medicine_e5e32559",
+    "description": {
+      "purpose": "Answer a MMLU test collegemedicine question",
+      "difficulty": "medium",
+      "source": "mmlu_college_medicine",
+      "category": "MMLU_test_collegemedicine",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Neonatal Respiratory Distress Syndrome (NRDS) is a serious complication seen in infants born prematurely who have a compromised ability to facilitate oxygen diffusion across their alveolar membranes. This is caused by inadequate surfactant production. What role does surfactant play in facilitating oxygen diffusion?\nOption A: Increases surface permeability\nOption B: Maintains alveoli in an open state\nOption C: Depresses cilia of the lung\nOption D: Dilates blood vessels\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test collegemedicine reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Increases surface permeability",
+      "B": "Maintains alveoli in an open state",
+      "C": "Depresses cilia of the lung",
+      "D": "Dilates blood vessels\nOption:"
+    },
+    "raw_answer": "Maintains alveoli in an open state"
+  },
+  {
+    "id": "mcqa_mmlu_medical_genetics_50bbfdf3",
+    "description": {
+      "purpose": "Answer a MMLU test medicalgenetics question",
+      "difficulty": "medium",
+      "source": "mmlu_medical_genetics",
+      "category": "MMLU_test_medicalgenetics",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Exon skipping is associated with:\nOption A: nonsense mutations.\nOption B: regulatory mutations.\nOption C: RNA processing mutations.\nOption D: silent mutations.\nOption: ",
+    "correct_answer": "C",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "C"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test medicalgenetics reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "nonsense mutations.",
+      "B": "regulatory mutations.",
+      "C": "RNA processing mutations.",
+      "D": "silent mutations.\nOption:"
+    },
+    "raw_answer": "RNA processing mutations."
+  },
+  {
+    "id": "mcqa_medmc_qa_train_6f702046",
+    "description": {
+      "purpose": "Answer a MedMCQA train question",
+      "difficulty": "medium",
+      "source": "medmc_qa_train",
+      "category": "MedMCQA_train",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: All of the following drugs are Antiandorgens EXCEPT\nOption A:Cemitidine\nOption B:Cyproterone\nOption C:Spironolactone\nOption D:Cyproheptadine\n",
+    "correct_answer": "Answer: (D)",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "Answer: (D)"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA train reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Cemitidine",
+      "B": "Cyproterone",
+      "C": "Spironolactone",
+      "D": "Cyproheptadine"
+    },
+    "raw_answer": "Answer: (D)"
+  },
+  {
+    "id": "mcqa_mmlu_anatomy_e0065d69",
+    "description": {
+      "purpose": "Answer a MMLU test anatomy question",
+      "difficulty": "medium",
+      "source": "mmlu_anatomy",
+      "category": "MMLU_test_anatomy",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A patient sustains severe blunt trauma to the left upper abdomen and requires surgery. Which one of the following organs is most likely to be involved?\nOption A: Appendix\nOption B: Gallbladder\nOption C: Spleen\nOption D: Urinary bladder\nOption: ",
+    "correct_answer": "C",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "C"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test anatomy reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Appendix",
+      "B": "Gallbladder",
+      "C": "Spleen",
+      "D": "Urinary bladder\nOption:"
+    },
+    "raw_answer": "Spleen"
+  },
+  {
+    "id": "mcqa_medmc_qa_train_b24ce00b",
+    "description": {
+      "purpose": "Answer a MedMCQA train question",
+      "difficulty": "medium",
+      "source": "medmc_qa_train",
+      "category": "MedMCQA_train",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Surfactant deficiency causes -\nOption A:Transient tachypnea of newborn\nOption B:Respiratory distress syndrome\nOption C:Neonatal jaundice\nOption D:Hypertensive encephalopathy of newborn\n",
+    "correct_answer": "Answer: (B)",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "Answer: (B)"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA train reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Transient tachypnea of newborn",
+      "B": "Respiratory distress syndrome",
+      "C": "Neonatal jaundice",
+      "D": "Hypertensive encephalopathy of newborn"
+    },
+    "raw_answer": "Answer: (B)"
+  },
+  {
+    "id": "mcqa_medmc_qa_train_26e88c48",
+    "description": {
+      "purpose": "Answer a MedMCQA train question",
+      "difficulty": "medium",
+      "source": "medmc_qa_train",
+      "category": "MedMCQA_train",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A double apical impulse is seen in\nOption A:AS & AR\nOption B:TR&TS\nOption C:MI\nOption D:HOCM\n",
+    "correct_answer": "Answer: (D)",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "Answer: (D)"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA train reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "AS & AR",
+      "B": "TR&TS",
+      "C": "MI",
+      "D": "HOCM"
+    },
+    "raw_answer": "Answer: (D)"
+  },
+  {
+    "id": "mcqa_mmlu_professional_medicine_cd7e781e",
+    "description": {
+      "purpose": "Answer a MMLU test professionalmedicine question",
+      "difficulty": "medium",
+      "source": "mmlu_professional_medicine",
+      "category": "MMLU_test_professionalmedicine",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 73-year-old woman comes to the physician because of a 2-month history of diffuse weakness and tingling of her arms and legs. Neurologic examination shows weakness of the extensor and flexor muscles of the lower extremities. Knee and ankle deep tendon reflexes are exaggerated. Sensation to vibration and position is decreased in all extremities, but the decrease is more prominent in the lower extremities than in the upper extremities. This patient most likely has a deficiency of which of the following vitamins?\nOption A: Vitamin B1 (thiamine)\nOption B: Vitamin B2 (riboflavin)\nOption C: Vitamin B6 (pyridoxine)\nOption D: Vitamin B12 (cyanocobalamin)\nOption: ",
+    "correct_answer": "D",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "D"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test professionalmedicine reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Vitamin B1 (thiamine)",
+      "B": "Vitamin B2 (riboflavin)",
+      "C": "Vitamin B6 (pyridoxine)",
+      "D": "Vitamin B12 (cyanocobalamin)\nOption:"
+    },
+    "raw_answer": "Vitamin B12 (cyanocobalamin)"
+  },
+  {
+    "id": "mcqa_medmc_qa_e4cdaa1a",
+    "description": {
+      "purpose": "Answer a MedMCQA dev question",
+      "difficulty": "medium",
+      "source": "medmc_qa",
+      "category": "MedMCQA_dev",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Short sharp pain of tooth transmitted to brain by\nOption A: A delta fibers\nOption B: C fibers\nOption C: Beta fibers\nOption D: Gamma fibers\nOption: ",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA dev reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "A delta fibers",
+      "B": "C fibers",
+      "C": "Beta fibers",
+      "D": "Gamma fibers\nOption:"
+    },
+    "raw_answer": "A delta fibers"
+  },
+  {
+    "id": "mcqa_med_qa_train_a196d4ae",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa_train",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "Question: A 3-year-old boy is brought to the emergency department by his mother for the evaluation of abdominal pain for one hour after drinking a bottle of toilet bowl cleaner. The mother reports that he vomited once on the way to the hospital and his vomit was non-bloody. The patient has pain with swallowing. He appears uncomfortable. Pulse oximetry shows an oxygen saturation of 82%. Examination shows heavy salivation. Oral examination shows mild oral erythema and in the area of the epiglottis, but no burns. An x-ray of the chest shows no abnormalities. The patient is admitted to the intensive care unit. He is intubated and oxygenation and intravenous fluid resuscitation are begun. All contaminated clothes are removed. Which of the following is the most appropriate next step in the management of this patient?\nOption A: Obtain upper endoscopy\nOption B: Perform gastric lavage\nOption C: Dilute the ingested agent\nOption D: Obtain barium upper gastrointestinal series",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Obtain upper endoscopy",
+      "B": "Perform gastric lavage",
+      "C": "Dilute the ingested agent",
+      "D": "Obtain barium upper gastrointestinal series"
+    },
+    "raw_answer": "Obtain upper endoscopy"
+  },
+  {
+    "id": "mcqa_mmlu_professional_medicine_0f4b0505",
+    "description": {
+      "purpose": "Answer a MMLU test professionalmedicine question",
+      "difficulty": "medium",
+      "source": "mmlu_professional_medicine",
+      "category": "MMLU_test_professionalmedicine",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Four days after undergoing open reduction and internal fixation of a fracture of the right femur sustained in a motor vehicle collision, a 47-year-old man continues to have agitation and confusion despite treatment with haloperidol. He has mild hypertension. Other medications include acetaminophen, atenolol, and prophylactic subcutaneous heparin. His temperature is 37.2°C (99°F), pulse is 98/min, respirations are 24/min, and blood pressure is 168/98 mm Hg. During the examination, he is uncooperative and refuses to answer questions. Neurologic examination shows tremulousness and no focal findings. He is oriented to person but not to place or time. A CT scan of the head shows no abnormalities. Which of the following is the most likely cause of these findings?\nOption A: Adverse effect of medication\nOption B: Alcohol withdrawal\nOption C: Fat emboli\nOption D: Sepsis\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test professionalmedicine reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Adverse effect of medication",
+      "B": "Alcohol withdrawal",
+      "C": "Fat emboli",
+      "D": "Sepsis\nOption:"
+    },
+    "raw_answer": "Alcohol withdrawal"
+  },
+  {
+    "id": "mcqa_med_qa_b736b6a6",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 53-year-old man presents to clinic with a six month history of shoulder pain that is especially bothersome at night. Over the weekend he \"strained his shoulder\" during a pick-up basketball game and reports an acute exacerbation of his pain symptoms. On exam, he complains of pain to palpation just below the acromion. You suspect he has torn his supraspinatus. If correct, which of these functional maneuvers would you expect to be deficient on physical exam?\nOption A: Initiation of adduction\nOption B: External rotation\nOption C: Initiation of abduction\nOption D: Internal rotation\n",
+    "correct_answer": "C",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "C"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Initiation of adduction",
+      "B": "External rotation",
+      "C": "Initiation of abduction",
+      "D": "Internal rotation"
+    },
+    "raw_answer": "Initiation of abduction"
+  },
+  {
+    "id": "mcqa_med_qa_03ca9a68",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 9-year-old boy is brought to a physician by his mother for evaluation of generalized weakness, increased urination, and increased thirst. The mother mentions that her boy is always tired, and seems to be getting worse. He prefers watching television rather than going out and playing with other kids. Furthermore, he has had frequent episodes of constipation since birth. Except for frequent cravings for salty foods, the boy eats a regular diet. The patient was delivered healthy and is fully immunized. The medical history is unremarkable, and he takes no medications. He has no siblings. His father is a banker and his mother is a librarian. The pulse is 90/min, the blood pressure is 110/75 mm Hg, and the respiratory rate is 15/min. He is in the bottom 10th percentile for height and weight according to his age. The remainder of the physical examination is unremarkable. He recently had a urinalysis that showed elevated urinary calcium excretion.\nAdditional lab testing results are as follows:\nSerum electrolytes\nSodium 135 mEq/L\nPotassium 3.2 mEq/L\nChloride 95 mEq/L\nPlasma renin activity 10 ng/mL/hr (normal, 0.5–3.3 ng/mL/hr)\nPlasma aldosterone concentration 20 ng/dL (normal, 2–9 ng/dL)\nWhat is the most likely diagnosis?\nOption A: Renal artery stenosis\nOption B: Bartter's syndrome\nOption C: Pheochromocytoma\nOption D: Gitelman's syndrome\n",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Renal artery stenosis",
+      "B": "Bartter's syndrome",
+      "C": "Pheochromocytoma",
+      "D": "Gitelman's syndrome"
+    },
+    "raw_answer": "Bartter's syndrome"
+  },
+  {
+    "id": "mcqa_mmlu_clinical_knowledge_6ba21feb",
+    "description": {
+      "purpose": "Answer a MMLU test clinicalknowledge question",
+      "difficulty": "medium",
+      "source": "mmlu_clinical_knowledge",
+      "category": "MMLU_test_clinicalknowledge",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Which of the following drugs may be used to enhance gastric motility?\nOption A: Adrenaline.\nOption B: Ditropan.\nOption C: Erythromycin.\nOption D: Carbemazepine.\nOption: ",
+    "correct_answer": "C",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "C"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test clinicalknowledge reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Adrenaline.",
+      "B": "Ditropan.",
+      "C": "Erythromycin.",
+      "D": "Carbemazepine.\nOption:"
+    },
+    "raw_answer": "Erythromycin."
+  },
+  {
+    "id": "mcqa_mmlu_clinical_knowledge_1875ee8e",
+    "description": {
+      "purpose": "Answer a MMLU test clinicalknowledge question",
+      "difficulty": "medium",
+      "source": "mmlu_clinical_knowledge",
+      "category": "MMLU_test_clinicalknowledge",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Endurance training increases the muscle's capacity to:\nOption A: contract faster.\nOption B: break down phosphocreatine.\nOption C: burn fat and carbohydrate.\nOption D: generate energy anaerobically.\nOption: ",
+    "correct_answer": "C",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "C"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test clinicalknowledge reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "contract faster.",
+      "B": "break down phosphocreatine.",
+      "C": "burn fat and carbohydrate.",
+      "D": "generate energy anaerobically.\nOption:"
+    },
+    "raw_answer": "burn fat and carbohydrate."
+  },
+  {
+    "id": "mcqa_mmlu_clinical_knowledge_24ae076a",
+    "description": {
+      "purpose": "Answer a MMLU test clinicalknowledge question",
+      "difficulty": "medium",
+      "source": "mmlu_clinical_knowledge",
+      "category": "MMLU_test_clinicalknowledge",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Which of the following would not be done before catheterizing?\nOption A: Gain patient consent.\nOption B: Patient to be washed.\nOption C: Expiry dates to be checked.\nOption D: Ring patient's next of kin.\nOption: ",
+    "correct_answer": "D",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "D"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test clinicalknowledge reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Gain patient consent.",
+      "B": "Patient to be washed.",
+      "C": "Expiry dates to be checked.",
+      "D": "Ring patient's next of kin.\nOption:"
+    },
+    "raw_answer": "Ring patient's next of kin."
+  },
+  {
+    "id": "mcqa_medmc_qa_5dea6ac5",
+    "description": {
+      "purpose": "Answer a MedMCQA dev question",
+      "difficulty": "medium",
+      "source": "medmc_qa",
+      "category": "MedMCQA_dev",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Hardness of stone surface is affected by?\nOption A: Impression wax\nOption B: Impression compound\nOption C: Hydrocolloid impression material\nOption D: Rubber based material\nOption: ",
+    "correct_answer": "C",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "C"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA dev reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Impression wax",
+      "B": "Impression compound",
+      "C": "Hydrocolloid impression material",
+      "D": "Rubber based material\nOption:"
+    },
+    "raw_answer": "Hydrocolloid impression material"
+  },
+  {
+    "id": "mcqa_mmlu_professional_medicine_6548dd54",
+    "description": {
+      "purpose": "Answer a MMLU test professionalmedicine question",
+      "difficulty": "medium",
+      "source": "mmlu_professional_medicine",
+      "category": "MMLU_test_professionalmedicine",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 67-year-old woman comes to the physician for her first influenza virus vaccination. She has a history of untreated hypertension. Her blood pressure is 160/100 mm Hg, and pulse is 100/min. Shortly after administration of the influenza virus vaccine, she develops shortness of breath, hives, and angioedema. Which of the following is most likely to have prevented this reaction?\nOption A: Inquiry about an egg allergy\nOption B: Heterophile agglutination test\nOption C: Skin test with histamine reagent\nOption D: β-Adrenergic blocking agent therapy\nOption: ",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test professionalmedicine reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Inquiry about an egg allergy",
+      "B": "Heterophile agglutination test",
+      "C": "Skin test with histamine reagent",
+      "D": "β-Adrenergic blocking agent therapy\nOption:"
+    },
+    "raw_answer": "Inquiry about an egg allergy"
+  },
+  {
+    "id": "mcqa_mmlu_anatomy_bc68c310",
+    "description": {
+      "purpose": "Answer a MMLU test anatomy question",
+      "difficulty": "medium",
+      "source": "mmlu_anatomy",
+      "category": "MMLU_test_anatomy",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: The anatomic location of the spinal canal is\nOption A: caudal\nOption B: dorsal\nOption C: frontal\nOption D: transverse\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test anatomy reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "caudal",
+      "B": "dorsal",
+      "C": "frontal",
+      "D": "transverse\nOption:"
+    },
+    "raw_answer": "dorsal"
+  },
+  {
+    "id": "mcqa_mmlu_anatomy_c1cceb8b",
+    "description": {
+      "purpose": "Answer a MMLU test anatomy question",
+      "difficulty": "medium",
+      "source": "mmlu_anatomy",
+      "category": "MMLU_test_anatomy",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Which of the following bones has a process that joins with the zygomatic bone to form the zygomatic arch?\nOption A: The maxillary bone\nOption B: The temporal bone\nOption C: The sphenoid bone\nOption D: The frontal bone\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test anatomy reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "The maxillary bone",
+      "B": "The temporal bone",
+      "C": "The sphenoid bone",
+      "D": "The frontal bone\nOption:"
+    },
+    "raw_answer": "The temporal bone"
+  },
+  {
+    "id": "mcqa_mmlu_medical_genetics_00f0c1c5",
+    "description": {
+      "purpose": "Answer a MMLU test medicalgenetics question",
+      "difficulty": "medium",
+      "source": "mmlu_medical_genetics",
+      "category": "MMLU_test_medicalgenetics",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Advantages of using adenoviruses for gene therapy include:\nOption A: long term expression.\nOption B: low risk of insertional mutagenesis.\nOption C: low immunogenecity.\nOption D: easy assembly.\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test medicalgenetics reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "long term expression.",
+      "B": "low risk of insertional mutagenesis.",
+      "C": "low immunogenecity.",
+      "D": "easy assembly.\nOption:"
+    },
+    "raw_answer": "low risk of insertional mutagenesis."
+  },
+  {
+    "id": "mcqa_mmlu_college_medicine_57174eaa",
+    "description": {
+      "purpose": "Answer a MMLU test collegemedicine question",
+      "difficulty": "medium",
+      "source": "mmlu_college_medicine",
+      "category": "MMLU_test_collegemedicine",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: During muscular contraction, interactions between myosin and actin allow for shortening of each sarcomere. In addition to the power stroke, what other process of muscle contraction requires ATP?\nOption A: Tropomyosin-troponin interaction\nOption B: Myosin-actin interaction\nOption C: Calcium-troponin interaction\nOption D: Myosin-actin detachment\nOption: ",
+    "correct_answer": "D",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "D"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test collegemedicine reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Tropomyosin-troponin interaction",
+      "B": "Myosin-actin interaction",
+      "C": "Calcium-troponin interaction",
+      "D": "Myosin-actin detachment\nOption:"
+    },
+    "raw_answer": "Myosin-actin detachment"
+  },
+  {
+    "id": "mcqa_mmlu_clinical_knowledge_f8655675",
+    "description": {
+      "purpose": "Answer a MMLU test clinicalknowledge question",
+      "difficulty": "medium",
+      "source": "mmlu_clinical_knowledge",
+      "category": "MMLU_test_clinicalknowledge",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Two of the following are evident - pain at IV site, erythema, and swelling. What stage on the phlebitis scale is this and what should you do?\nOption A: Stage 1 - observe cannula.\nOption B: Stage 2 - re-site cannula.\nOption C: Stage 3 - re-site cannula and consider treatment.\nOption D: Stage 0 - do nothing.\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test clinicalknowledge reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Stage 1 - observe cannula.",
+      "B": "Stage 2 - re-site cannula.",
+      "C": "Stage 3 - re-site cannula and consider treatment.",
+      "D": "Stage 0 - do nothing.\nOption:"
+    },
+    "raw_answer": "Stage 2 - re-site cannula."
+  },
+  {
+    "id": "mcqa_med_qa_train_d87b2160",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa_train",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "Question: A 45-year-old man is brought to the emergency department following a house fire. Following initial stabilization, the patient is transferred to the ICU for management of his third-degree burn injuries. On the second day of hospitalization, a routine laboratory panel is obtained, and the results are demonstrated below. Per the nurse, he remains stable compared to the day prior. His temperature is 99°F (37°C), blood pressure is 92/64 mmHg, pulse is 98/min, respirations are 14/min, and SpO2 is 98%. A physical examination demonstrates an unresponsive patient with extensive burn injuries throughout his torso and lower extremities.\n\nHemoglobin: 13 g/dL\nHematocrit: 36%\nLeukocyte count: 10,670/mm^3 with normal differential\nPlatelet count: 180,000/mm^3\n\nSerum:\nNa+: 135 mEq/L\nCl-: 98 mEq/L\nK+: 4.7 mEq/L\nHCO3-: 25 mEq/L \nBUN: 10 mg/dL \nGlucose: 123 mg/dL\nCreatinine: 1.8 mg/dL\nThyroid-stimulating hormone: 4.3 µU/mL\nTriiodothyronine: 48 ng/dL\nThyroxine: 10 ug/dL\nCa2+:  8.7 mg/dL\nAST: 89 U/L\nALT: 135 U/L\n\nWhat is the best course of management for this patient?\nOption A: Continued management of his burn wounds\nOption B: Immediate administration of propanolol\nOption C: Increase opioid dosage\nOption D: Regular levothyroxine sodium injections",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Continued management of his burn wounds",
+      "B": "Immediate administration of propanolol",
+      "C": "Increase opioid dosage",
+      "D": "Regular levothyroxine sodium injections"
+    },
+    "raw_answer": "Continued management of his burn wounds"
+  },
+  {
+    "id": "mcqa_mmlu_professional_medicine_4acbcfbd",
+    "description": {
+      "purpose": "Answer a MMLU test professionalmedicine question",
+      "difficulty": "medium",
+      "source": "mmlu_professional_medicine",
+      "category": "MMLU_test_professionalmedicine",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 25-year-old man comes to the emergency department because he developed chest pain and shortness of breath 1 hour ago, shortly after snorting cocaine for the first time. He rates the chest pain as a 7 on a 10-point scale and notes that the pain is radiating down his left arm. Medical history is unremarkable and the patient takes no medications or any other illicit drugs. He is 178 cm (5 ft 10 in) tall and weighs 70 kg (154 lb); BMI is 22 kg/m2 . The patient is diaphoretic. Vital signs are temperature 37.5°C (99.5°F), pulse 110/min, respirations 16/min, and blood pressure 200/100 mm Hg. Pulse oximetry on room air shows an oxygen saturation of 95%. Pupils are equal, round, and reactive to light and accommodation. Lungs are clear to auscultation and percussion. Auscultation of the heart discloses an audible S1 and S2. There is no edema, cyanosis, or clubbing of the digits. The patient is fully oriented. He is treated with supplemental oxygen, a 325-mg aspirin tablet, and intravenous nitroglycerin and lorazepam. Despite therapy, he continues to have chest pain and shortness of breath. ECG shows sinus tachycardia with no ST-segment or T-wave abnormalities. Which of the following is the most appropriate additional pharmacotherapy to initiate at this time?\nOption A: Carvedilol\nOption B: Furosemide\nOption C: Metoprolol\nOption D: Phentolamine\nOption: ",
+    "correct_answer": "D",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "D"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test professionalmedicine reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Carvedilol",
+      "B": "Furosemide",
+      "C": "Metoprolol",
+      "D": "Phentolamine\nOption:"
+    },
+    "raw_answer": "Phentolamine"
+  },
+  {
+    "id": "mcqa_med_qa_a750afca",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 10-year-old Caucasian female with Turner's syndrome underwent an abdominal imaging study and was discovered that the poles of her kidneys were fused inferiorly. Normal ascension of kidney during embryological development would be prevented by which of the following anatomical structures?\nOption A: Superior mesenteric artery\nOption B: Inferior mesenteric artery\nOption C: Celiac artery\nOption D: Splenic artery\n",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Superior mesenteric artery",
+      "B": "Inferior mesenteric artery",
+      "C": "Celiac artery",
+      "D": "Splenic artery"
+    },
+    "raw_answer": "Inferior mesenteric artery"
+  },
+  {
+    "id": "mcqa_medmc_qa_train_76ec018b",
+    "description": {
+      "purpose": "Answer a MedMCQA train question",
+      "difficulty": "medium",
+      "source": "medmc_qa_train",
+      "category": "MedMCQA_train",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Extradural hemorrhage in NCCT Head is seen as?\nOption A:Hyperdense biconvex\nOption B:Hypodense biconcave\nOption C:Hyperdense biconcave\nOption D:Hypodense biconvex\n",
+    "correct_answer": "Answer: (A)",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "Answer: (A)"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA train reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Hyperdense biconvex",
+      "B": "Hypodense biconcave",
+      "C": "Hyperdense biconcave",
+      "D": "Hypodense biconvex"
+    },
+    "raw_answer": "Answer: (A)"
+  },
+  {
+    "id": "mcqa_mmlu_clinical_knowledge_057aa8c4",
+    "description": {
+      "purpose": "Answer a MMLU test clinicalknowledge question",
+      "difficulty": "medium",
+      "source": "mmlu_clinical_knowledge",
+      "category": "MMLU_test_clinicalknowledge",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: The genome is:\nOption A: the number of chromosomes found in the somatic cells of an organism.\nOption B: the entire DNA sequence of an organism.\nOption C: the entire list of proteins that an organism is capable of producing.\nOption D: the DNA sequence of an entire chromosome.\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test clinicalknowledge reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "the number of chromosomes found in the somatic cells of an organism.",
+      "B": "the entire DNA sequence of an organism.",
+      "C": "the entire list of proteins that an organism is capable of producing.",
+      "D": "the DNA sequence of an entire chromosome.\nOption:"
+    },
+    "raw_answer": "the entire DNA sequence of an organism."
+  },
+  {
+    "id": "mcqa_mmlu_college_biology_cb2cae9e",
+    "description": {
+      "purpose": "Answer a MMLU test collegebiology question",
+      "difficulty": "medium",
+      "source": "mmlu_college_biology",
+      "category": "MMLU_test_collegebiology",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Cancer cells grown in culture are similar to normal cells grown in culture in that they\nOption A: divide an indefinite number of times\nOption B: do not display contact inhibition\nOption C: require a surface for attachment in order to grow\nOption D: proliferate to the same cell density\nOption: ",
+    "correct_answer": "C",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "C"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test collegebiology reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "divide an indefinite number of times",
+      "B": "do not display contact inhibition",
+      "C": "require a surface for attachment in order to grow",
+      "D": "proliferate to the same cell density\nOption:"
+    },
+    "raw_answer": "require a surface for attachment in order to grow"
+  },
+  {
+    "id": "mcqa_medmc_qa_train_46f8e891",
+    "description": {
+      "purpose": "Answer a MedMCQA train question",
+      "difficulty": "medium",
+      "source": "medmc_qa_train",
+      "category": "MedMCQA_train",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A man hits his neighbour. Next day he feels that police is behind him and his brain is being controlled by radio waves by his neighbour. The probable diagnosis is:\nOption A:Thought inseion\nOption B:Passivity feeling\nOption C:Delusion of persecution\nOption D:Obscessive Compulsive Disorder\n",
+    "correct_answer": "Answer: (C)",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "Answer: (C)"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA train reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Thought inseion",
+      "B": "Passivity feeling",
+      "C": "Delusion of persecution",
+      "D": "Obscessive Compulsive Disorder"
+    },
+    "raw_answer": "Answer: (C)"
+  },
+  {
+    "id": "mcqa_medmc_qa_51299141",
+    "description": {
+      "purpose": "Answer a MedMCQA dev question",
+      "difficulty": "medium",
+      "source": "medmc_qa",
+      "category": "MedMCQA_dev",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Fine needle aspiration cytology (FNAC) is not enough to diagnose:\nOption A: Papillary carcinoma of thyroid\nOption B: Follicular carcinoma of thyroid\nOption C: Carcinoma breast\nOption D: Adenocarcinoma lung\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA dev reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Papillary carcinoma of thyroid",
+      "B": "Follicular carcinoma of thyroid",
+      "C": "Carcinoma breast",
+      "D": "Adenocarcinoma lung\nOption:"
+    },
+    "raw_answer": "Follicular carcinoma of thyroid"
+  },
+  {
+    "id": "mcqa_mmlu_medical_genetics_f601cfa9",
+    "description": {
+      "purpose": "Answer a MMLU test medicalgenetics question",
+      "difficulty": "medium",
+      "source": "mmlu_medical_genetics",
+      "category": "MMLU_test_medicalgenetics",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Which of the following is not a tumour suppressor gene?\nOption A: APC\nOption B: NF1\nOption C: RB1\nOption D: RET\nOption: ",
+    "correct_answer": "D",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "D"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test medicalgenetics reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "APC",
+      "B": "NF1",
+      "C": "RB1",
+      "D": "RET\nOption:"
+    },
+    "raw_answer": "RET"
+  },
+  {
+    "id": "mcqa_medmc_qa_1022dceb",
+    "description": {
+      "purpose": "Answer a MedMCQA dev question",
+      "difficulty": "medium",
+      "source": "medmc_qa",
+      "category": "MedMCQA_dev",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: In Inlay and 3 fourth crowns main purpose of bevel is\nOption A: To remove unsupported enamel rods\nOption B: Increase retention\nOption C: Provide secondary resistance\nOption D: None of above\nOption: ",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MedMCQA dev reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "To remove unsupported enamel rods",
+      "B": "Increase retention",
+      "C": "Provide secondary resistance",
+      "D": "None of above\nOption:"
+    },
+    "raw_answer": "To remove unsupported enamel rods"
+  },
+  {
+    "id": "mcqa_mmlu_professional_medicine_0fbb1006",
+    "description": {
+      "purpose": "Answer a MMLU test professionalmedicine question",
+      "difficulty": "medium",
+      "source": "mmlu_professional_medicine",
+      "category": "MMLU_test_professionalmedicine",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 5-year-old boy is brought to the physician by his mother because of a 2-day history of a low-grade fever, cough, and runny nose. His temperature is 38°C (100.4°F). Examination findings are consistent with a diagnosis of a common cold. The physician refers to a randomized, double-blind, placebo-controlled clinical trial that evaluated the effectiveness of a new drug for the treatment of the common cold. The mean time for resolution of symptoms for patients receiving the new drug was 6.4 days, compared with a mean time of 6.7 days for patients receiving the placebo (p=0.04). Which of the following is the most appropriate interpretation of these study results?\nOption A: The findings are clinically and statistically significant\nOption B: The findings are clinically insignificant but statistically significant\nOption C: The findings are clinically significant but statistically insignificant\nOption D: The findings are neither clinically nor statistically significant\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test professionalmedicine reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "The findings are clinically and statistically significant",
+      "B": "The findings are clinically insignificant but statistically significant",
+      "C": "The findings are clinically significant but statistically insignificant",
+      "D": "The findings are neither clinically nor statistically significant\nOption:"
+    },
+    "raw_answer": "The findings are clinically insignificant but statistically significant"
+  },
+  {
+    "id": "mcqa_mmlu_college_biology_e121c855",
+    "description": {
+      "purpose": "Answer a MMLU test collegebiology question",
+      "difficulty": "medium",
+      "source": "mmlu_college_biology",
+      "category": "MMLU_test_collegebiology",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: When an influenza virus enters a cell, it immediately starts to do which of the following?\nOption A: Incorporate viral DNA into the host cell’s chromosome\nOption B: Destroy the host cell’s transcriptional machinery\nOption C: Replicate its genetic material and synthesize viral proteins\nOption D: Use a viral copy of reverse transcriptase to manufacture viral DNA\nOption: ",
+    "correct_answer": "C",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "C"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test collegebiology reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Incorporate viral DNA into the host cell’s chromosome",
+      "B": "Destroy the host cell’s transcriptional machinery",
+      "C": "Replicate its genetic material and synthesize viral proteins",
+      "D": "Use a viral copy of reverse transcriptase to manufacture viral DNA\nOption:"
+    },
+    "raw_answer": "Replicate its genetic material and synthesize viral proteins"
+  },
+  {
+    "id": "mcqa_med_qa_train_3b9c19f3",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa_train",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "Question: A 28-year-old woman comes to the emergency department because of increasing abdominal pain for 2 days. The pain is diffuse and constant, and she describes it as 7 out of 10 in intensity. She has also had numbness in her lower extremities for 12 hours. She has type 1 diabetes mellitus, migraine with aura, and essential tremor. She appears uncomfortable. She is oriented to place and person only. Her temperature is 37°C (98.6°F), pulse is 123/min, and blood pressure is 140/70 mm Hg. Examination shows a distended abdomen with no tenderness to palpation. Bowel sounds are decreased. Muscle strength and sensation is decreased in the lower extremities. There is a tremor of the right upper extremity. Urinalysis shows elevated levels of aminolevulinic acid and porphobilinogen. Which of the following is the most likely cause of this patient's symptoms?\nOption A: Primidone\nOption B: Amitriptyline\nOption C: Flunarizine\nOption D: Metoclopramide",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Primidone",
+      "B": "Amitriptyline",
+      "C": "Flunarizine",
+      "D": "Metoclopramide"
+    },
+    "raw_answer": "Primidone"
+  },
+  {
+    "id": "mcqa_mmlu_college_medicine_f9d9fe2c",
+    "description": {
+      "purpose": "Answer a MMLU test collegemedicine question",
+      "difficulty": "medium",
+      "source": "mmlu_college_medicine",
+      "category": "MMLU_test_collegemedicine",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: An action potential arriving at the motor endplate causes release of:\nOption A: acetylcholine which traverses the neuromuscular junction.\nOption B: sodium ions which binds to sodium receptors on the muscle membrane.\nOption C: calcium ions which initiate an action potential along the muscle fibre.\nOption D: noradrenaline which increases muscle metabolic activity.\nOption: ",
+    "correct_answer": "A",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "A"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test collegemedicine reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "acetylcholine which traverses the neuromuscular junction.",
+      "B": "sodium ions which binds to sodium receptors on the muscle membrane.",
+      "C": "calcium ions which initiate an action potential along the muscle fibre.",
+      "D": "noradrenaline which increases muscle metabolic activity.\nOption:"
+    },
+    "raw_answer": "acetylcholine which traverses the neuromuscular junction."
+  },
+  {
+    "id": "mcqa_mmlu_clinical_knowledge_dcfc185e",
+    "description": {
+      "purpose": "Answer a MMLU test clinicalknowledge question",
+      "difficulty": "medium",
+      "source": "mmlu_clinical_knowledge",
+      "category": "MMLU_test_clinicalknowledge",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A keloid is:\nOption A: evidence of infection.\nOption B: a firm mass of scar tissue.\nOption C: a fine, hairline scar.\nOption D: formed if a wound drain is removed too soon.\nOption: ",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test clinicalknowledge reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "evidence of infection.",
+      "B": "a firm mass of scar tissue.",
+      "C": "a fine, hairline scar.",
+      "D": "formed if a wound drain is removed too soon.\nOption:"
+    },
+    "raw_answer": "a firm mass of scar tissue."
+  },
+  {
+    "id": "mcqa_med_qa_868cffce",
+    "description": {
+      "purpose": "Answer a med qa question",
+      "difficulty": "medium",
+      "source": "med_qa",
+      "category": "med_qa",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: A 24-year-old female presents to the emergency department with a chief complaint of an inability to urinate. She states that this has been one of many symptoms she has experienced lately. At times she has had trouble speaking and has noticed changes in her vision however these episodes occurred over a month ago and have resolved since then. Two days ago she experienced extreme pain in her face that was exacerbated with brushing her teeth and plucking out facial hairs. The patient has no relevant past medical history, however, the patient admits to being sexually abused by her boyfriend for the past year. Her current medications include ibuprofen for menstrual cramps. On physical exam it is noted that leftward gaze results in only the ipsilateral eye gazing leftward. The patient's initial workup is started in the emergency department. Her vital signs are within normal limits and you note a pale and frightened young lady awaiting further care. Which of the following is the best initial test for this patient's chief complaint?\nOption A: Head CT\nOption B: Head MRI\nOption C: Lumbar puncture\nOption D: Domestic abuse screening and exploring patient's life stressors\n",
+    "correct_answer": "B",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "B"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated med qa reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "Head CT",
+      "B": "Head MRI",
+      "C": "Lumbar puncture",
+      "D": "Domestic abuse screening and exploring patient's life stressors"
+    },
+    "raw_answer": "Head MRI"
+  },
+  {
+    "id": "mcqa_mmlu_clinical_knowledge_c7d46151",
+    "description": {
+      "purpose": "Answer a MMLU test clinicalknowledge question",
+      "difficulty": "medium",
+      "source": "mmlu_clinical_knowledge",
+      "category": "MMLU_test_clinicalknowledge",
+      "generated_from": "benchmark_converter"
+    },
+    "ticket": "QUESTION: Phophocreatine resynthesis during recovery from exercise is inhibited by:\nOption A: an excess of creatine.\nOption B: hyperventilation.\nOption C: an excess of oxygen.\nOption D: a lack of oxygen.\nOption: ",
+    "correct_answer": "D",
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "search_evidence",
+          "name": "search_pubmed",
+          "arguments": {},
+          "info": "Search for relevant medical evidence"
+        },
+        {
+          "action_id": "submit",
+          "name": "submit_answer",
+          "arguments": {
+            "answer": "D"
+          },
+          "compare_args": [
+            "answer"
+          ],
+          "info": "Submit the correct answer"
+        }
+      ],
+      "nl_assertions": [
+        "The agent selected the correct answer",
+        "The agent used evidence search before answering",
+        "The agent demonstrated MMLU test clinicalknowledge reasoning"
+      ],
+      "reward_basis": [
+        "ACTION",
+        "NL_ASSERTION"
+      ]
+    },
+    "options": {
+      "A": "an excess of creatine.",
+      "B": "hyperventilation.",
+      "C": "an excess of oxygen.",
+      "D": "a lack of oxygen.\nOption:"
+    },
+    "raw_answer": "a lack of oxygen."
   }
 ]

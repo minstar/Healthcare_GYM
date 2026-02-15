@@ -27,17 +27,34 @@ class ToolType(str, Enum):
     GENERIC = "generic"  # General purpose (transfer, calculate)
 
 
-def is_tool(tool_type: ToolType = ToolType.READ):
+def is_tool(tool_type_or_func=ToolType.READ):
     """Decorator to mark a method as an available tool.
-    
+
+    Supports both ``@is_tool`` and ``@is_tool(ToolType.READ)`` syntax.
+
     Args:
-        tool_type: The type of tool (READ, WRITE, THINK, GENERIC)
-    
+        tool_type_or_func: Either a ToolType (when called with parentheses)
+            or the decorated function itself (when used without parentheses).
+
     Usage:
         @is_tool(ToolType.READ)
         def search_pubmed(self, query: str) -> list[dict]:
             ...
+
+        @is_tool  # Also valid — defaults to ToolType.READ
+        def get_patient_info(self, patient_id: str) -> dict:
+            ...
     """
+    # Handle @is_tool without parentheses: tool_type_or_func is the function
+    if callable(tool_type_or_func):
+        func = tool_type_or_func
+        setattr(func, TOOL_ATTR, True)
+        setattr(func, TOOL_TYPE_ATTR, ToolType.READ)
+        return func
+
+    # Handle @is_tool(ToolType.READ) with parentheses: tool_type_or_func is a ToolType
+    tool_type = tool_type_or_func
+
     def decorator(func):
         setattr(func, TOOL_ATTR, True)
         setattr(func, TOOL_TYPE_ATTR, tool_type)
@@ -219,3 +236,52 @@ class ToolKitBase(metaclass=_ToolKitMeta):
             "num_generic_tools": sum(1 for n in tools if self.get_tool_type(n) == ToolType.GENERIC),
             "tool_names": sorted(tools.keys()),
         }
+
+
+class CompositeToolKit(ToolKitBase):
+    """Combines multiple toolkits into a single unified toolkit.
+
+    This enables domain-specific tools and cross-cutting tools (like
+    KnowledgeTools) to be merged into one toolkit that the Environment
+    exposes to agents.
+
+    Tool name conflicts are resolved by first-toolkit-wins: if both
+    toolkits define ``think``, the version from the first toolkit is used.
+    This ensures domain-specific overrides take precedence.
+
+    Usage:
+        domain_tools = ClinicalTools(db)
+        knowledge_tools = KnowledgeTools(db=db)
+        composite = CompositeToolKit(domain_tools, knowledge_tools)
+        # composite.tools  →  all domain tools + knowledge tools merged
+    """
+
+    def __init__(self, *toolkits: ToolKitBase):
+        # Intentionally skip ToolKitBase.__init__ to avoid setting db
+        self._toolkits = toolkits
+
+    @property
+    def db(self):
+        """Return the DB from the first toolkit that has one."""
+        for tk in self._toolkits:
+            if getattr(tk, "db", None) is not None:
+                return tk.db
+        return None
+
+    @property
+    def tools(self) -> Dict[str, Callable]:
+        """Merge tools from all child toolkits (first-wins for conflicts)."""
+        merged: Dict[str, Callable] = {}
+        for toolkit in self._toolkits:
+            for name, method in toolkit.tools.items():
+                if name not in merged:
+                    merged[name] = method
+        return merged
+
+    def get_db_hash(self) -> Optional[str]:
+        """Return hash from the first toolkit that has a DB."""
+        for toolkit in self._toolkits:
+            h = toolkit.get_db_hash()
+            if h is not None:
+                return h
+        return None
