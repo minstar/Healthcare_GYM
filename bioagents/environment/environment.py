@@ -69,6 +69,11 @@ class Environment:
         )
     """
 
+    # Tools whose execution naturally terminates an episode. Mirrors the
+    # AgentRunner's `is_submit` check (agent_runner.py) so the raw gym.Env
+    # interface and the runner agree on when an episode ends.
+    _TERMINAL_TOOLS = frozenset({"submit_answer", "submit_report"})
+
     def __init__(
         self,
         domain_name: str,
@@ -149,6 +154,12 @@ class Environment:
                 turn_idx=self.state.turn_count,
             ))
         
+        # Terminating tools (submit_answer / submit_report) end the episode.
+        # Without this, the Gymnasium `terminated` flag never fires on submit
+        # and only `truncated` (max_turns) can end an episode.
+        if tool_response is not None and self._last_tool_name in self._TERMINAL_TOOLS:
+            self.state.terminated = True
+
         # Check termination conditions
         terminated = self.state.terminated
         truncated = self.state.turn_count >= self.max_turns

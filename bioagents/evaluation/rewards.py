@@ -844,14 +844,17 @@ def compute_composite_reward(
         assertion_score = assertion_result["total"]
         assertion_details = assertion_result
 
-    # Weighted 6D total — use 0.0 default for dimensions not in config
+    # Weighted 6D total. Per-dimension fallbacks mirror the canonical default
+    # weights above so that passing a *partial* weights dict no longer silently
+    # drops safety/coherence/assertion to 0 (previously asymmetric with
+    # accuracy/format/process, which already fell back to their nominal values).
     total = (
         weights.get("accuracy", 0.25) * accuracy
         + weights.get("format", 0.10) * format_score
         + weights.get("process", 0.20) * process_score
-        + weights.get("safety", 0.0) * safety_score
-        + weights.get("coherence", 0.0) * coherence_score
-        + weights.get("assertion", 0.0) * assertion_score
+        + weights.get("safety", 0.20) * safety_score
+        + weights.get("coherence", 0.10) * coherence_score
+        + weights.get("assertion", 0.15) * assertion_score
     )
 
     result = {
