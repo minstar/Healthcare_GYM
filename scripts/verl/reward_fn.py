@@ -240,12 +240,35 @@ def extract_answer_letter(text: str) -> Optional[str]:
     if matches:
         return matches[-1].upper()
 
-    # Pattern 3: standalone letter at end "D" or "(D)"
-    match = re.search(r"\(?([A-E])\)?\s*$", text.strip())
+    # Pattern 3: standalone letter at end "D" or "(D)" — require a non-alphanumeric
+    # boundary before the letter so prose endings like "Vitamin D" / "type A" don't
+    # get mis-extracted as the answer (that flipped the binary training reward).
+    match = re.search(r"(?:^|[^A-Za-z0-9])\(?([A-E])\)?[.)]?\s*$", text.strip())
     if match:
         return match.group(1).upper()
 
     return None
+
+
+def _extract_final_answer_span(text: str, window: int = 600) -> str:
+    """Return the model's final answer text for open-ended scoring.
+
+    Prefers the content after the last submit_answer tool call or an explicit
+    'Answer:'/'Final Answer:' marker; otherwise falls back to the tail of the
+    response. This keeps verbosity/tool-echo out of the overlap score.
+    """
+    if not text:
+        return ""
+    # After the last submit_answer(...) payload, if present.
+    m = list(re.finditer(r'submit_answer[^\{]*\{(.*?)\}', text, re.DOTALL | re.IGNORECASE))
+    if m:
+        return m[-1].group(1)
+    # After the last explicit answer marker.
+    m = list(re.finditer(r'(?:final\s+answer|answer)\s*[:\-]\s*(.+)', text, re.IGNORECASE))
+    if m:
+        return m[-1].group(1)
+    # Fallback: tail window (final reasoning usually lands here).
+    return text[-window:]
 
 
 def compute_score(
