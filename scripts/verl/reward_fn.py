@@ -240,10 +240,11 @@ def extract_answer_letter(text: str) -> Optional[str]:
     if matches:
         return matches[-1].upper()
 
-    # Pattern 3: standalone letter at end "D" or "(D)" — require a non-alphanumeric
-    # boundary before the letter so prose endings like "Vitamin D" / "type A" don't
-    # get mis-extracted as the answer (that flipped the binary training reward).
-    match = re.search(r"(?:^|[^A-Za-z0-9])\(?([A-E])\)?[.)]?\s*$", text.strip())
+    # Pattern 3: PARENTHESIZED letter at end, e.g. "(D)" or "(D)." — this is an
+    # unambiguous answer format. A bare trailing letter is intentionally NOT matched:
+    # "Vitamin D" / "type A" are indistinguishable from a gold "D"/"A" and matching
+    # them flipped the binary training reward.
+    match = re.search(r"\(([A-E])\)[.)]?\s*$", text.strip())
     if match:
         return match.group(1).upper()
 

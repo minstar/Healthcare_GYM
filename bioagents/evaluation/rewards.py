@@ -65,9 +65,19 @@ def accuracy_reward_soft(
     Returns:
         Score between 0.0 and 1.0
     """
-    # If it's a single-letter answer, use exact match
-    if len(correct_answer.strip()) <= 2:
+    # Exact match ONLY for true multiple-choice (a single A–E letter).
+    # Gating on length<=2 wrongly routed short free-text answers ("NO", "8", "II")
+    # through letter-only extraction, which returns 0 even when correct.
+    ca_norm = correct_answer.strip().upper()
+    if ca_norm in {"A", "B", "C", "D", "E"}:
         return accuracy_reward_exact_match(response, correct_answer)
+    # Other short answers (yes/no, numbers, stages): direct normalized match.
+    if len(correct_answer.strip()) <= 3:
+        resp_l = response.strip().lower()
+        ca_l = correct_answer.strip().lower()
+        if ca_l and re.search(r"(?:^|[^a-z0-9])" + re.escape(ca_l) + r"(?:[^a-z0-9]|$)", resp_l):
+            return 1.0
+        return 0.0
 
     # For longer answers, use text overlap
     reference = reference_text or correct_answer
