@@ -1,12 +1,11 @@
 # Medical MCP Docker Environment
 
-Docker environment serving `clinicaltrialsgov-mcp-server`, `pubmed`, and `openfda`
-MCP servers for medical trajectory synthesis.
+Self-contained, stateless Docker environment serving 11 medical MCP servers
+behind a small HTTP API for medical trajectory synthesis and evaluation.
 
 ## Origin
 
-Based on [Healthcare_GYM](https://github.com/minstar/Healthcare_GYM) — the MCP server
-implementations are sourced from the same packages used in MCP-Atlas evaluation to
+The MCP server implementations use the same packages as MCP-Atlas evaluation to
 prevent tool hallucination (schema mismatch between training and eval).
 
 - **clinicaltrialsgov-mcp-server**: `npm clinicaltrialsgov-mcp-server@1.0.8`
@@ -32,7 +31,7 @@ prevent tool hallucination (schema mismatch between training and eval).
 After building, extract actual tool specs from the running container:
 
 ```bash
-./extract_tool_specs.sh 6986 ../../dive-synth/artifacts/tool_specs_medical.json
+./extract_tool_specs.sh 6986 tool_specs_medical.json
 ```
 
 ## Endpoints
@@ -46,6 +45,6 @@ After building, extract actual tool specs from the running container:
 
 ## Notes
 
-- Both servers call **live public APIs** (ClinicalTrials.gov v2, NCBI E-utilities) — no local data, internet required
+- All servers call **live public APIs** — no local data bundled, internet required
 - Response cache (48h TTL) reduces redundant API calls during synthesis
 - No API keys or subscriptions needed

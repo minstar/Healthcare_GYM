@@ -8,11 +8,11 @@ set -euo pipefail
 #   ./extract_tool_specs.sh [PORT] [OUTPUT_PATH]
 #
 # Example:
-#   ./extract_tool_specs.sh 6986 ../../dive-synth/artifacts/tool_specs_medical.json
+#   ./extract_tool_specs.sh 6986 tool_specs_medical.json
 
 PORT="${1:-6986}"
 OUTPUT="${2:-tool_specs_medical.json}"
-IMAGE="medical-mcp-env:1.0"
+IMAGE="${3:-medical-mcp-env:1.1}"
 CONTAINER="medical-mcp-extract-$$"
 
 echo "Starting ${IMAGE} on port ${PORT}..."
@@ -35,7 +35,7 @@ curl -sS -X POST "http://localhost:${PORT}/list-tools" \
     | python3 -c "
 import json, sys
 tools = json.load(sys.stdin)
-# Convert MCP Tool objects to the dive-synth tool_cache format
+# Convert MCP Tool objects to a flat tool-spec list
 specs = []
 for t in tools:
     spec = {
