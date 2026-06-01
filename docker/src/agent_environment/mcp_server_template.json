@@ -1,0 +1,83 @@
+{
+  "mcpServers": {
+    "clinicaltrialsgov-mcp-server": {
+      "command": "npx",
+      "args": [
+        "clinicaltrialsgov-mcp-server@1.0.8"
+      ],
+      "env": {
+        "MCP_LOG_LEVEL": "info"
+      }
+    },
+    "pubmed": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/geobio/PubMed-MCP-Server.git",
+        "python",
+        "-m",
+        "pubmed_server"
+      ]
+    },
+    "openfda": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "bach-openfda"
+      ]
+    },
+    "opentargets": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/opentargets/open-targets-platform-mcp",
+        "otp-mcp",
+        "--transport",
+        "stdio"
+      ]
+    },
+    "chembl": {
+      "command": "node",
+      "args": [
+        "/opt/mcp/chembl/build/index.js"
+      ]
+    },
+    "uniprot": {
+      "command": "node",
+      "args": [
+        "/opt/mcp/uniprot/build/index.js"
+      ]
+    },
+    "pubchem": {
+      "command": "node",
+      "args": [
+        "/opt/mcp/pubchem/build/index.js"
+      ]
+    },
+    "kegg": {
+      "command": "node",
+      "args": [
+        "/opt/mcp/kegg/build/index.js"
+      ]
+    },
+    "ncbi-datasets": {
+      "command": "node",
+      "args": [
+        "/opt/mcp/ncbi/build/index.js"
+      ]
+    },
+    "healthcare": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "healthcare-mcp"
+      ]
+    },
+    "biomcp": {
+      "command": "biomcp",
+      "args": [
+        "serve"
+      ]
+    }
+  }
+}
