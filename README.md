@@ -314,6 +314,8 @@ print(obs)  # Patient scenario + available tools
 
 ## Docker MCP Environment
 
+> **2026-06-01 — Stateless Docker environment released.**
+
 A self-contained, **stateless** Docker image that serves the medical MCP servers
 (ClinicalTrials.gov, PubMed, openFDA, OpenTargets, ChEMBL, UniProt, PubChem, KEGG,
 NCBI Datasets, healthcare-mcp, BioMCP) behind a small HTTP API for trajectory
