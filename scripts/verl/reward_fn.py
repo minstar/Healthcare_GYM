@@ -366,14 +366,22 @@ def compute_score(
             base_reward = 0.0
             is_correct = False
         else:
+            # Score the FINAL answer span (not the whole transcript) with F1.
+            # Recall-only over the full multi-turn solution_str rewarded verbosity
+            # (any rollout that mentions every gold token anywhere scored 1.0),
+            # which is exactly opposite to the cosine length reward.
+            answer_span = _extract_final_answer_span(solution_str)
             gt_words = set(ground_truth.lower().split())
-            pred_words = set(solution_str.lower().split())
+            pred_words = set(answer_span.lower().split())
 
             if not gt_words:
                 base_reward = 0.0
                 is_correct = False
             else:
-                overlap = len(gt_words & pred_words) / len(gt_words)
+                inter = len(gt_words & pred_words)
+                recall = inter / len(gt_words)
+                precision = inter / len(pred_words) if pred_words else 0.0
+                overlap = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
                 base_reward = min(overlap, 1.0)
                 is_correct = overlap > 0.5
 

@@ -65,6 +65,13 @@ def accuracy_reward_soft(
     Returns:
         Score between 0.0 and 1.0
     """
+    # Coerce to str: tasks can supply numeric/list gold answers (e.g. answer: 8),
+    # and .strip()/.upper() below would otherwise raise AttributeError — which the
+    # caller's broad except turns into a silent reward of 0 for the whole task.
+    if not isinstance(correct_answer, str):
+        correct_answer = " ".join(map(str, correct_answer)) if isinstance(correct_answer, (list, tuple)) else str(correct_answer)
+    response = str(response)
+
     # Exact match ONLY for true multiple-choice (a single A–E letter).
     # Gating on length<=2 wrongly routed short free-text answers ("NO", "8", "II")
     # through letter-only extraction, which returns 0 even when correct.
@@ -854,17 +861,19 @@ def compute_composite_reward(
         assertion_score = assertion_result["total"]
         assertion_details = assertion_result
 
-    # Weighted 6D total. Per-dimension fallbacks mirror the canonical default
-    # weights above so that passing a *partial* weights dict no longer silently
-    # drops safety/coherence/assertion to 0 (previously asymmetric with
-    # accuracy/format/process, which already fell back to their nominal values).
+    # Weighted 6D total. Every dimension falls back to 0.0 SYMMETRICALLY: a caller
+    # passing a *partial* weights dict (e.g. grpo_trainer passes only
+    # accuracy/format/process) means "use exactly these dims" — omitted dims must
+    # contribute nothing, otherwise unrequested signals (esp. per-sample coherence)
+    # leak into the GRPO advantage. The default weights=None path already contains
+    # all six keys, so the canonical 6D behavior is unchanged.
     total = (
-        weights.get("accuracy", 0.25) * accuracy
-        + weights.get("format", 0.10) * format_score
-        + weights.get("process", 0.20) * process_score
-        + weights.get("safety", 0.20) * safety_score
-        + weights.get("coherence", 0.10) * coherence_score
-        + weights.get("assertion", 0.15) * assertion_score
+        weights.get("accuracy", 0.0) * accuracy
+        + weights.get("format", 0.0) * format_score
+        + weights.get("process", 0.0) * process_score
+        + weights.get("safety", 0.0) * safety_score
+        + weights.get("coherence", 0.0) * coherence_score
+        + weights.get("assertion", 0.0) * assertion_score
     )
 
     result = {
