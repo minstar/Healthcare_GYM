@@ -331,8 +331,8 @@ cd docker
 # Build the image (also saves a tar to images/, which is gitignored)
 ./build.sh medical-mcp-env:1.1
 
-# Run (stateless — no volumes/state to mount)
-docker run --rm -p 6986:6986 medical-mcp-env:1.1
+# Run (stateless — no volumes/state to mount; container listens on 1984)
+docker run --rm -p 6986:1984 medical-mcp-env:1.1
 
 # Extract live tool specs from the running container
 ./extract_tool_specs.sh 6986 tool_specs_medical.json
