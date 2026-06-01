@@ -1,0 +1,19 @@
+[project]
+name = "medical-mcp-environment"
+version = "0.1.0"
+description = "Medical MCP server environment (11 servers: clinicaltrialsgov, pubmed, openfda, opentargets, chembl, uniprot, pubchem, kegg, ncbi-datasets, healthcare, biomcp)"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "cacheout>=0.16.0",
+    "fastapi>=0.115.12",
+    "fastmcp>=2.10.6",
+    "mcp[cli]>=1.9.3",
+    "uvicorn>=0.34.3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_environment"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

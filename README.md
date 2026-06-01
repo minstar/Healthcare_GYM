@@ -312,6 +312,46 @@ print(obs)  # Patient scenario + available tools
 
 ---
 
+## Docker MCP Environment
+
+A self-contained, **stateless** Docker image that serves the medical MCP servers
+(ClinicalTrials.gov, PubMed, openFDA, OpenTargets, ChEMBL, UniProt, PubChem, KEGG,
+NCBI Datasets, healthcare-mcp, BioMCP) behind a small HTTP API for trajectory
+synthesis and evaluation. The same server packages are used in MCP-Atlas evaluation,
+which prevents tool-schema mismatch (hallucination) between training and eval.
+
+The container holds **no persistent state** — it wraps live public APIs and keeps
+only an in-memory response cache (48h TTL) as a call-rate optimization. Each request
+is independent, and `/reset-state` clears the cache, so containers are freely
+restartable and horizontally scalable.
+
+```bash
+cd docker
+
+# Build the image (also saves a tar to images/, which is gitignored)
+./build.sh medical-mcp-env:1.1
+
+# Run (stateless — no volumes/state to mount)
+docker run --rm -p 6986:6986 medical-mcp-env:1.1
+
+# Extract live tool specs from the running container
+./extract_tool_specs.sh 6986 tool_specs_medical.json
+```
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/list-tools` | POST | List all available MCP tools |
+| `/call-tool` | POST | Call a tool with `{tool_name, tool_args, use_cache}` |
+| `/reset-state` | POST | Clear the response cache |
+| `/cache-stats` | GET | Cache size and TTL info |
+
+See [`docker/README.md`](docker/README.md) for the full server list and build details.
+
+> **Note:** The prebuilt image tars (`docker/images/*.tar`, ~2.2 GB) are excluded
+> from git; rebuild them locally with `./build.sh`.
+
+---
+
 ## Training
 
 ### TT-OPD (Recommended)
@@ -395,6 +435,11 @@ Healthcare_GYM/
 ├── configs/                        # Qwen3.5-9B YAML configurations
 ├── data/
 │   └── domains/                    # Per-domain task data
+├── docker/                         # Stateless medical MCP serving image
+│   ├── Dockerfile
+│   ├── build.sh                    # Build + save image tar
+│   ├── extract_tool_specs.sh       # Dump live tool specs
+│   └── src/agent_environment/      # FastAPI MCP gateway (main.py, mcp_client.py)
 ├── tests/                          # Unit tests
 ├── LICENSE
 ├── pyproject.toml
