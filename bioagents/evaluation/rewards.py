@@ -65,9 +65,26 @@ def accuracy_reward_soft(
     Returns:
         Score between 0.0 and 1.0
     """
-    # If it's a single-letter answer, use exact match
-    if len(correct_answer.strip()) <= 2:
+    # Coerce to str: tasks can supply numeric/list gold answers (e.g. answer: 8),
+    # and .strip()/.upper() below would otherwise raise AttributeError — which the
+    # caller's broad except turns into a silent reward of 0 for the whole task.
+    if not isinstance(correct_answer, str):
+        correct_answer = " ".join(map(str, correct_answer)) if isinstance(correct_answer, (list, tuple)) else str(correct_answer)
+    response = str(response)
+
+    # Exact match ONLY for true multiple-choice (a single A–E letter).
+    # Gating on length<=2 wrongly routed short free-text answers ("NO", "8", "II")
+    # through letter-only extraction, which returns 0 even when correct.
+    ca_norm = correct_answer.strip().upper()
+    if ca_norm in {"A", "B", "C", "D", "E"}:
         return accuracy_reward_exact_match(response, correct_answer)
+    # Other short answers (yes/no, numbers, stages): direct normalized match.
+    if len(correct_answer.strip()) <= 3:
+        resp_l = response.strip().lower()
+        ca_l = correct_answer.strip().lower()
+        if ca_l and re.search(r"(?:^|[^a-z0-9])" + re.escape(ca_l) + r"(?:[^a-z0-9]|$)", resp_l):
+            return 1.0
+        return 0.0
 
     # For longer answers, use text overlap
     reference = reference_text or correct_answer
@@ -844,11 +861,16 @@ def compute_composite_reward(
         assertion_score = assertion_result["total"]
         assertion_details = assertion_result
 
-    # Weighted 6D total — use 0.0 default for dimensions not in config
+    # Weighted 6D total. Every dimension falls back to 0.0 SYMMETRICALLY: a caller
+    # passing a *partial* weights dict (e.g. grpo_trainer passes only
+    # accuracy/format/process) means "use exactly these dims" — omitted dims must
+    # contribute nothing, otherwise unrequested signals (esp. per-sample coherence)
+    # leak into the GRPO advantage. The default weights=None path already contains
+    # all six keys, so the canonical 6D behavior is unchanged.
     total = (
-        weights.get("accuracy", 0.25) * accuracy
-        + weights.get("format", 0.10) * format_score
-        + weights.get("process", 0.20) * process_score
+        weights.get("accuracy", 0.0) * accuracy
+        + weights.get("format", 0.0) * format_score
+        + weights.get("process", 0.0) * process_score
         + weights.get("safety", 0.0) * safety_score
         + weights.get("coherence", 0.0) * coherence_score
         + weights.get("assertion", 0.0) * assertion_score

@@ -10,6 +10,12 @@ We propose **Turn-Level Truncated On-Policy Distillation (TT-OPD)**, a self-dist
 
 ---
 
+## Updates
+
+- **2026-06-01** — Released the **stateless medical MCP Docker environment** (`docker/`): a self-contained image serving 11 medical MCP servers (ClinicalTrials.gov, PubMed, openFDA, OpenTargets, ChEMBL, UniProt, PubChem, KEGG, NCBI Datasets, healthcare-mcp, BioMCP) behind a small HTTP API for trajectory synthesis and evaluation. See [Docker MCP Environment](#docker-mcp-environment).
+
+---
+
 ## Key Results
 
 ### Benchmark Performance (Table 1)
@@ -313,6 +319,8 @@ print(obs)  # Patient scenario + available tools
 ---
 
 ## Docker MCP Environment
+
+> **2026-06-01 — Stateless Docker environment released.**
 
 A self-contained, **stateless** Docker image that serves the medical MCP servers
 (ClinicalTrials.gov, PubMed, openFDA, OpenTargets, ChEMBL, UniProt, PubChem, KEGG,

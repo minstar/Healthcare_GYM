@@ -445,7 +445,11 @@ class BioAgentGymEnv(gym.Env):
         
         # --- NL_ASSERTION score ---
         if "NL_ASSERTION" in reward_basis:
-            assertions = eval_criteria.get("assertions", [])
+            # _normalize_task_schema renames 'assertions' -> 'nl_assertions' (and pops
+            # the old key), so read nl_assertions first; fall back to 'assertions' for
+            # any un-normalized task. Without this the assertion score was always the
+            # else-branch (a copy of the action score), silently dropping the signal.
+            assertions = eval_criteria.get("nl_assertions", eval_criteria.get("assertions", []))
             if assertions:
                 assertion_score = self._score_nl_assertions(assertions)
             else:

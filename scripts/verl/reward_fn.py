@@ -240,12 +240,36 @@ def extract_answer_letter(text: str) -> Optional[str]:
     if matches:
         return matches[-1].upper()
 
-    # Pattern 3: standalone letter at end "D" or "(D)"
-    match = re.search(r"\(?([A-E])\)?\s*$", text.strip())
+    # Pattern 3: PARENTHESIZED letter at end, e.g. "(D)" or "(D)." — this is an
+    # unambiguous answer format. A bare trailing letter is intentionally NOT matched:
+    # "Vitamin D" / "type A" are indistinguishable from a gold "D"/"A" and matching
+    # them flipped the binary training reward.
+    match = re.search(r"\(([A-E])\)[.)]?\s*$", text.strip())
     if match:
         return match.group(1).upper()
 
     return None
+
+
+def _extract_final_answer_span(text: str, window: int = 600) -> str:
+    """Return the model's final answer text for open-ended scoring.
+
+    Prefers the content after the last submit_answer tool call or an explicit
+    'Answer:'/'Final Answer:' marker; otherwise falls back to the tail of the
+    response. This keeps verbosity/tool-echo out of the overlap score.
+    """
+    if not text:
+        return ""
+    # After the last submit_answer(...) payload, if present.
+    m = list(re.finditer(r'submit_answer[^\{]*\{(.*?)\}', text, re.DOTALL | re.IGNORECASE))
+    if m:
+        return m[-1].group(1)
+    # After the last explicit answer marker.
+    m = list(re.finditer(r'(?:final\s+answer|answer)\s*[:\-]\s*(.+)', text, re.IGNORECASE))
+    if m:
+        return m[-1].group(1)
+    # Fallback: tail window (final reasoning usually lands here).
+    return text[-window:]
 
 
 def compute_score(
@@ -342,14 +366,22 @@ def compute_score(
             base_reward = 0.0
             is_correct = False
         else:
+            # Score the FINAL answer span (not the whole transcript) with F1.
+            # Recall-only over the full multi-turn solution_str rewarded verbosity
+            # (any rollout that mentions every gold token anywhere scored 1.0),
+            # which is exactly opposite to the cosine length reward.
+            answer_span = _extract_final_answer_span(solution_str)
             gt_words = set(ground_truth.lower().split())
-            pred_words = set(solution_str.lower().split())
+            pred_words = set(answer_span.lower().split())
 
             if not gt_words:
                 base_reward = 0.0
                 is_correct = False
             else:
-                overlap = len(gt_words & pred_words) / len(gt_words)
+                inter = len(gt_words & pred_words)
+                recall = inter / len(gt_words)
+                precision = inter / len(pred_words) if pred_words else 0.0
+                overlap = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
                 base_reward = min(overlap, 1.0)
                 is_correct = overlap > 0.5
 
