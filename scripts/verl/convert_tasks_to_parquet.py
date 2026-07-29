@@ -1,6 +1,7 @@
 """Convert BIOAgents tasks.json to veRL parquet format."""
 import json
 import os
+from pathlib import Path
 
 import datasets
 import pandas as pd
@@ -97,10 +98,11 @@ def convert_tasks(tasks_path, split_path, output_dir):
 
 
 if __name__ == "__main__":
-    base = "/data/project/private/minstar/workspace/BIOAgents"
+    base = os.environ.get("HCGYM_ROOT", str(Path(__file__).resolve().parents[2]))
+    out_root = os.environ.get("HCGYM_RUN_ROOT", base)
     convert_tasks(
         tasks_path=f"{base}/data/domains/full_4modality_combined/tasks.json",
         split_path=f"{base}/data/domains/full_4modality_combined/split_tasks.json",
-        output_dir=f"{base}/data/verl_parquet/full_4modality",
+        output_dir=f"{out_root}/data/verl_parquet/full_4modality",
     )
     print("Done!")

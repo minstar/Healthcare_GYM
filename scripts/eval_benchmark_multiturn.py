@@ -31,6 +31,15 @@ Usage:
         --model_path /path/to/merged_hf \
         --benchmarks medqa \
         --max-samples 50
+
+    # Prompting baselines (eval-only, zero training) — --prompt-mode
+    #   default      Base+AR (unchanged; this is the paper's existing condition)
+    #   strong_tool  Base+AR + materially stronger tool-use contract
+    #   react        explicit ReAct (Thought/Action/Action Input/Observation)
+    CUDA_VISIBLE_DEVICES=0 python scripts/eval_benchmark_multiturn.py \
+        --model_path /path/to/merged_hf \
+        --benchmarks medqa \
+        --prompt-mode react
 """
 
 import argparse
@@ -317,8 +326,12 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
     the model from exhausting all turns on search/think without submitting.
     """
     from bioagents.evaluation.agent_runner import (
-        TurnRecord, TaskResult, build_system_prompt, parse_tool_call,
+        TurnRecord, TaskResult, build_system_prompt,
+        parse_tool_call_with_format, format_assistant_turn,
+        format_tool_observation, native_tools_for_prompt_mode,
     )
+
+    prompt_mode = getattr(runner.config, "prompt_mode", "default")
 
     task_id = task["id"]
 
@@ -336,6 +349,7 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
     system_prompt = build_system_prompt(
         info["policy"], tools_for_prompt,
         domain=runner.config.domain, task=task,
+        prompt_mode=prompt_mode,
     )
     # Build user message — include image for VQA tasks
     image_path = task.get("_image_path")
@@ -351,7 +365,12 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
-    openai_tools = tools_for_prompt
+    # default / strong_tool get the catalog through the chat template, as
+    # before. react gets it as prompt text (build_system_prompt above) and
+    # withholds tools= here, so the template's native tool-calling contract —
+    # the contract that beat ReAct on 4,418 of 4,429 turns — is not injected
+    # alongside it. Same tools either way; only the emission contract differs.
+    openai_tools = native_tools_for_prompt_mode(tools_for_prompt, prompt_mode)
 
     turns = []
     submitted_answer = ""
@@ -376,8 +395,10 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
 
         turn = TurnRecord(turn_idx=turn_idx, raw_output=raw_output, latency_seconds=latency)
 
-        # Parse tool call
-        tool_call = parse_tool_call(raw_output)
+        # Parse tool call, recording which format branch accepted it so
+        # prompt_mode="react" adherence is measurable rather than assumed.
+        tool_call, tool_fmt = parse_tool_call_with_format(raw_output)
+        turn.tool_call_format = tool_fmt
 
         if tool_call is not None:
             turn.parsed_tool_call = tool_call
@@ -393,10 +414,18 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
                 observation_str = str(observation) if observation is not None else ""
 
             turn.tool_response = observation_str
-            messages.append({"role": "assistant", "content": json.dumps(tool_call)})
+            # react mode replays the assistant turn verbatim and returns the
+            # result as "Observation:", matching what its system prompt
+            # promises. default / strong_tool are byte-for-byte unchanged.
+            messages.append({
+                "role": "assistant",
+                "content": format_assistant_turn(raw_output, tool_call, prompt_mode),
+            })
             messages.append({
                 "role": "user",
-                "content": f"Tool result for {tool_name}:\n{observation_str}",
+                "content": format_tool_observation(
+                    tool_name, observation_str, prompt_mode
+                ),
             })
             turns.append(turn)
 
@@ -430,6 +459,28 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
     return turns, submitted_answer, t_total, env._tool_call_log
 
 
+def _run_single_task_multiturn_debug(runner, task, env, max_turns):
+    """Same as _run_single_task_multiturn but also returns the final message list.
+
+    Used only by scripts/rebuttal/verify_react_transcript.py, which has to show
+    the EXACT transcript the model saw. Kept as a thin wrapper (rather than a
+    flag on the hot path) so the eval path is untouched.
+    """
+    seen: list = []
+    original = runner.generate
+
+    def _spy(messages, tools=None):
+        seen.append(json.loads(json.dumps(messages, default=str)))
+        return original(messages, tools=tools)
+
+    runner.generate = _spy
+    try:
+        out = _run_single_task_multiturn(runner, task, env, max_turns)
+    finally:
+        runner.generate = original
+    return out, (seen[-1] if seen else [])
+
+
 def run_benchmark_multiturn(
     benchmark_name: str,
     tasks: list[dict],
@@ -445,11 +496,22 @@ def run_benchmark_multiturn(
         dict with accuracy, avg_turns, avg_reward, per-sample results
     """
     from bioagents.gym.agent_env import BioAgentGymEnv
+    from bioagents.evaluation.agent_runner import (
+        summarize_format_adherence, aggregate_format_adherence,
+        multimodal_tool_forwarding, reset_multimodal_request_stats,
+    )
 
     LFQA_BENCHMARKS = {"kqa_golden", "live_qa", "medication_qa", "healthsearch_qa", "kqa_silver"}
     EHR_BENCHMARKS_SET = {"mimic_iii", "eicu"}
     is_lfqa = benchmark_name in LFQA_BENCHMARKS
     is_ehr = benchmark_name in EHR_BENCHMARKS_SET
+
+    prompt_mode = getattr(runner.config, "prompt_mode", "default")
+    adherence_per_task: list[dict] = []
+
+    # Per-benchmark, so the counts reported below belong to THIS benchmark and
+    # a text-only benchmark run after a VQA one still records 0 image requests.
+    reset_multimodal_request_stats()
 
     results = []
     correct = 0
@@ -475,6 +537,12 @@ def run_benchmark_multiturn(
             turns, submitted, latency, tool_log = _run_single_task_multiturn(
                 runner, task, env, max_turns
             )
+
+            # Output-format adherence for this task. Recorded before scoring so
+            # a react-arm number can never be reported without the evidence
+            # that the model actually emitted ReAct.
+            adherence = summarize_format_adherence(turns)
+            adherence_per_task.append(adherence)
 
             # If no submit_answer was called, extract from last turn output
             if not submitted and turns:
@@ -527,6 +595,8 @@ def run_benchmark_multiturn(
                 "correct": is_correct,
                 "turns": len(turns),
                 "latency": latency,
+                "react_rate": round(adherence["react_rate"], 4),
+                "format_adherence": adherence,
             }
             if is_ehr:
                 result_entry["action_score"] = round(action_score, 4)
@@ -582,6 +652,8 @@ def run_benchmark_multiturn(
                 "correct": False,
                 "turns": 0,
                 "error": str(e),
+                "react_rate": 0.0,
+                "format_adherence": {},
             }
             if is_ehr:
                 result_entry["action_score"] = 0.0
@@ -598,8 +670,31 @@ def run_benchmark_multiturn(
     elapsed = time.time() - t_start
     accuracy = correct / max(total, 1)
 
+    format_adherence = aggregate_format_adherence(adherence_per_task)
+    format_adherence["prompt_mode"] = prompt_mode
+
     summary = {
         "benchmark": benchmark_name,
+        # Recorded so a results file can never be misattributed to the wrong
+        # baseline condition when it is reported.
+        "prompt_mode": prompt_mode,
+        # Which arm of the multimodal tool-forwarding comparison produced this
+        # number, and how many image requests actually carried the catalog.
+        # On the image benchmarks (vqa_rad, slake, ...) "arm": "withheld" means
+        # the agent had NO tools — the pre-2026-07-29 measurement, reproduced
+        # on purpose. On a text-only benchmark multimodal_requests is 0, which
+        # is the recorded proof that this switch could not have touched it.
+        "multimodal_tool_forwarding": multimodal_tool_forwarding(),
+        # Output-format adherence. Under prompt_mode="react" this is the
+        # number the arm MUST be reported with. ReAct is now the ONLY
+        # tool-calling contract in the prompt (the template's native contract
+        # is suppressed; the catalog is carried as text), so react_rate no
+        # longer measures a prompt clash — it measures whether the backbone
+        # will adopt an instructed format at all. A low react score at
+        # react_rate ~0 still means "the model ignored the format", not "ReAct
+        # scaffolding does not help": opposite conclusions, and only this
+        # number tells them apart.
+        "format_adherence": format_adherence,
         "accuracy": accuracy,
         "correct": correct,
         "total": total,
@@ -624,12 +719,22 @@ def run_benchmark_multiturn(
     with open(out_path, "w") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
+    _mm = summary["multimodal_tool_forwarding"]
+    fa_line = (
+        f"  prompt_mode={prompt_mode}  react_rate={format_adherence['react_rate']:.3f} "
+        f"({format_adherence['n_react']}/{format_adherence['n_turns']} turns)  "
+        f"formats={format_adherence['formats']}\n"
+        f"  multimodal_tools={_mm['arm']} "
+        f"({_mm['multimodal_requests_with_tools']}/{_mm['multimodal_requests']} "
+        f"image requests carried the catalog)\n"
+    )
     if is_ehr:
         logger.info(
             f"\n{'='*60}\n"
             f"  {benchmark_name}: action_score={summary['avg_action_score']:.3f} "
             f"acc={accuracy:.3f} ({correct}/{total})\n"
             f"  avg_turns={summary['avg_turns']:.1f}\n"
+            f"{fa_line}"
             f"  time={elapsed:.0f}s  saved={out_path}\n"
             f"{'='*60}"
         )
@@ -640,6 +745,7 @@ def run_benchmark_multiturn(
             f"hall={summary['avg_hallucination']:.1f}% comp={summary['avg_comprehensiveness']:.1f}%\n"
             f"  (correct@0.3={correct}/{total}, acc={accuracy:.3f})\n"
             f"  avg_turns={summary['avg_turns']:.1f}  avg_reward={summary['avg_reward']:.3f}\n"
+            f"{fa_line}"
             f"  time={elapsed:.0f}s  saved={out_path}\n"
             f"{'='*60}"
         )
@@ -648,6 +754,7 @@ def run_benchmark_multiturn(
             f"\n{'='*60}\n"
             f"  {benchmark_name}: accuracy={accuracy:.3f} ({correct}/{total})\n"
             f"  avg_turns={summary['avg_turns']:.1f}  avg_reward={summary['avg_reward']:.3f}\n"
+            f"{fa_line}"
             f"  time={elapsed:.0f}s  saved={out_path}\n"
             f"{'='*60}"
         )
@@ -804,6 +911,16 @@ def main():
                         help="Resume from sample index")
     parser.add_argument("--no-think", action="store_true",
                         help="Disable think() tool (ablation)")
+    parser.add_argument("--prompt-mode", default="default",
+                        choices=["default", "strong_tool", "react"],
+                        help="Prompting baseline (eval-only, zero training). "
+                             "'default' = Base+AR, unchanged. "
+                             "'strong_tool' = Base+AR with a materially stronger "
+                             "tool-use contract. "
+                             "'react' = explicit ReAct scaffolding "
+                             "(Thought/Action/Action Input/Observation) over the "
+                             "SAME tool set. Isolates prompting/scaffolding gains "
+                             "from TT-OPD.")
     parser.add_argument("--backend", default="transformers",
                         choices=["transformers", "vllm", "sglang"],
                         help="Inference backend (default: transformers)")
@@ -830,8 +947,10 @@ def main():
         log_dir=str(output_dir / "logs"),
         no_think=args.no_think,
         server_url=args.server_url,
+        prompt_mode=args.prompt_mode,
     )
 
+    logger.info(f"Prompting baseline: prompt_mode={args.prompt_mode}")
     logger.info(f"Loading model: {args.model_path}")
     runner = AgentRunner(config)
     runner.load_model()
@@ -884,18 +1003,35 @@ def main():
             "total": summary["total"],
             "avg_turns": summary["avg_turns"],
             "time": summary["total_time_seconds"],
+            "react_rate": summary["format_adherence"]["react_rate"],
         }
 
     # Print final comparison table
     logger.info(f"\n{'='*60}")
     logger.info("MULTI-TURN BENCHMARK RESULTS")
     logger.info(f"Model: {Path(args.model_path).name}")
-    logger.info(f"{'Benchmark':<15} {'Accuracy':>10} {'Correct':>10} {'Total':>8} {'Turns':>8} {'Time':>10}")
-    logger.info("-" * 65)
+    logger.info(f"Prompt mode: {args.prompt_mode}")
+    logger.info(
+        f"{'Benchmark':<15} {'Accuracy':>10} {'Correct':>10} {'Total':>8} "
+        f"{'Turns':>8} {'ReActRate':>10} {'Time':>10}"
+    )
+    logger.info("-" * 77)
     for name, s in all_summaries.items():
         logger.info(
             f"{name:<15} {s['accuracy']:>9.3f} {s['correct']:>9d} "
-            f"{s['total']:>7d} {s['avg_turns']:>7.1f} {s['time']:>9.0f}s"
+            f"{s['total']:>7d} {s['avg_turns']:>7.1f} {s['react_rate']:>9.3f} "
+            f"{s['time']:>9.0f}s"
+        )
+    if args.prompt_mode == "react":
+        logger.info(
+            "NOTE: react_rate = fraction of assistant turns that actually parsed as "
+            "ReAct (Thought/Action/Action Input). ReAct is the only tool-calling "
+            "contract in this prompt — the chat template's native contract is "
+            "suppressed and the full tool catalog is carried as prompt text — so "
+            "react_rate now measures format adoption, not a prompt clash. A low "
+            "score at high react_rate is evidence about ReAct; a low score at low "
+            "react_rate means this backbone will not adopt the format, and the arm "
+            "cannot be reported as a ReAct control."
         )
     logger.info(f"{'='*60}")
 

@@ -7,11 +7,12 @@ Supports two modes:
 """
 
 import json
+import os
 import sys
 import yaml
 from pathlib import Path
 
-sys.path.insert(0, "/data/project/private/minstar/workspace/BIOAgents")
+sys.path.insert(0, os.environ.get("HCGYM_ROOT", str(Path(__file__).resolve().parents[2])))
 
 # Domain name mapping: data domain -> BIOAgents module
 DOMAIN_MAP = {
@@ -139,7 +140,7 @@ def generate_domain_tool_descriptions(output_path: str):
 
 
 if __name__ == "__main__":
-    base_dir = Path("/data/project/private/minstar/workspace/BIOAgents/scripts/verl")
+    base_dir = Path(__file__).resolve().parent
 
     print("=== Generating full tool_config.yaml ===")
     generate_full_config(str(base_dir / "tool_config_full.yaml"))

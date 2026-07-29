@@ -178,7 +178,7 @@ def convert_parquet(input_path, output_path):
 
 
 if __name__ == "__main__":
-    base = "/data/project/private/minstar/workspace/BIOAgents/data/verl_parquet"
+    base = os.environ.get("HCGYM_RUN_ROOT", str(Path(__file__).resolve().parents[2])) + "/data/verl_parquet"
     input_dir = f"{base}/full_4modality"
     output_dir = f"{base}/full_4modality_vlm"
 
