@@ -496,6 +496,7 @@ def run_benchmark_multiturn(
     output_dir: Path,
     resume_from: int = 0,
     vqa_scorer: str = "cf_em",
+    prior_results: list[dict] | None = None,
 ):
     """Run a benchmark through multi-turn AgentRunner loop.
 
@@ -551,13 +552,19 @@ def run_benchmark_multiturn(
     # a text-only benchmark run after a VQA one still records 0 image requests.
     reset_multimodal_request_stats()
 
-    results = []
-    correct = 0
-    total = 0
-    rouge_l_sum = 0.0
-    hall_sum = 0.0
-    comp_sum = 0.0
-    action_score_sum = 0.0
+    # Rows carried over from an interrupted run. _save_partial rewrites the file
+    # from `results` alone, so anything not seeded here is destroyed on the first
+    # save rather than resumed.
+    results = list(prior_results or [])
+    correct = sum(1 for r in results if r.get("correct"))
+    total = len(results)
+    rouge_l_sum = sum(r.get("rouge_l", 0.0) for r in results)
+    hall_sum = sum(r.get("hallucination", 0.0) for r in results)
+    comp_sum = sum(r.get("comprehensiveness", 0.0) for r in results)
+    action_score_sum = sum(r.get("action_score", 0.0) for r in results)
+    adherence_per_task.extend(
+        r["format_adherence"] for r in results if isinstance(r.get("format_adherence"), dict)
+    )
     t_start = time.time()
 
     for i, task in enumerate(tasks):
@@ -978,6 +985,66 @@ def _extract_answer_fallback(text: str) -> str:
     return text[:100].strip()
 
 
+def _load_resume_partial(benchmark_name, output_dir, resume_from, skipped_tasks, vqa_scorer):
+    """Load the rows a previous run of this benchmark already produced.
+
+    Resuming is only safe when the rows being kept were produced from the same
+    tasks under the same scoring rule; otherwise the merged artifact would report
+    one accuracy over two different measurements. Every mismatch is fatal -- there
+    is no partial-credit path here, because the failure mode is a plausible-looking
+    number rather than a crash.
+    """
+    path = Path(output_dir) / f"{benchmark_name}_partial.json"
+    if not path.exists():
+        raise SystemExit(
+            f"[fatal] --resume-from {resume_from} but no {path}. "
+            f"Resume needs the rows it is continuing from; drop --resume-from to start over."
+        )
+
+    with open(path) as f:
+        partial = json.load(f)
+
+    prior = partial.get("results", [])
+    if partial.get("benchmark") != benchmark_name:
+        raise SystemExit(
+            f"[fatal] {path} holds benchmark '{partial.get('benchmark')}', not '{benchmark_name}'"
+        )
+    if len(prior) != resume_from:
+        raise SystemExit(
+            f"[fatal] --resume-from {resume_from} but {path} holds {len(prior)} rows. "
+            f"Pass --resume-from {len(prior)} to continue from where it stopped."
+        )
+
+    mismatched = [
+        (i, row.get("task_id"), task.get("id"))
+        for i, (row, task) in enumerate(zip(prior, skipped_tasks))
+        if row.get("task_id") != task.get("id")
+    ]
+    if mismatched:
+        i, got, want = mismatched[0]
+        raise SystemExit(
+            f"[fatal] {path} row {i} is task '{got}' but the benchmark's task {i} is '{want}' "
+            f"({len(mismatched)} mismatched). The partial came from a different task order "
+            f"or a different benchmark file; it cannot be merged."
+        )
+
+    # Old partials carry no vqa_scoring block, which is itself the tell that they
+    # are substring-scored. Finishing one under cf_em would mix two rules in a
+    # single accuracy; finish it under --vqa-scorer substring and rescore the
+    # completed artifact instead (scripts/rebuttal/rescore_vqa.py).
+    if benchmark_name in vqa_scoring.CLOSED_VOCAB_BENCHMARKS:
+        prior_rule = (partial.get("vqa_scoring") or {}).get("rule", "substring")
+        if prior_rule != vqa_scorer:
+            raise SystemExit(
+                f"[fatal] {path} was scored with '{prior_rule}' but this run scores with "
+                f"'{vqa_scorer}'. Re-run with --vqa-scorer {prior_rule} to finish it, then "
+                f"rescore the completed artifact with scripts/rebuttal/rescore_vqa.py."
+            )
+
+    logger.info(f"Resuming {benchmark_name} from {len(prior)} rows in {path}")
+    return prior
+
+
 def _save_partial(benchmark_name, results, correct, total, output_dir,
                   scoring_rule=None):
     """Save partial results for resumability."""
@@ -1083,6 +1150,15 @@ def main():
     runner.load_model()
     logger.info("Model loaded successfully")
 
+    # One offset cannot be correct for several benchmarks at once, and the loop
+    # below would apply it to every one of them.
+    if args.resume_from > 0 and len(args.benchmarks) > 1:
+        raise SystemExit(
+            f"[fatal] --resume-from {args.resume_from} was given with {len(args.benchmarks)} "
+            f"benchmarks ({', '.join(args.benchmarks)}); it would be applied to each of them. "
+            f"Resume one benchmark per run."
+        )
+
     all_summaries = {}
 
     for bench_name in args.benchmarks:
@@ -1106,7 +1182,12 @@ def main():
             continue
 
         # Apply offset (resume-from) first, then max_samples limit
+        prior_results = None
         if args.resume_from > 0:
+            prior_results = _load_resume_partial(
+                bench_name, output_dir, args.resume_from,
+                tasks[:args.resume_from], args.vqa_scorer,
+            )
             tasks = tasks[args.resume_from:]
         if args.max_samples > 0:
             tasks = tasks[:args.max_samples]
@@ -1124,6 +1205,7 @@ def main():
             output_dir=output_dir,
             resume_from=0,  # Already applied above
             vqa_scorer=args.vqa_scorer,
+            prior_results=prior_results,
         )
         all_summaries[bench_name] = {
             "accuracy": summary["accuracy"],
