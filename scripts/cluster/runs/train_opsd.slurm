@@ -130,6 +130,34 @@ DISTILL_ARGS=(
 
 cd "$VERL_ROOT"
 
+# DRY_RUN=1 resolves the config, prints it on DRYRUN- prefixed lines, and exits
+# before the trainer starts.
+#
+# This script was the only one of the four training templates with no DRY_RUN
+# handling at all, while its siblings all documented and honoured it. Running
+# `DRY_RUN=1 bash runs/train_opsd.slurm` therefore did exactly what the operator
+# was trying to avoid: it started Ray, brought up seven FSDP workers and began
+# loading a 9.4B model — on whatever host the command was typed on, which for a
+# sanity check is the login node. Verified once, by doing it.
+DRY_RUN="${DRY_RUN:-0}"
+if [ "$DRY_RUN" = "1" ]; then
+    echo "DRYRUN exp=${EXP}"
+    echo "DRYRUN backbone=${BACKBONE}"
+    echo "DRYRUN data_dir=${DATA_DIR}"
+    echo "DRYRUN student_gpus=${STUDENT_GPUS}"
+    echo "DRYRUN train_batch=${TRAIN_BATCH}"
+    echo "DRYRUN max_turns=${MAX_TURNS}"
+    echo "DRYRUN teacher=${TEACHER:-<same as backbone>}"
+    n=0
+    for arg in "${DISTILL_ARGS[@]}"; do
+        echo "DRYRUN distill ${arg}"
+        n=$((n + 1))
+    done
+    echo "DRYRUN distill_arg_count=${n}"
+    echo "DRYRUN ok"
+    exit 0
+fi
+
 python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files="${DATA_DIR}/train.parquet" \

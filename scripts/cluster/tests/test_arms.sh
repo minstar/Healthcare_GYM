@@ -240,6 +240,40 @@ else
     bad "PLAN=1 did not confirm it submitted nothing"
 fi
 
+# ── every training template must honour DRY_RUN ───────────────────────────────
+#
+# train_opsd.slurm had no DRY_RUN handling at all while its three siblings
+# documented and honoured it, so the documented sanity check started Ray, brought
+# up seven FSDP workers and began loading a 9.4B model on whatever host it was
+# typed on. A static grep would not have caught it either — this runs each
+# template and asserts it comes back fast, exits 0, and never reaches a trainer.
+echo
+echo "── DRY_RUN is honoured by every training template"
+TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BB="$(cd "${TEST_DIR}/.." && pwd)/models/Qwen3.5-9B"
+for tpl in train_hcgym train_star train_opsd train_ttopd_hints; do
+    f="${TEST_DIR}/../runs/${tpl}.slurm"
+    [ -f "$f" ] || { bad "${tpl}.slurm is missing"; continue; }
+    out="${WORK}/dry_${tpl}.txt"
+    # 45s is far longer than any of these needs (measured: 2-3s) and far shorter
+    # than loading a model takes, so a template that starts one fails on time.
+    if DRY_RUN=1 BACKBONE="$BB" EXP="dryrun_${tpl}" ARM=ttopd \
+       timeout 45 bash "$f" > "$out" 2>&1; then
+        if grep -q "DRYRUN ok" "$out"; then
+            ok "${tpl}: DRY_RUN exits cleanly"
+        else
+            bad "${tpl}: DRY_RUN exited 0 but never printed 'DRYRUN ok'"
+        fi
+    else
+        bad "${tpl}: DRY_RUN did not exit 0 within 45s (exit $?)"
+    fi
+    if grep -qE "WorkerDict|Loading weights|main_ppo|Ray runtime started" "$out"; then
+        bad "${tpl}: DRY_RUN reached the trainer — it started real work"
+    else
+        ok "${tpl}: DRY_RUN started no trainer"
+    fi
+done
+
 echo
 echo "=============================================================="
 echo "  passed ${PASS}   failed ${FAIL}"

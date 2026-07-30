@@ -161,7 +161,17 @@ export ADAPTIVE_DISTILL_COEF_FLOOR=0.1
 # two B200 settings below apply to the teacher engine as well as the student's.
 DISTILL_ARGS=(
     distillation.enabled=True
-    +distillation.self_distillation=True
+    # Deliberately absent, exactly as in train_hcgym.slurm ARM=ttopd:
+    #   +distillation.self_distillation=True
+    # It gates a teacher-refresh block that calls update_teacher_ema() and
+    # update_teacher_from_checkpoint(), neither of which exists on
+    # TeacherModelManager, so turning it on AttributeErrors at step 5
+    # (ema_update_interval=5). This arm carried it until the parity check caught
+    # it, which meant the arm would have died at step 5 AND, had it survived,
+    # ttopd_hints minus ttopd would have measured hints PLUS a live EMA teacher
+    # rather than hints alone. The two arms must differ only in the hint
+    # mechanism; the remaining EMA settings below are inert without this flag and
+    # are kept so both arms pass hydra the same keys.
     +distillation.teacher_update_interval=30
     +distillation.use_ema=True
     +distillation.ema_decay=0.999
