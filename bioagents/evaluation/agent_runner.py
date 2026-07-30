@@ -2229,20 +2229,40 @@ class AgentRunner:
         if not correct_answer:
             return 0.0
 
+        # Every form of the gold that a model may legitimately submit. The
+        # benchmark loader stores `answer` as the option TEXT while models answer
+        # with the LETTER, so a multiple-choice task used to take the free-text
+        # branch below and score 0.0 for a correct letter, always. That made the
+        # Reflexion ladder report 0.0% on all 400 medqa tasks and all four
+        # strategies, against 83.1% for the same model through the eval harness,
+        # which does resolve letter against text. It would have done the same to
+        # STaR, whose default acceptance signal is this function: it would have
+        # accepted no trajectories at all and the baseline would have been vacuous
+        # rather than visibly broken.
+        options = task.get("options") or {}
+        gold_forms = {correct_answer.strip().lower()}
+        for letter, text in options.items():
+            if not isinstance(text, str):
+                continue
+            if text.strip().lower() == correct_answer.strip().lower():
+                gold_forms.add(letter.strip().lower())
+            elif letter.strip().lower() == correct_answer.strip().lower():
+                gold_forms.add(text.strip().lower())
+
         # Find the submit_answer tool call
         for tc in reversed(tool_call_log):
             if tc["tool_name"] == "submit_answer":
                 submitted = tc["arguments"].get("answer", "").strip()
+                if submitted.lower() in gold_forms:
+                    return 1.0
                 # For multiple-choice, compare first letter
                 if len(correct_answer.strip()) <= 2:
                     if submitted.upper() == correct_answer.strip().upper():
                         return 1.0
-                    # Also check if they submitted the full option text
                     # `options` is present but null on 142/3390 train and 20/850
                     # test tasks, so the default in .get() never fires and .get on
                     # None raises. The early return above means this only ever ran
                     # for INCORRECT rollouts, which is why it stayed hidden.
-                    options = task.get("options") or {}
                     correct_text = (options.get(correct_answer.strip()) or "").lower()
                     if correct_text and submitted.lower() == correct_text:
                         return 1.0
