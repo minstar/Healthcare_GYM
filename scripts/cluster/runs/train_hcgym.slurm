@@ -99,12 +99,22 @@ DRY_RUN="${DRY_RUN:-0}"
 #
 # With False the template prefills a CLOSED empty block into each assistant turn
 # (`<|im_start|>assistant\n<think>\n\n</think>\n\n`); with True it opens
-# `<think>\n` and lets the model close it. Measured on a 5-step probe, identical
-# in every other respect (job 60783):
-#     False -> 23.9% / 38.1% degenerate, response 11,720 / 11,202 tokens (at the cap)
-#     True  ->  0.0% at every step,      response 2,781-4,096
-# So the "monotonic response length explosion" the paper reports is a template
-# artifact, not a property of agentic RL. Set ENABLE_THINKING=1 to run that arm.
+# `<think>\n` and lets the model close it.
+#
+# A 5-step probe (job 60783) reported True at 0.0% degenerate against False at
+# 23.9-38.1%, which read as "the response-length explosion is a template artifact".
+# THE FULL RUNS SAY THE OPPOSITE, and the probe is the outlier. Matched steps of
+# q4b_grpo (False) against q4b_grpo_think (True), degenerate/mean@1:
+#
+#     step      10     20     30     40     50     60     70     80
+#     False  86.0%  29.1%  24.5%   7.8%   1.9%   0.2%   0.5%   0.5%
+#     True   67.6%  67.4%  66.1%  67.2%  68.9%  57.1%  66.7%  70.6%
+#
+# False starts far worse and LEARNS OUT of it — 0.5% at step 80 and still 0.5% at
+# step 660. True is pinned near 66% and is trending up where it stopped. Validation
+# accuracy is indistinguishable over the same steps (0.2535 vs 0.2574), so this is
+# not a quality trade. Why the probe disagreed at 5 steps is NOT explained; do not
+# quote it. ENABLE_THINKING=1 runs the arm, but on this evidence it is worse.
 ENABLE_THINKING="${ENABLE_THINKING:-0}"
 case "$ENABLE_THINKING" in
     1|true|True) THINK_FLAG=True ;;
