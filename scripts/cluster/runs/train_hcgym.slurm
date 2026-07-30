@@ -337,6 +337,48 @@ fi
 
 cd "$VERL_ROOT"
 
+# STACK_DUMP_AFTER=<seconds> — for diagnosing a hang, off by default.
+#
+# The ttopd arm (job 61137) reached the agent-loop workers and then produced not
+# one line for four hours, to the wall. A healthy grpo run prints
+# "Training Progress: 0/1452" about six minutes after that same point, so the hang
+# is inside teacher/distillation setup and NOT visible in the log at all. Waiting
+# out another 4h allocation buys nothing; this dumps every Python stack on the
+# node at the given offset and then stops the job, turning a wasted wall into
+# evidence. Two dumps, so a stack that is merely slow can be told from one that is
+# stuck at the same frame.
+if [ "${STACK_DUMP_AFTER:-0}" -gt 0 ]; then
+    # First attempt (job 61463) captured nothing useful, for three reasons, all
+    # fixed here: `ray stack` was cut at 400 lines and never reached the actors;
+    # py-spy returned "Permission Denied" because ptrace_scope is 1 on these nodes,
+    # so it can only attach to its own descendants; and one blocked call ate the
+    # rest of the wall, so the second dump never fired.
+    (
+        prev=0
+        for offset in "$STACK_DUMP_AFTER" $((STACK_DUMP_AFTER + 300)); do
+            sleep $(( offset - prev )); prev=$offset
+            echo "═══ STACK DUMP at T+${offset}s ═══"
+            # Actors first and by name — the interesting stacks are TaskRunner,
+            # the FSDP workers and the sglang servers, not the idle Ray pool.
+            for pat in TaskRunner WorkerDict SGLangHttpServer AgentLoopWorker main_ppo; do
+                for pid in $(pgrep -u "$USER" -f "$pat" 2>/dev/null | head -4); do
+                    echo "--- ${pat} pid=${pid} ---"
+                    # ptrace_scope=1 blocks a plain attach; sudo -n is available on
+                    # this fleet. Bounded, so one stuck target cannot eat the wall.
+                    timeout 25 sudo -n env "PATH=$PATH" "${VENV}/bin/py-spy" dump \
+                        --pid "$pid" --nonblocking 2>&1 | head -45 \
+                        || echo "[diag] py-spy failed on ${pid}"
+                done
+            done
+            echo "--- ray stack (uncapped) ---"
+            timeout 120 ray stack 2>&1 || echo "[diag] ray stack unavailable"
+        done
+        echo "═══ STACK DUMPS DONE — stopping the job ═══"
+        scancel "${SLURM_JOB_ID}"
+    ) &
+    echo "[diag] stack dumps armed at T+${STACK_DUMP_AFTER}s and T+$((STACK_DUMP_AFTER + 300))s"
+fi
+
 # Three settings this B200 fleet requires, all found the hard way:
 #  free_cache_engine=False   sglang keeps its KV cache resident. The release/
 #    resume path goes through TorchMemorySaver, whose resume does an inplace

@@ -54,7 +54,7 @@ BACKBONES=(
   "q9b|${RUN_ROOT}/models/Qwen3.5-9B|qwen3_coder|False|grpo grpo_cosine ttopd|${FULL}"
   "q27b|${PUBLIC}/Qwen3.5-27B|qwen3_coder|False|grpo ttopd|${FULL}"
   "q9btxt|${RUN_ROOT}/models/Qwen3.5-9B|qwen3_coder|False|grpo ttopd|${TEXT}"
-  "glm9b|${RUN_ROOT}/models/GLM-4-9B-0414|hermes|True|grpo ttopd|${TEXT}"
+  "glm9b|${RUN_ROOT}/models/GLM-4-9B-0414|glm4|True|grpo ttopd|${TEXT}"
 )
 
 backbone_ready() {
