@@ -364,8 +364,8 @@ You have access to medical knowledge search. **Search for evidence before clinic
 # ═══════════════════════════════════════════════════════════════════════
 #  Eval-only prompting baselines  (zero training, no reward, no weights)
 # ═══════════════════════════════════════════════════════════════════════
-# These exist to answer a reviewer question: are TT-OPD's gains attributable to
-# the method, or merely to better prompting / tool scaffolding? Each mode
+# These exist to settle an open question about the method: are TT-OPD's gains
+# attributable to it, or merely to better prompting / tool scaffolding? Each mode
 # keeps the domain role, policy, scoring rubric, domain workflow tips and
 # the tool set FIXED, and varies only the tool-use contract.
 PROMPT_MODES = ("default", "strong_tool", "react")

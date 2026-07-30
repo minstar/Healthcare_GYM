@@ -74,7 +74,7 @@ CF-EM reads the FRONT of the answer, so an answer that leads with a
 contradicting commitment and never marks its final answer is scored on the
 lead. Measured cost on real rollouts is ~1% of rows (94-97% of polar answers
 open with a literal yes/no), but it is a genuine emission-contract dependence
-and is declared in paper/rebuttal/VQA_SCORER.md rather than hidden.
+and is declared here rather than hidden.
 """
 from __future__ import annotations
 

@@ -10,8 +10,8 @@ and NOT subclassed: reflections are injected by wrapping the *environment*
 (:class:`ReflexionEnvProxy`), which prepends a memory block to the observation
 that ``run_task`` turns into the first user message.
 
-It exists to answer a reviewer question directly: *do the reported gains come
-from the method, or from spending more inference on better prompting?*  This
+It exists to settle one question directly: *do the reported gains come from the
+method, or from spending more inference on better prompting?*  This
 module upper-bounds what prompting alone buys in this GYM, at zero training
 cost, and it measures exactly how many extra model calls that upper bound
 consumed.  It is deliberately built to be strong, not to be a strawman.
@@ -156,8 +156,8 @@ __all__ = [
 #  Prompt fragments
 #
 #  The three headers are verbatim from Shinn et al.'s
-#  ``hotpotqa_runs/prompts.py`` so that the reflection scaffold a reviewer
-#  recognises is the one actually used.  REFLECT_INSTRUCTION is re-worded for
+#  ``hotpotqa_runs/prompts.py`` so that the reflection scaffold a reader of that
+#  paper recognises is the one actually used.  REFLECT_INSTRUCTION is re-worded for
 #  a tool-using clinical agent (the original names the HotPotQA Docstore API
 #  and the ``Finish[...]`` grammar, neither of which exists here).
 # ══════════════════════════════════════════════════════════════════════

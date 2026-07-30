@@ -33,8 +33,9 @@ The GYM's composite reward weights six dimensions (accuracy .25, format .10,
 process .20, safety .20, coherence .10, assertion .15 — see
 ``bioagents/evaluation/rewards.py::compute_composite_reward``).  Accepting on
 that composite would select trajectories for being well-FORMATTED, and a
-baseline built that way would confirm the paper's bias instead of testing it —
-precisely the "reward-format adaptation" the Area Chair asked to rule out.  It
+baseline built that way would exhibit the paper's bias instead of testing for it
+— it would adapt to the reward's surface form, the very confound this arm has to
+rule out rather than reproduce.  It
 is not a hypothetical: a fully correct rollout measured against a real task
 here scored ``accuracy=1.0`` but ``total=0.570``, while a wrong-but-fluent
 rollout with the same tool usage scores ABOVE it.  ``tests/test_star_baseline.py``

@@ -180,8 +180,8 @@ def test_composite_reward_ranks_a_wrong_fluent_rollout_above_a_correct_terse_one
     each task's own expected actions and nl_assertions, a WRONG answer written
     fluently outscores a CORRECT answer written tersely on a substantial
     fraction of tasks.  A STaR baseline accepting on the composite would
-    therefore select for presentation, i.e. exactly the reward-format
-    adaptation the Area Chair asked to rule out — which is why the default
+    therefore select for presentation — adaptation to the reward's surface form,
+    the confound this arm exists to rule out — which is why the default
     acceptance signal is accuracy alone.
     """
     from bioagents.evaluation.rewards import compute_composite_reward

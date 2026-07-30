@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """Verify ReAct transcript fidelity + format-adherence instrumentation.
 
-Rebuttal ("ReAct-style prompting with the same tools"). An arm
+Covers the prompting-only control: a reasoning-and-acting scaffold over the same
+tool set the trained arms get. An arm
 that is not actually ReAct cannot be reported as evidence, so this suite drives
 the REAL multi-turn loops with a scripted model and checks what the model
 actually sees.

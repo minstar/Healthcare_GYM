@@ -812,7 +812,7 @@ def run_benchmark_multiturn(
             block["cf_bacc_guard"] = cf_stats["cf_bacc"]
         summary["vqa_scoring"] = block
         summary["metric"] = (
-            f"{scoring_rule} (see paper/rebuttal/VQA_SCORER.md)")
+            f"{scoring_rule} (see scripts/vqa_scoring.py)")
 
     if is_ehr:
         summary["avg_action_score"] = action_score_sum / max(total, 1)
@@ -1114,7 +1114,7 @@ def main():
                              "so the published numbers stay reproducible. "
                              "Never affects text QA, long-form QA, EHR, or the "
                              "open-vocabulary VQA sets. "
-                             "See paper/rebuttal/VQA_SCORER.md")
+                             "See scripts/vqa_scoring.py for the rule and its limits.")
     parser.add_argument("--backend", default="transformers",
                         choices=["transformers", "vllm", "sglang"],
                         help="Inference backend (default: transformers)")
