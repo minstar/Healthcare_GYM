@@ -118,6 +118,6 @@ PLANNING.md
 RESEARCH_LOG*.md
 AGENT_GUIDELINE.md
 
-# The rebuttal/paper tree carries confidential peer-review material and must
-# never enter this public branch. It lives on the rebuttal/reproduction branch.
+# The paper tree carries confidential material and must never enter a public
+# branch. It is maintained separately, outside this history.
 paper/

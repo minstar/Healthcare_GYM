@@ -98,11 +98,31 @@ def convert_tasks(tasks_path, split_path, output_dir):
 
 
 if __name__ == "__main__":
+    import argparse
+
     base = os.environ.get("HCGYM_ROOT", str(Path(__file__).resolve().parents[2]))
     out_root = os.environ.get("HCGYM_RUN_ROOT", base)
+
+    # The default pool is the DECONTAMINATED one. This block used to be
+    # argument-less and hardcoded to full_4modality_combined, the pre-clean pool
+    # (4543/916) -- so the parquet every training script actually consumes,
+    # full_4modality_clean (3390/850), could not be produced by any committed code.
+    # A fresh clone would either fail the training preflight or, worse, be repointed
+    # at the one pool this script did reproduce and silently train on the
+    # contaminated split, discarding what verify_clean_split.py certifies.
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--pool", default="full_4modality_clean",
+                    help="pool directory under data/domains (default: the clean split)")
+    ap.add_argument("--tasks-path", default=None)
+    ap.add_argument("--split-path", default=None)
+    ap.add_argument("--output-dir", default=None,
+                    help="default: <run root>/data/verl_parquet/<pool>")
+    args = ap.parse_args()
+
+    pool_dir = f"{base}/data/domains/{args.pool}"
     convert_tasks(
-        tasks_path=f"{base}/data/domains/full_4modality_combined/tasks.json",
-        split_path=f"{base}/data/domains/full_4modality_combined/split_tasks.json",
-        output_dir=f"{out_root}/data/verl_parquet/full_4modality",
+        tasks_path=args.tasks_path or f"{pool_dir}/tasks.json",
+        split_path=args.split_path or f"{pool_dir}/split_tasks.json",
+        output_dir=args.output_dir or f"{out_root}/data/verl_parquet/{args.pool}",
     )
     print("Done!")
