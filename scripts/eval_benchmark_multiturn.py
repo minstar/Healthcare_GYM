@@ -83,6 +83,12 @@ os.chdir(PROJECT_ROOT)
 
 from loguru import logger
 
+# Closed-form exact match for the visual-QA benchmarks. Kept in its own module
+# so it can be unit-tested and re-run over stored rollouts without importing
+# torch or loading a model.
+sys.path.insert(0, str(Path(__file__).parent))
+import vqa_scoring  # noqa: E402
+
 # ── Benchmark file registry ──
 BENCHMARK_FILES = {
     # TextQA (MC)
@@ -489,8 +495,17 @@ def run_benchmark_multiturn(
     max_turns: int,
     output_dir: Path,
     resume_from: int = 0,
+    vqa_scorer: str = "cf_em",
 ):
     """Run a benchmark through multi-turn AgentRunner loop.
+
+    `vqa_scorer` selects the scoring rule for the CLOSED-VOCABULARY visual-QA
+    benchmarks only (vqa_rad, slake, pathvqa):
+        "cf_em"     -- closed-form exact match (default; see scripts/vqa_scoring.py)
+        "substring" -- the pre-2026-07-29 rule, kept reachable so the published
+                       numbers stay reproducible for the rebuttal table
+    Every other benchmark (text QA, long-form QA, EHR, and the open-vocabulary
+    VQA sets) is scored exactly as before, by an unmodified `_check_answer`.
 
     Returns:
         dict with accuracy, avg_turns, avg_reward, per-sample results
@@ -505,6 +520,29 @@ def run_benchmark_multiturn(
     EHR_BENCHMARKS_SET = {"mimic_iii", "eicu"}
     is_lfqa = benchmark_name in LFQA_BENCHMARKS
     is_ehr = benchmark_name in EHR_BENCHMARKS_SET
+
+    # --- visual-QA scoring rule -------------------------------------------
+    # CF-EM applies ONLY to the closed-vocabulary visual-QA sets. The
+    # vocabulary is built from the FULL benchmark file, never from the
+    # (possibly --max-samples-limited) task list, so a score does not depend
+    # on how many samples were run.
+    cf_vocab = None
+    if vqa_scorer == "cf_em" and benchmark_name in vqa_scoring.CLOSED_VOCAB_BENCHMARKS:
+        cf_vocab = vqa_scoring.load_vocab(benchmark_name, PROJECT_ROOT)
+        if cf_vocab is None:
+            logger.warning(
+                f"  [{benchmark_name}] CF-EM requested but the benchmark file "
+                f"could not be loaded; falling back to the substring rule."
+            )
+    scoring_rule = "cf_em" if cf_vocab is not None else "substring"
+    if benchmark_name in vqa_scoring.VQA_BENCHMARKS:
+        logger.info(
+            f"  [{benchmark_name}] VQA scoring rule = {scoring_rule}"
+            + (f" ({vqa_scoring.CF_EM_VERSION}, "
+               f"{len(cf_vocab.labels)} non-polar labels over "
+               f"{len(cf_vocab.items)} benchmark items)" if cf_vocab is not None
+               else " (pre-2026-07-29 substring containment)")
+        )
 
     prompt_mode = getattr(runner.config, "prompt_mode", "default")
     adherence_per_task: list[dict] = []
@@ -579,8 +617,18 @@ def run_benchmark_multiturn(
                 comp = _compute_comprehensiveness(submitted, must_have)
                 hall_sum += hall
                 comp_sum += comp
+            elif cf_vocab is not None:
+                # Closed-vocabulary VQA: score the ANSWER, not the transcript.
+                # Both rules are computed on every row so the rebuttal table
+                # showing "what it was / what it is" needs no second pass.
+                row_idx = vqa_scoring.task_row_index(task["id"], benchmark_name)
+                cf_pred, is_correct, cf_kind, cf_span = vqa_scoring.cf_predict(
+                    submitted, gold, cf_vocab, idx=row_idx
+                )
+                substring_correct = _check_answer(submitted, gold, options)
+                rouge_l = None
             else:
-                # MC/VQA: exact/letter match
+                # MC / open-vocabulary VQA: exact/letter match, unchanged
                 is_correct = _check_answer(submitted, gold, options)
                 rouge_l = None
 
@@ -607,6 +655,14 @@ def run_benchmark_multiturn(
                 result_entry["rouge_l"] = round(rouge_l, 4)
                 result_entry["hallucination"] = round(hall, 2)
                 result_entry["comprehensiveness"] = round(comp, 2)
+            elif cf_vocab is not None:
+                # A VQA number that does not say how it was scored is worthless.
+                result_entry["scored_by"] = vqa_scoring.CF_EM_VERSION
+                result_entry["cf_correct"] = is_correct
+                result_entry["cf_pred"] = sorted(cf_pred)
+                result_entry["cf_kind"] = cf_kind
+                result_entry["cf_span"] = cf_span
+                result_entry["substring_correct"] = substring_correct
             results.append(result_entry)
 
             # Progress logging every 10 samples
@@ -640,7 +696,9 @@ def run_benchmark_multiturn(
 
             # Periodic save every 10 samples
             if total % 10 == 0:
-                _save_partial(benchmark_name, results, correct, total, output_dir)
+                _save_partial(benchmark_name, results, correct, total, output_dir,
+                              scoring_rule=(scoring_rule if benchmark_name
+                                            in vqa_scoring.VQA_BENCHMARKS else None))
 
         except Exception as e:
             logger.error(f"Error on task {task['id']}: {e}")
@@ -665,6 +723,15 @@ def run_benchmark_multiturn(
                 result_entry["hallucination"] = 100.0
                 result_entry["comprehensiveness"] = 0.0
                 hall_sum += 100.0
+            elif cf_vocab is not None:
+                # An errored task is wrong under BOTH rules, and must still say
+                # which rule produced the number it contributes to.
+                result_entry["scored_by"] = vqa_scoring.CF_EM_VERSION
+                result_entry["cf_correct"] = False
+                result_entry["cf_pred"] = []
+                result_entry["cf_kind"] = "error"
+                result_entry["cf_span"] = ""
+                result_entry["substring_correct"] = False
             results.append(result_entry)
 
     elapsed = time.time() - t_start
@@ -705,6 +772,41 @@ def run_benchmark_multiturn(
         "timestamp": datetime.now().isoformat(),
         "results": results,
     }
+    if benchmark_name in vqa_scoring.VQA_BENCHMARKS:
+        # Which rule produced `accuracy`, and what the other rule would have
+        # said on the same rollouts. A VQA number that does not say how it was
+        # scored is worthless; both numbers ship together so the rebuttal's
+        # "was / is" table can be read straight off the artifact.
+        block = {
+            "rule": scoring_rule,
+            "version": (vqa_scoring.CF_EM_VERSION if cf_vocab is not None
+                        else "substring/pre-2026-07-29"),
+            "closed_vocab_benchmark": benchmark_name in vqa_scoring.CLOSED_VOCAB_BENCHMARKS,
+            "requested": vqa_scorer,
+        }
+        if cf_vocab is not None:
+            sub_correct = sum(1 for r in results if r.get("substring_correct"))
+            block.update({
+                "vocab_labels": len(cf_vocab.labels),
+                "vocab_built_from_n_items": len(cf_vocab.items),
+                "cf_em": accuracy,
+                "cf_em_correct": correct,
+                "substring_accuracy": sub_correct / max(total, 1),
+                "substring_correct": sub_correct,
+                "no_commit_rate": (sum(1 for r in results
+                                       if r.get("cf_kind") != "error"
+                                       and not r.get("cf_pred"))
+                                   / max(total, 1)),
+            })
+            rows = [{"submitted": r.get("submitted", ""), "gold": r.get("gold", ""),
+                     "_i": vqa_scoring.task_row_index(r["task_id"], benchmark_name)}
+                    for r in results]
+            _, cf_stats = vqa_scoring.score_all(rows, cf_vocab)
+            block["cf_bacc_guard"] = cf_stats["cf_bacc"]
+        summary["vqa_scoring"] = block
+        summary["metric"] = (
+            f"{scoring_rule} (see paper/rebuttal/VQA_SCORER.md)")
+
     if is_ehr:
         summary["avg_action_score"] = action_score_sum / max(total, 1)
         summary["metric"] = "action_score (expected tool call coverage)"
@@ -876,7 +978,8 @@ def _extract_answer_fallback(text: str) -> str:
     return text[:100].strip()
 
 
-def _save_partial(benchmark_name, results, correct, total, output_dir):
+def _save_partial(benchmark_name, results, correct, total, output_dir,
+                  scoring_rule=None):
     """Save partial results for resumability."""
     partial = {
         "benchmark": benchmark_name,
@@ -885,6 +988,18 @@ def _save_partial(benchmark_name, results, correct, total, output_dir):
         "total": total,
         "results": results,
     }
+    if scoring_rule is not None:
+        # Partials get read straight into rebuttal tables, so they carry the
+        # rule too. The pre-2026-07-29 partials have no such field, which is
+        # itself the tell that they are substring-scored.
+        sub_correct = sum(1 for r in results if r.get("substring_correct"))
+        partial["vqa_scoring"] = {
+            "rule": scoring_rule,
+            "version": (vqa_scoring.CF_EM_VERSION if scoring_rule == "cf_em"
+                        else "substring/pre-2026-07-29"),
+            "substring_correct": sub_correct,
+            "substring_accuracy": sub_correct / max(total, 1),
+        }
     path = output_dir / f"{benchmark_name}_partial.json"
     with open(path, "w") as f:
         json.dump(partial, f, indent=2, ensure_ascii=False)
@@ -921,6 +1036,18 @@ def main():
                              "(Thought/Action/Action Input/Observation) over the "
                              "SAME tool set. Isolates prompting/scaffolding gains "
                              "from TT-OPD.")
+    parser.add_argument("--vqa-scorer", default="cf_em",
+                        choices=["cf_em", "substring"],
+                        help="Scoring rule for the CLOSED-VOCABULARY visual-QA "
+                             "benchmarks (vqa_rad, slake, pathvqa). "
+                             "'cf_em' = closed-form exact match (default). "
+                             "'substring' = the pre-2026-07-29 rule that scored "
+                             "an image-blind constant paragraph at 56.5%% on "
+                             "VQA-RAD and 45.4%% on SLAKE; kept reachable ONLY "
+                             "so the published numbers stay reproducible. "
+                             "Never affects text QA, long-form QA, EHR, or the "
+                             "open-vocabulary VQA sets. "
+                             "See paper/rebuttal/VQA_SCORER.md")
     parser.add_argument("--backend", default="transformers",
                         choices=["transformers", "vllm", "sglang"],
                         help="Inference backend (default: transformers)")
@@ -996,6 +1123,7 @@ def main():
             max_turns=args.max_turns,
             output_dir=output_dir,
             resume_from=0,  # Already applied above
+            vqa_scorer=args.vqa_scorer,
         )
         all_summaries[bench_name] = {
             "accuracy": summary["accuracy"],
