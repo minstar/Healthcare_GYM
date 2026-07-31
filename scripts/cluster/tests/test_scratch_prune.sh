@@ -36,9 +36,15 @@ SQUEUE_RC="$ROOT/squeue_rc"
 squeue() { cat "$SQUEUE_OUT" 2>/dev/null; return "$(cat "$SQUEUE_RC")"; }
 export -f squeue 2>/dev/null || true
 
+# Directories are AGED past the grace window by default, because a freshly created
+# one is deliberately never pruned -- see scenario 9. A scenario that wants to
+# exercise the grace window passes "fresh" as $3.
 scenario() {
     rm -rf "${ROOT:?}"/hcgym_* "${ROOT:?}"/keepme
     mkdir -p "$ROOT/hcgym_1001" "$ROOT/hcgym_1002" "$ROOT/hcgym_9999" "$ROOT/keepme"
+    if [ "${3:-aged}" != "fresh" ]; then
+        touch -d '2 hours ago' "$ROOT"/hcgym_* 2>/dev/null || true
+    fi
     printf '%s\n' "$1" > "$SQUEUE_OUT"
     printf '%s' "${2:-0}" > "$SQUEUE_RC"
 }
@@ -102,7 +108,41 @@ check "off-Slurm scratch ($_off) kept"    no  "$(is_prunable "$_off")"
 check "in-job scratch ($_on) prunable"    yes "$(is_prunable "$_on")"
 
 echo
-echo "8. an empty scratch root is a no-op, not an error"
+echo "8. a PARTIAL squeue answer must not authorise a prune"
+# The dangerous case is not an empty answer, it is a truthful-looking short one.
+# squeue emits some ids and then fails; every running job missing from that list
+# would otherwise have its scratch deleted underneath it, and ray spills into
+# TMPDIR. Reading the exit status off the pipeline would report `sort`'s status,
+# which is 0 whatever squeue did.
+scenario "1001" 1
+SLURM_JOB_ID=1001 prune_stale_scratch "$ROOT"
+check "1002 kept when squeue listed 1001 then failed" yes "$(alive 1002)"
+check "9999 kept when squeue listed 1001 then failed" yes "$(alive 9999)"
+check "1001 kept too"                                 yes "$(alive 1001)"
+
+echo
+echo "9. a freshly created scratch is never pruned, even if squeue omits it"
+# A job that starts between the squeue snapshot and this loop is absent from the
+# list but has a brand-new directory. Absence from squeue alone must not be enough.
+scenario "1001" 0 fresh
+SLURM_JOB_ID=1001 prune_stale_scratch "$ROOT"
+check "fresh 1002 kept despite being unlisted" yes "$(alive 1002)"
+check "fresh 9999 kept despite being unlisted" yes "$(alive 9999)"
+# ...and the same directory, aged, IS collected, so the grace window is not a leak.
+scenario "1001"
+SLURM_JOB_ID=1001 prune_stale_scratch "$ROOT"
+check "the same 1002, aged, is collected"      no  "$(alive 1002)"
+
+echo
+echo "10. a directory named hcgym_ with no id is left alone"
+scenario "1001"
+mkdir -p "$ROOT/hcgym_"
+touch -d '2 hours ago' "$ROOT/hcgym_" 2>/dev/null || true
+SLURM_JOB_ID=1001 prune_stale_scratch "$ROOT"
+check "hcgym_ (empty id) untouched" yes "$([ -d "$ROOT/hcgym_" ] && echo yes || echo no)"
+
+echo
+echo "11. an empty scratch root is a no-op, not an error"
 rm -rf "${ROOT:?}"/hcgym_* "${ROOT:?}"/keepme
 printf '1001\n' > "$SQUEUE_OUT"; printf '0' > "$SQUEUE_RC"
 SLURM_JOB_ID=1001 prune_stale_scratch "$ROOT"

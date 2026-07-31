@@ -44,18 +44,42 @@ export TMPDIR="${TRITON_HOME}/tmp"
 # Covered by tests/test_scratch_prune.sh — this deletes directories, so it is not
 # allowed to be obvious-looking and wrong.
 prune_stale_scratch() {
-    local root="$1" live dir id
-    live=$(squeue -u "$USER" -h -o '%i' 2>/dev/null | tr '_' '\n' | grep -x '[0-9]\+' | sort -u)
-    # No list means squeue failed, NOT that nothing is running: this runs inside a
-    # job, so the current job is always in its own output. Prune only on real info.
+    local root="$1" raw rc live dir id grace="${SCRATCH_GRACE_MIN:-10}"
+
+    # squeue's EXIT STATUS, captured on its own. Reading it off the pipeline would
+    # report `sort`'s status instead, which is 0 whatever squeue did, so a squeue
+    # that emitted a PARTIAL list before failing would look authoritative -- and
+    # every running job missing from that partial list would have its scratch
+    # deleted underneath it. ray spills into TMPDIR, so that corrupts live runs and
+    # looks like a random cluster fault. launch_evals.sh already fails closed on
+    # this exact question; the pruner has more to lose and must too.
+    raw=$(squeue -u "$USER" -h -o '%i' 2>/dev/null)
+    rc=$?
+    [ "$rc" -eq 0 ] || return 0
+
+    live=$(printf '%s\n' "$raw" | tr '_' '\n' | grep -x '[0-9]\+' | sort -u)
+    # An empty list means squeue answered but listed nothing, which cannot be true
+    # from inside a running job -- this job is always in its own output. Treat it
+    # as no information rather than as "nothing is running".
     [ -n "$live" ] || return 0
     live="${live}
 ${SLURM_JOB_ID:-$$}"
+
     for dir in "$root"/hcgym_*; do
         [ -d "$dir" ] || continue
         id=${dir##*/hcgym_}
+        # All-digit names only, so an interactive `local_<pid>` scratch is never a
+        # candidate. An EMPTY id would also pass this test, and `hcgym_` is a
+        # directory this harness never creates, so require a real id.
+        [ -n "$id" ] || continue
         case "$id" in *[!0-9]*) continue ;; esac
-        printf '%s\n' "$live" | grep -qx "$id" || rm -rf -- "$dir"
+        printf '%s\n' "$live" | grep -qx "$id" && continue
+        # Second, independent condition: untouched for $grace minutes. A job that
+        # started between the squeue snapshot above and this loop is absent from
+        # the list but has a fresh directory, and one bad answer from squeue should
+        # not be enough on its own to delete anything.
+        [ -n "$(find "$dir" -maxdepth 0 -mmin +"$grace" 2>/dev/null)" ] || continue
+        rm -rf -- "$dir"
     done
 }
 prune_stale_scratch /tmp
