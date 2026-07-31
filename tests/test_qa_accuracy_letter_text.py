@@ -92,7 +92,34 @@ def main():
     check("no gold at all", 0.0, r._compute_qa_accuracy({}, log("A")))
     check("no submit_answer call", 0.0, r._compute_qa_accuracy(MC_TASK, []))
 
-    print("\n6. against the real benchmark, end to end")
+    print("\n6. the two defects the code review found")
+    # medqa_709's options are literally the letters B, C, D, E and its gold is
+    # "B" -- option A's TEXT. Reading the gold as a letter resolved it to option
+    # B as well, so submitting B or C scored 1.0 on a task whose answer is A.
+    letters_as_text = {"answer": "B", "options": {"A": "B", "B": "C", "C": "D", "D": "E"}}
+    check("degenerate task: correct letter A", 1.0, r._compute_qa_accuracy(letters_as_text, log("A")))
+    check("degenerate task: letter B is NOT credited", 0.0,
+          r._compute_qa_accuracy(letters_as_text, log("B")))
+    check("degenerate task: letter C is NOT credited", 0.0,
+          r._compute_qa_accuracy(letters_as_text, log("C")))
+
+    # medqa_39's gold is "Arcuate fasciculus" and option D reads "Arcuate
+    # fasciculus + inferior frontal gyrus + superior temporal gyrus". Falling
+    # through to the free-text branch gave D 0.5 for merely CONTAINING the gold.
+    superset = {
+        "answer": "Arcuate fasciculus",
+        "options": {"A": "Arcuate fasciculus", "B": "Superior temporal gyrus",
+                    "D": "Arcuate fasciculus + inferior frontal gyrus"},
+    }
+    check("a superset option gets no partial credit", 0.0,
+          r._compute_qa_accuracy(superset, log("Arcuate fasciculus + inferior frontal gyrus")))
+    check("...while the exact option text still scores 1.0", 1.0,
+          r._compute_qa_accuracy(superset, log("Arcuate fasciculus")))
+    check("...and substring credit still works with NO options", 0.5,
+          r._compute_qa_accuracy({"answer": "Arcuate fasciculus"},
+                                 log("likely Arcuate fasciculus, confirm with MRI")))
+
+    print("\n7. against the real benchmark, end to end")
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         "eval_mt", str(REPO / "scripts" / "eval_benchmark_multiturn.py"))

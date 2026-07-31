@@ -2241,13 +2241,32 @@ class AgentRunner:
         # rather than visibly broken.
         options = task.get("options") or {}
         gold_forms = {correct_answer.strip().lower()}
-        for letter, text in options.items():
-            if not isinstance(text, str):
-                continue
-            if text.strip().lower() == correct_answer.strip().lower():
-                gold_forms.add(letter.strip().lower())
-            elif letter.strip().lower() == correct_answer.strip().lower():
-                gold_forms.add(text.strip().lower())
+        if options:
+            # Resolve the gold to exactly ONE option, and prefer an exact TEXT
+            # match over reading the gold as a letter.
+            #
+            # medqa_709's option texts are literally "B", "C", "D", "E", and its
+            # gold is "B" -- which is option A's TEXT, not option B. Adding the
+            # letter->text direction unconditionally resolved that gold to option
+            # B as well, so submitting "B" or "C" scored 1.0 on a task whose
+            # answer is A. Measured: 3 such credits across medqa's 1223 MC tasks.
+            key = next(
+                (l for l, t in options.items() if isinstance(t, str) and t.strip() == correct_answer.strip()),
+                None,
+            )
+            if key is None and correct_answer.strip() in options:
+                key = correct_answer.strip()
+            if key is not None:
+                gold_forms = {key.strip().lower(), str(options[key]).strip().lower()}
+                # 15 of 6,545 multiple-choice tasks are degenerate: an option's
+                # TEXT is itself an option LETTER (medqa_709's four options read
+                # "B", "C", "D", "E"). Accepting the text form there makes a
+                # submitted "B" ambiguous between option B and option A's text,
+                # and the models are instructed to answer with a letter, so the
+                # letter reading is the one to keep.
+                letters = {str(l).strip().upper() for l in options}
+                if str(options[key]).strip().upper() in letters:
+                    gold_forms = {key.strip().lower()}
 
         # Find the submit_answer tool call
         for tc in reversed(tool_call_log):
@@ -2255,6 +2274,16 @@ class AgentRunner:
                 submitted = tc["arguments"].get("answer", "").strip()
                 if submitted.lower() in gold_forms:
                     return 1.0
+                # A task WITH options is decided here and nowhere else. Falling
+                # through to the free-text branch below hands 0.5 to any answer
+                # that merely CONTAINS the gold, and one option's text is often a
+                # superset of another's: medqa_39's gold is "Arcuate fasciculus"
+                # and option D reads "Arcuate fasciculus + inferior frontal gyrus
+                # + superior temporal gyrus", so submitting D scored 0.5 on a task
+                # whose answer is A. That is the same substring-containment defect
+                # the visual-QA scorer was replaced for.
+                if options:
+                    return 0.0
                 # For multiple-choice, compare first letter
                 if len(correct_answer.strip()) <= 2:
                     if submitted.upper() == correct_answer.strip().upper():
