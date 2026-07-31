@@ -31,6 +31,25 @@ if [ ! -f "$SCRIPT" ]; then
     echo "[autoretry] no such sbatch template: $SCRIPT" >&2
     exit 2
 fi
+
+# Preflight: resolve the arm against THIS template before entering the retry loop.
+#
+# SCRIPT is an environment override, so `./autoretry.sh q9b_star <bb> star
+# "SCRIPT=..."` silently passes the path as the extra-vars string and leaves the
+# default template in place. train_hcgym.slurm then fatals on ARM=star -- correctly
+# -- and the loop resubmits that same fatal 60 times. Every template honours
+# DRY_RUN and exits in seconds without touching a GPU, so ask it once, here.
+#
+# PREFLIGHT=0 skips this, for a template whose dry run needs something absent.
+if [ "${PREFLIGHT:-1}" = "1" ]; then
+    if ! _pf=$(DRY_RUN=1 BACKBONE="$BACKBONE" ARM="$ARM" EXP="$EXP" timeout 90 bash "$SCRIPT" 2>&1); then
+        echo "[autoretry] preflight FAILED — $(basename "$SCRIPT") cannot run ARM=${ARM}." >&2
+        echo "$_pf" | grep -E "^\[fatal\]|^\[warn\]" | head -5 >&2
+        echo "[autoretry] refusing to submit; nothing has been queued." >&2
+        exit 2
+    fi
+    echo "[autoretry] preflight ok: $(basename "$SCRIPT") resolves ARM=${ARM}"
+fi
 STATE="${RUN_ROOT}/logs/.autoretry_${EXP}"
 LOGDIR="${RUN_ROOT}/logs"
 MAX_RETRIES="${MAX_RETRIES:-60}"
