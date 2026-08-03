@@ -132,6 +132,45 @@ _SITE="${VENV}/lib/python3.12/site-packages"
 _NVLIBS=$(find "${_SITE}/nvidia" -maxdepth 2 -type d -name lib 2>/dev/null | tr '\n' ':')
 export LD_LIBRARY_PATH="${_NVLIBS}${_SITE}/torch/lib:${VENV}/lib:${LD_LIBRARY_PATH:-}"
 
+# triton JIT-compiles a small cuda_utils.c the first time its NVIDIA driver is
+# touched, and links it with `-lcuda`. It locates the directory by searching for
+# libcuda.so.1 -- but gcc's -lcuda needs the DEVELOPMENT symlink libcuda.so, which
+# the driver package does not always install. On a node without it every sglang
+# server dies at startup with
+#
+#   /usr/bin/ld: cannot find -lcuda
+#   subprocess.CalledProcessError: Command '['/usr/bin/gcc', ... cuda_utils.c ...
+#
+# surfacing as an opaque ray ActorDiedError. It is node-dependent, which is why
+# some arms trained for 1,400 steps while others failed 45 times in a row without
+# ever reaching step 1: whether a job runs came down to which node it landed on.
+#
+# Put a directory holding a real libcuda.so on the LINKER path. NVIDIA ships a
+# stub for exactly this purpose -- it resolves the symbols at link time and the
+# real driver library is what loads at run time via libcuda.so.1. Falls back to a
+# job-local symlink when no stub is installed either.
+_libcuda_linkdir() {
+    local d
+    for d in /usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu /usr/local/cuda/lib64/stubs; do
+        [ -e "$d/libcuda.so" ] && { echo "$d"; return; }
+    done
+    for d in /usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu; do
+        if [ -e "$d/libcuda.so.1" ]; then
+            mkdir -p "${TRITON_HOME}/libcuda" || return
+            ln -sf "$d/libcuda.so.1" "${TRITON_HOME}/libcuda/libcuda.so" || return
+            echo "${TRITON_HOME}/libcuda"
+            return
+        fi
+    done
+}
+_LIBCUDA_DIR=$(_libcuda_linkdir)
+if [ -n "$_LIBCUDA_DIR" ]; then
+    export LIBRARY_PATH="${_LIBCUDA_DIR}:${LIBRARY_PATH:-}"
+    export TRITON_LIBCUDA_PATH="${_LIBCUDA_DIR}"
+else
+    echo "[env] WARNING: no libcuda.so found; triton's driver JIT will fail on this node" >&2
+fi
+
 # Optional credential bundle, exported wholesale so any tool that wants an API key
 # finds one. Nothing in the training or eval path needs it — local weights, a local
 # sglang server and a local FTS5 index — so an absent file is not an error. Point
