@@ -91,6 +91,52 @@ def convert_tasks(tasks_path, split_path, output_dir):
             }
             records.append(record)
 
+        # Refuse to ship a split full of ungradeable rows without saying so.
+        #
+        # `ground_truth` is `raw_answer` for an open-ended task, and `.get()`
+        # supplies "" when the key is absent -- which it is on every task whose
+        # answer was written to `correct_answer` instead. reward_fn then takes
+        # `if not ground_truth: base_reward = 0.0`, identically for every rollout
+        # on that prompt. GRPO centres its advantage per prompt group, so an
+        # identical score across the group is an advantage of exactly zero: the
+        # prompt burns a full rollout budget and returns no gradient.
+        #
+        # This went unnoticed through every published run because nothing on the
+        # path complains: the converter wrote the empty string, the reward
+        # returned a valid number, and the trainer reported a plausible-looking
+        # curve. 45.9% of the train split and 58.2% of the test split were in
+        # this state, which also caps val accuracy at 0.418 no matter how good
+        # the model gets.
+        #
+        # TRAIN is a hard error; TEST is a loud warning. They fail differently
+        # because the damage is different. An ungradeable TRAIN row spends a
+        # rollout budget and returns no gradient, so it is pure waste and there
+        # is no reason to keep it. An ungradeable TEST row caps the metric
+        # instead -- and REMOVING it would redefine validation accuracy mid-study
+        # and make new runs incomparable with every curve already on disk. So the
+        # test split is allowed through, with its ceiling stated, because the fix
+        # there is to divide by the ceiling when reporting, not to change the
+        # yardstick.
+        n_bad = sum(1 for r in records if not (r["reward_model"]["ground_truth"] or "").strip())
+        if n_bad:
+            pct = 100.0 * n_bad / len(records) if records else 0.0
+            msg = (f"  {split_name}: {n_bad}/{len(records)} ({pct:.1f}%) rows have an EMPTY "
+                   f"ground_truth and can never score above 0")
+            if split_name == "train" and os.environ.get("ALLOW_UNGRADEABLE") != "1":
+                raise SystemExit(
+                    f"{msg}.\n"
+                    "  Open-ended tasks take their gold from `raw_answer`; these have it in\n"
+                    "  `correct_answer` or nowhere. Build a gold-complete pool first:\n"
+                    "      python scripts/rebuttal/build_gold_complete_split.py --policy drop \\\n"
+                    "          --pool <this pool> --out <new pool>\n"
+                    "  or set ALLOW_UNGRADEABLE=1 to reproduce the original split deliberately."
+                )
+            ceiling = (len(records) - n_bad) / len(records) if records else 0.0
+            note = " — allowed by ALLOW_UNGRADEABLE=1" if split_name == "train" else ""
+            print(f"{msg}{note}")
+            print(f"  {split_name}: accuracy over this split is bounded above by {ceiling:.4f}, "
+                  f"not 1.0 — report it against that ceiling")
+
         ds = datasets.Dataset.from_list(records)
         out_path = os.path.join(output_dir, f"{split_name}.parquet")
         ds.to_parquet(out_path)
