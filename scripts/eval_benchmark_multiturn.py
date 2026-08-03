@@ -31,6 +31,15 @@ Usage:
         --model_path /path/to/merged_hf \
         --benchmarks medqa \
         --max-samples 50
+
+    # Prompting baselines (eval-only, zero training) — --prompt-mode
+    #   default      Base+AR (unchanged; this is the paper's existing condition)
+    #   strong_tool  Base+AR + materially stronger tool-use contract
+    #   react        explicit ReAct (Thought/Action/Action Input/Observation)
+    CUDA_VISIBLE_DEVICES=0 python scripts/eval_benchmark_multiturn.py \
+        --model_path /path/to/merged_hf \
+        --benchmarks medqa \
+        --prompt-mode react
 """
 
 import argparse
@@ -73,6 +82,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 os.chdir(PROJECT_ROOT)
 
 from loguru import logger
+
+# Closed-form exact match for the visual-QA benchmarks. Kept in its own module
+# so it can be unit-tested and re-run over stored rollouts without importing
+# torch or loading a model.
+sys.path.insert(0, str(Path(__file__).parent))
+import vqa_scoring  # noqa: E402
 
 # ── Benchmark file registry ──
 BENCHMARK_FILES = {
@@ -317,8 +332,12 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
     the model from exhausting all turns on search/think without submitting.
     """
     from bioagents.evaluation.agent_runner import (
-        TurnRecord, TaskResult, build_system_prompt, parse_tool_call,
+        TurnRecord, TaskResult, build_system_prompt,
+        parse_tool_call_with_format, format_assistant_turn,
+        format_tool_observation, native_tools_for_prompt_mode,
     )
+
+    prompt_mode = getattr(runner.config, "prompt_mode", "default")
 
     task_id = task["id"]
 
@@ -336,6 +355,7 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
     system_prompt = build_system_prompt(
         info["policy"], tools_for_prompt,
         domain=runner.config.domain, task=task,
+        prompt_mode=prompt_mode,
     )
     # Build user message — include image for VQA tasks
     image_path = task.get("_image_path")
@@ -351,7 +371,12 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
-    openai_tools = tools_for_prompt
+    # default / strong_tool get the catalog through the chat template, as
+    # before. react gets it as prompt text (build_system_prompt above) and
+    # withholds tools= here, so the template's native tool-calling contract —
+    # the contract that beat ReAct on 4,418 of 4,429 turns — is not injected
+    # alongside it. Same tools either way; only the emission contract differs.
+    openai_tools = native_tools_for_prompt_mode(tools_for_prompt, prompt_mode)
 
     turns = []
     submitted_answer = ""
@@ -376,8 +401,10 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
 
         turn = TurnRecord(turn_idx=turn_idx, raw_output=raw_output, latency_seconds=latency)
 
-        # Parse tool call
-        tool_call = parse_tool_call(raw_output)
+        # Parse tool call, recording which format branch accepted it so
+        # prompt_mode="react" adherence is measurable rather than assumed.
+        tool_call, tool_fmt = parse_tool_call_with_format(raw_output)
+        turn.tool_call_format = tool_fmt
 
         if tool_call is not None:
             turn.parsed_tool_call = tool_call
@@ -393,10 +420,18 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
                 observation_str = str(observation) if observation is not None else ""
 
             turn.tool_response = observation_str
-            messages.append({"role": "assistant", "content": json.dumps(tool_call)})
+            # react mode replays the assistant turn verbatim and returns the
+            # result as "Observation:", matching what its system prompt
+            # promises. default / strong_tool are byte-for-byte unchanged.
+            messages.append({
+                "role": "assistant",
+                "content": format_assistant_turn(raw_output, tool_call, prompt_mode),
+            })
             messages.append({
                 "role": "user",
-                "content": f"Tool result for {tool_name}:\n{observation_str}",
+                "content": format_tool_observation(
+                    tool_name, observation_str, prompt_mode
+                ),
             })
             turns.append(turn)
 
@@ -430,6 +465,28 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
     return turns, submitted_answer, t_total, env._tool_call_log
 
 
+def _run_single_task_multiturn_debug(runner, task, env, max_turns):
+    """Same as _run_single_task_multiturn but also returns the final message list.
+
+    Used only by scripts/rebuttal/verify_react_transcript.py, which has to show
+    the EXACT transcript the model saw. Kept as a thin wrapper (rather than a
+    flag on the hot path) so the eval path is untouched.
+    """
+    seen: list = []
+    original = runner.generate
+
+    def _spy(messages, tools=None):
+        seen.append(json.loads(json.dumps(messages, default=str)))
+        return original(messages, tools=tools)
+
+    runner.generate = _spy
+    try:
+        out = _run_single_task_multiturn(runner, task, env, max_turns)
+    finally:
+        runner.generate = original
+    return out, (seen[-1] if seen else [])
+
+
 def run_benchmark_multiturn(
     benchmark_name: str,
     tasks: list[dict],
@@ -438,26 +495,76 @@ def run_benchmark_multiturn(
     max_turns: int,
     output_dir: Path,
     resume_from: int = 0,
+    vqa_scorer: str = "cf_em",
+    prior_results: list[dict] | None = None,
 ):
     """Run a benchmark through multi-turn AgentRunner loop.
+
+    `vqa_scorer` selects the scoring rule for the CLOSED-VOCABULARY visual-QA
+    benchmarks only (vqa_rad, slake, pathvqa):
+        "cf_em"     -- closed-form exact match (default; see scripts/vqa_scoring.py)
+        "substring" -- the pre-2026-07-29 rule, kept reachable so the published
+                       numbers stay reproducible for the rebuttal table
+    Every other benchmark (text QA, long-form QA, EHR, and the open-vocabulary
+    VQA sets) is scored exactly as before, by an unmodified `_check_answer`.
 
     Returns:
         dict with accuracy, avg_turns, avg_reward, per-sample results
     """
     from bioagents.gym.agent_env import BioAgentGymEnv
+    from bioagents.evaluation.agent_runner import (
+        summarize_format_adherence, aggregate_format_adherence,
+        multimodal_tool_forwarding, reset_multimodal_request_stats,
+    )
 
     LFQA_BENCHMARKS = {"kqa_golden", "live_qa", "medication_qa", "healthsearch_qa", "kqa_silver"}
     EHR_BENCHMARKS_SET = {"mimic_iii", "eicu"}
     is_lfqa = benchmark_name in LFQA_BENCHMARKS
     is_ehr = benchmark_name in EHR_BENCHMARKS_SET
 
-    results = []
-    correct = 0
-    total = 0
-    rouge_l_sum = 0.0
-    hall_sum = 0.0
-    comp_sum = 0.0
-    action_score_sum = 0.0
+    # --- visual-QA scoring rule -------------------------------------------
+    # CF-EM applies ONLY to the closed-vocabulary visual-QA sets. The
+    # vocabulary is built from the FULL benchmark file, never from the
+    # (possibly --max-samples-limited) task list, so a score does not depend
+    # on how many samples were run.
+    cf_vocab = None
+    if vqa_scorer == "cf_em" and benchmark_name in vqa_scoring.CLOSED_VOCAB_BENCHMARKS:
+        cf_vocab = vqa_scoring.load_vocab(benchmark_name, PROJECT_ROOT)
+        if cf_vocab is None:
+            logger.warning(
+                f"  [{benchmark_name}] CF-EM requested but the benchmark file "
+                f"could not be loaded; falling back to the substring rule."
+            )
+    scoring_rule = "cf_em" if cf_vocab is not None else "substring"
+    if benchmark_name in vqa_scoring.VQA_BENCHMARKS:
+        logger.info(
+            f"  [{benchmark_name}] VQA scoring rule = {scoring_rule}"
+            + (f" ({vqa_scoring.CF_EM_VERSION}, "
+               f"{len(cf_vocab.labels)} non-polar labels over "
+               f"{len(cf_vocab.items)} benchmark items)" if cf_vocab is not None
+               else " (pre-2026-07-29 substring containment)")
+        )
+
+    prompt_mode = getattr(runner.config, "prompt_mode", "default")
+    adherence_per_task: list[dict] = []
+
+    # Per-benchmark, so the counts reported below belong to THIS benchmark and
+    # a text-only benchmark run after a VQA one still records 0 image requests.
+    reset_multimodal_request_stats()
+
+    # Rows carried over from an interrupted run. _save_partial rewrites the file
+    # from `results` alone, so anything not seeded here is destroyed on the first
+    # save rather than resumed.
+    results = list(prior_results or [])
+    correct = sum(1 for r in results if r.get("correct"))
+    total = len(results)
+    rouge_l_sum = sum(r.get("rouge_l", 0.0) for r in results)
+    hall_sum = sum(r.get("hallucination", 0.0) for r in results)
+    comp_sum = sum(r.get("comprehensiveness", 0.0) for r in results)
+    action_score_sum = sum(r.get("action_score", 0.0) for r in results)
+    adherence_per_task.extend(
+        r["format_adherence"] for r in results if isinstance(r.get("format_adherence"), dict)
+    )
     t_start = time.time()
 
     for i, task in enumerate(tasks):
@@ -475,6 +582,12 @@ def run_benchmark_multiturn(
             turns, submitted, latency, tool_log = _run_single_task_multiturn(
                 runner, task, env, max_turns
             )
+
+            # Output-format adherence for this task. Recorded before scoring so
+            # a react-arm number can never be reported without the evidence
+            # that the model actually emitted ReAct.
+            adherence = summarize_format_adherence(turns)
+            adherence_per_task.append(adherence)
 
             # If no submit_answer was called, extract from last turn output
             if not submitted and turns:
@@ -511,8 +624,18 @@ def run_benchmark_multiturn(
                 comp = _compute_comprehensiveness(submitted, must_have)
                 hall_sum += hall
                 comp_sum += comp
+            elif cf_vocab is not None:
+                # Closed-vocabulary VQA: score the ANSWER, not the transcript.
+                # Both rules are computed on every row so the rebuttal table
+                # showing "what it was / what it is" needs no second pass.
+                row_idx = vqa_scoring.task_row_index(task["id"], benchmark_name)
+                cf_pred, is_correct, cf_kind, cf_span = vqa_scoring.cf_predict(
+                    submitted, gold, cf_vocab, idx=row_idx
+                )
+                substring_correct = _check_answer(submitted, gold, options)
+                rouge_l = None
             else:
-                # MC/VQA: exact/letter match
+                # MC / open-vocabulary VQA: exact/letter match, unchanged
                 is_correct = _check_answer(submitted, gold, options)
                 rouge_l = None
 
@@ -527,6 +650,8 @@ def run_benchmark_multiturn(
                 "correct": is_correct,
                 "turns": len(turns),
                 "latency": latency,
+                "react_rate": round(adherence["react_rate"], 4),
+                "format_adherence": adherence,
             }
             if is_ehr:
                 result_entry["action_score"] = round(action_score, 4)
@@ -537,6 +662,14 @@ def run_benchmark_multiturn(
                 result_entry["rouge_l"] = round(rouge_l, 4)
                 result_entry["hallucination"] = round(hall, 2)
                 result_entry["comprehensiveness"] = round(comp, 2)
+            elif cf_vocab is not None:
+                # A VQA number that does not say how it was scored is worthless.
+                result_entry["scored_by"] = vqa_scoring.CF_EM_VERSION
+                result_entry["cf_correct"] = is_correct
+                result_entry["cf_pred"] = sorted(cf_pred)
+                result_entry["cf_kind"] = cf_kind
+                result_entry["cf_span"] = cf_span
+                result_entry["substring_correct"] = substring_correct
             results.append(result_entry)
 
             # Progress logging every 10 samples
@@ -570,7 +703,9 @@ def run_benchmark_multiturn(
 
             # Periodic save every 10 samples
             if total % 10 == 0:
-                _save_partial(benchmark_name, results, correct, total, output_dir)
+                _save_partial(benchmark_name, results, correct, total, output_dir,
+                              scoring_rule=(scoring_rule if benchmark_name
+                                            in vqa_scoring.VQA_BENCHMARKS else None))
 
         except Exception as e:
             logger.error(f"Error on task {task['id']}: {e}")
@@ -582,6 +717,8 @@ def run_benchmark_multiturn(
                 "correct": False,
                 "turns": 0,
                 "error": str(e),
+                "react_rate": 0.0,
+                "format_adherence": {},
             }
             if is_ehr:
                 result_entry["action_score"] = 0.0
@@ -593,13 +730,45 @@ def run_benchmark_multiturn(
                 result_entry["hallucination"] = 100.0
                 result_entry["comprehensiveness"] = 0.0
                 hall_sum += 100.0
+            elif cf_vocab is not None:
+                # An errored task is wrong under BOTH rules, and must still say
+                # which rule produced the number it contributes to.
+                result_entry["scored_by"] = vqa_scoring.CF_EM_VERSION
+                result_entry["cf_correct"] = False
+                result_entry["cf_pred"] = []
+                result_entry["cf_kind"] = "error"
+                result_entry["cf_span"] = ""
+                result_entry["substring_correct"] = False
             results.append(result_entry)
 
     elapsed = time.time() - t_start
     accuracy = correct / max(total, 1)
 
+    format_adherence = aggregate_format_adherence(adherence_per_task)
+    format_adherence["prompt_mode"] = prompt_mode
+
     summary = {
         "benchmark": benchmark_name,
+        # Recorded so a results file can never be misattributed to the wrong
+        # baseline condition when it is reported.
+        "prompt_mode": prompt_mode,
+        # Which arm of the multimodal tool-forwarding comparison produced this
+        # number, and how many image requests actually carried the catalog.
+        # On the image benchmarks (vqa_rad, slake, ...) "arm": "withheld" means
+        # the agent had NO tools — the pre-2026-07-29 measurement, reproduced
+        # on purpose. On a text-only benchmark multimodal_requests is 0, which
+        # is the recorded proof that this switch could not have touched it.
+        "multimodal_tool_forwarding": multimodal_tool_forwarding(),
+        # Output-format adherence. Under prompt_mode="react" this is the
+        # number the arm MUST be reported with. ReAct is now the ONLY
+        # tool-calling contract in the prompt (the template's native contract
+        # is suppressed; the catalog is carried as text), so react_rate no
+        # longer measures a prompt clash — it measures whether the backbone
+        # will adopt an instructed format at all. A low react score at
+        # react_rate ~0 still means "the model ignored the format", not "ReAct
+        # scaffolding does not help": opposite conclusions, and only this
+        # number tells them apart.
+        "format_adherence": format_adherence,
         "accuracy": accuracy,
         "correct": correct,
         "total": total,
@@ -610,6 +779,41 @@ def run_benchmark_multiturn(
         "timestamp": datetime.now().isoformat(),
         "results": results,
     }
+    if benchmark_name in vqa_scoring.VQA_BENCHMARKS:
+        # Which rule produced `accuracy`, and what the other rule would have
+        # said on the same rollouts. A VQA number that does not say how it was
+        # scored is worthless; both numbers ship together so the rebuttal's
+        # "was / is" table can be read straight off the artifact.
+        block = {
+            "rule": scoring_rule,
+            "version": (vqa_scoring.CF_EM_VERSION if cf_vocab is not None
+                        else "substring/pre-2026-07-29"),
+            "closed_vocab_benchmark": benchmark_name in vqa_scoring.CLOSED_VOCAB_BENCHMARKS,
+            "requested": vqa_scorer,
+        }
+        if cf_vocab is not None:
+            sub_correct = sum(1 for r in results if r.get("substring_correct"))
+            block.update({
+                "vocab_labels": len(cf_vocab.labels),
+                "vocab_built_from_n_items": len(cf_vocab.items),
+                "cf_em": accuracy,
+                "cf_em_correct": correct,
+                "substring_accuracy": sub_correct / max(total, 1),
+                "substring_correct": sub_correct,
+                "no_commit_rate": (sum(1 for r in results
+                                       if r.get("cf_kind") != "error"
+                                       and not r.get("cf_pred"))
+                                   / max(total, 1)),
+            })
+            rows = [{"submitted": r.get("submitted", ""), "gold": r.get("gold", ""),
+                     "_i": vqa_scoring.task_row_index(r["task_id"], benchmark_name)}
+                    for r in results]
+            _, cf_stats = vqa_scoring.score_all(rows, cf_vocab)
+            block["cf_bacc_guard"] = cf_stats["cf_bacc"]
+        summary["vqa_scoring"] = block
+        summary["metric"] = (
+            f"{scoring_rule} (see scripts/vqa_scoring.py)")
+
     if is_ehr:
         summary["avg_action_score"] = action_score_sum / max(total, 1)
         summary["metric"] = "action_score (expected tool call coverage)"
@@ -624,12 +828,22 @@ def run_benchmark_multiturn(
     with open(out_path, "w") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
+    _mm = summary["multimodal_tool_forwarding"]
+    fa_line = (
+        f"  prompt_mode={prompt_mode}  react_rate={format_adherence['react_rate']:.3f} "
+        f"({format_adherence['n_react']}/{format_adherence['n_turns']} turns)  "
+        f"formats={format_adherence['formats']}\n"
+        f"  multimodal_tools={_mm['arm']} "
+        f"({_mm['multimodal_requests_with_tools']}/{_mm['multimodal_requests']} "
+        f"image requests carried the catalog)\n"
+    )
     if is_ehr:
         logger.info(
             f"\n{'='*60}\n"
             f"  {benchmark_name}: action_score={summary['avg_action_score']:.3f} "
             f"acc={accuracy:.3f} ({correct}/{total})\n"
             f"  avg_turns={summary['avg_turns']:.1f}\n"
+            f"{fa_line}"
             f"  time={elapsed:.0f}s  saved={out_path}\n"
             f"{'='*60}"
         )
@@ -640,6 +854,7 @@ def run_benchmark_multiturn(
             f"hall={summary['avg_hallucination']:.1f}% comp={summary['avg_comprehensiveness']:.1f}%\n"
             f"  (correct@0.3={correct}/{total}, acc={accuracy:.3f})\n"
             f"  avg_turns={summary['avg_turns']:.1f}  avg_reward={summary['avg_reward']:.3f}\n"
+            f"{fa_line}"
             f"  time={elapsed:.0f}s  saved={out_path}\n"
             f"{'='*60}"
         )
@@ -648,6 +863,7 @@ def run_benchmark_multiturn(
             f"\n{'='*60}\n"
             f"  {benchmark_name}: accuracy={accuracy:.3f} ({correct}/{total})\n"
             f"  avg_turns={summary['avg_turns']:.1f}  avg_reward={summary['avg_reward']:.3f}\n"
+            f"{fa_line}"
             f"  time={elapsed:.0f}s  saved={out_path}\n"
             f"{'='*60}"
         )
@@ -769,7 +985,68 @@ def _extract_answer_fallback(text: str) -> str:
     return text[:100].strip()
 
 
-def _save_partial(benchmark_name, results, correct, total, output_dir):
+def _load_resume_partial(benchmark_name, output_dir, resume_from, skipped_tasks, vqa_scorer):
+    """Load the rows a previous run of this benchmark already produced.
+
+    Resuming is only safe when the rows being kept were produced from the same
+    tasks under the same scoring rule; otherwise the merged artifact would report
+    one accuracy over two different measurements. Every mismatch is fatal -- there
+    is no partial-credit path here, because the failure mode is a plausible-looking
+    number rather than a crash.
+    """
+    path = Path(output_dir) / f"{benchmark_name}_partial.json"
+    if not path.exists():
+        raise SystemExit(
+            f"[fatal] --resume-from {resume_from} but no {path}. "
+            f"Resume needs the rows it is continuing from; drop --resume-from to start over."
+        )
+
+    with open(path) as f:
+        partial = json.load(f)
+
+    prior = partial.get("results", [])
+    if partial.get("benchmark") != benchmark_name:
+        raise SystemExit(
+            f"[fatal] {path} holds benchmark '{partial.get('benchmark')}', not '{benchmark_name}'"
+        )
+    if len(prior) != resume_from:
+        raise SystemExit(
+            f"[fatal] --resume-from {resume_from} but {path} holds {len(prior)} rows. "
+            f"Pass --resume-from {len(prior)} to continue from where it stopped."
+        )
+
+    mismatched = [
+        (i, row.get("task_id"), task.get("id"))
+        for i, (row, task) in enumerate(zip(prior, skipped_tasks))
+        if row.get("task_id") != task.get("id")
+    ]
+    if mismatched:
+        i, got, want = mismatched[0]
+        raise SystemExit(
+            f"[fatal] {path} row {i} is task '{got}' but the benchmark's task {i} is '{want}' "
+            f"({len(mismatched)} mismatched). The partial came from a different task order "
+            f"or a different benchmark file; it cannot be merged."
+        )
+
+    # Old partials carry no vqa_scoring block, which is itself the tell that they
+    # are substring-scored. Finishing one under cf_em would mix two rules in a
+    # single accuracy; finish it under --vqa-scorer substring and rescore the
+    # completed artifact instead (scripts/rebuttal/rescore_vqa.py).
+    if benchmark_name in vqa_scoring.CLOSED_VOCAB_BENCHMARKS:
+        prior_rule = (partial.get("vqa_scoring") or {}).get("rule", "substring")
+        if prior_rule != vqa_scorer:
+            raise SystemExit(
+                f"[fatal] {path} was scored with '{prior_rule}' but this run scores with "
+                f"'{vqa_scorer}'. Re-run with --vqa-scorer {prior_rule} to finish it, then "
+                f"rescore the completed artifact with scripts/rebuttal/rescore_vqa.py."
+            )
+
+    logger.info(f"Resuming {benchmark_name} from {len(prior)} rows in {path}")
+    return prior
+
+
+def _save_partial(benchmark_name, results, correct, total, output_dir,
+                  scoring_rule=None):
     """Save partial results for resumability."""
     partial = {
         "benchmark": benchmark_name,
@@ -778,6 +1055,18 @@ def _save_partial(benchmark_name, results, correct, total, output_dir):
         "total": total,
         "results": results,
     }
+    if scoring_rule is not None:
+        # Partials get read straight into rebuttal tables, so they carry the
+        # rule too. The pre-2026-07-29 partials have no such field, which is
+        # itself the tell that they are substring-scored.
+        sub_correct = sum(1 for r in results if r.get("substring_correct"))
+        partial["vqa_scoring"] = {
+            "rule": scoring_rule,
+            "version": (vqa_scoring.CF_EM_VERSION if scoring_rule == "cf_em"
+                        else "substring/pre-2026-07-29"),
+            "substring_correct": sub_correct,
+            "substring_accuracy": sub_correct / max(total, 1),
+        }
     path = output_dir / f"{benchmark_name}_partial.json"
     with open(path, "w") as f:
         json.dump(partial, f, indent=2, ensure_ascii=False)
@@ -804,6 +1093,28 @@ def main():
                         help="Resume from sample index")
     parser.add_argument("--no-think", action="store_true",
                         help="Disable think() tool (ablation)")
+    parser.add_argument("--prompt-mode", default="default",
+                        choices=["default", "strong_tool", "react"],
+                        help="Prompting baseline (eval-only, zero training). "
+                             "'default' = Base+AR, unchanged. "
+                             "'strong_tool' = Base+AR with a materially stronger "
+                             "tool-use contract. "
+                             "'react' = explicit ReAct scaffolding "
+                             "(Thought/Action/Action Input/Observation) over the "
+                             "SAME tool set. Isolates prompting/scaffolding gains "
+                             "from TT-OPD.")
+    parser.add_argument("--vqa-scorer", default="cf_em",
+                        choices=["cf_em", "substring"],
+                        help="Scoring rule for the CLOSED-VOCABULARY visual-QA "
+                             "benchmarks (vqa_rad, slake, pathvqa). "
+                             "'cf_em' = closed-form exact match (default). "
+                             "'substring' = the pre-2026-07-29 rule that scored "
+                             "an image-blind constant paragraph at 56.5%% on "
+                             "VQA-RAD and 45.4%% on SLAKE; kept reachable ONLY "
+                             "so the published numbers stay reproducible. "
+                             "Never affects text QA, long-form QA, EHR, or the "
+                             "open-vocabulary VQA sets. "
+                             "See scripts/vqa_scoring.py for the rule and its limits.")
     parser.add_argument("--backend", default="transformers",
                         choices=["transformers", "vllm", "sglang"],
                         help="Inference backend (default: transformers)")
@@ -830,12 +1141,23 @@ def main():
         log_dir=str(output_dir / "logs"),
         no_think=args.no_think,
         server_url=args.server_url,
+        prompt_mode=args.prompt_mode,
     )
 
+    logger.info(f"Prompting baseline: prompt_mode={args.prompt_mode}")
     logger.info(f"Loading model: {args.model_path}")
     runner = AgentRunner(config)
     runner.load_model()
     logger.info("Model loaded successfully")
+
+    # One offset cannot be correct for several benchmarks at once, and the loop
+    # below would apply it to every one of them.
+    if args.resume_from > 0 and len(args.benchmarks) > 1:
+        raise SystemExit(
+            f"[fatal] --resume-from {args.resume_from} was given with {len(args.benchmarks)} "
+            f"benchmarks ({', '.join(args.benchmarks)}); it would be applied to each of them. "
+            f"Resume one benchmark per run."
+        )
 
     all_summaries = {}
 
@@ -860,7 +1182,12 @@ def main():
             continue
 
         # Apply offset (resume-from) first, then max_samples limit
+        prior_results = None
         if args.resume_from > 0:
+            prior_results = _load_resume_partial(
+                bench_name, output_dir, args.resume_from,
+                tasks[:args.resume_from], args.vqa_scorer,
+            )
             tasks = tasks[args.resume_from:]
         if args.max_samples > 0:
             tasks = tasks[:args.max_samples]
@@ -877,6 +1204,8 @@ def main():
             max_turns=args.max_turns,
             output_dir=output_dir,
             resume_from=0,  # Already applied above
+            vqa_scorer=args.vqa_scorer,
+            prior_results=prior_results,
         )
         all_summaries[bench_name] = {
             "accuracy": summary["accuracy"],
@@ -884,18 +1213,35 @@ def main():
             "total": summary["total"],
             "avg_turns": summary["avg_turns"],
             "time": summary["total_time_seconds"],
+            "react_rate": summary["format_adherence"]["react_rate"],
         }
 
     # Print final comparison table
     logger.info(f"\n{'='*60}")
     logger.info("MULTI-TURN BENCHMARK RESULTS")
     logger.info(f"Model: {Path(args.model_path).name}")
-    logger.info(f"{'Benchmark':<15} {'Accuracy':>10} {'Correct':>10} {'Total':>8} {'Turns':>8} {'Time':>10}")
-    logger.info("-" * 65)
+    logger.info(f"Prompt mode: {args.prompt_mode}")
+    logger.info(
+        f"{'Benchmark':<15} {'Accuracy':>10} {'Correct':>10} {'Total':>8} "
+        f"{'Turns':>8} {'ReActRate':>10} {'Time':>10}"
+    )
+    logger.info("-" * 77)
     for name, s in all_summaries.items():
         logger.info(
             f"{name:<15} {s['accuracy']:>9.3f} {s['correct']:>9d} "
-            f"{s['total']:>7d} {s['avg_turns']:>7.1f} {s['time']:>9.0f}s"
+            f"{s['total']:>7d} {s['avg_turns']:>7.1f} {s['react_rate']:>9.3f} "
+            f"{s['time']:>9.0f}s"
+        )
+    if args.prompt_mode == "react":
+        logger.info(
+            "NOTE: react_rate = fraction of assistant turns that actually parsed as "
+            "ReAct (Thought/Action/Action Input). ReAct is the only tool-calling "
+            "contract in this prompt — the chat template's native contract is "
+            "suppressed and the full tool catalog is carried as prompt text — so "
+            "react_rate now measures format adoption, not a prompt clash. A low "
+            "score at high react_rate is evidence about ReAct; a low score at low "
+            "react_rate means this backbone will not adopt the format, and the arm "
+            "cannot be reported as a ReAct control."
         )
     logger.info(f"{'='*60}")
 

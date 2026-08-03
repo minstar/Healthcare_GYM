@@ -1,0 +1,30 @@
+{
+  "derived_from": "full_4modality_clean",
+  "rule": "drop every task carrying _image_path",
+  "tasks": {
+    "before": 4777,
+    "after": 4190,
+    "dropped": 587
+  },
+  "splits": {
+    "train": {
+      "before": 3390,
+      "after": 2865
+    },
+    "test": {
+      "before": 850,
+      "after": 788
+    }
+  },
+  "domains_after": {
+    "clinical_diagnosis": 845,
+    "drug_interaction": 625,
+    "ehr_management": 489,
+    "multimodal_vqa": 31,
+    "obstetrics": 334,
+    "psychiatry": 350,
+    "text_qa": 1000,
+    "triage_emergency": 516
+  },
+  "why": "Text-only backbones (e.g. Glm4ForCausalLM) cannot consume image rows. The family-axis comparison must hold the data fixed, so BOTH the Qwen anchor and the non-Qwen backbone run on this pool; it is not a GLM-only concession."
+}

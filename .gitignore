@@ -117,3 +117,7 @@ BUGLOG.md
 PLANNING.md
 RESEARCH_LOG*.md
 AGENT_GUIDELINE.md
+
+# The paper tree carries confidential material and must never enter a public
+# branch. It is maintained separately, outside this history.
+paper/

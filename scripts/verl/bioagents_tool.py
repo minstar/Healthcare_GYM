@@ -10,11 +10,12 @@ The domain is determined from the dataset's extra_info.domain field via create()
 import json
 import logging
 import os
+from pathlib import Path
 import sys
 from typing import Any, Optional
 from uuid import uuid4
 
-sys.path.insert(0, "/data/project/private/minstar/workspace/BIOAgents")
+sys.path.insert(0, os.environ.get("HCGYM_ROOT", str(Path(__file__).resolve().parents[2])))
 
 from verl.tools.base_tool import BaseTool
 from verl.tools.schemas import OpenAIFunctionToolSchema, ToolResponse
@@ -45,7 +46,7 @@ def _get_knowledge_backend():
     if _knowledge_backend is None:
         try:
             from bioagents.tools.knowledge_tools import MedicalKnowledgeBackend
-            db_path = "/data/project/private/minstar/workspace/BIOAgents/data/medical_knowledge.db"
+            db_path = os.environ.get("MEDICAL_FTS_DB", str(Path(os.environ.get("HCGYM_ROOT", Path(__file__).resolve().parents[2])) / "databases" / "medical_knowledge_fts.sqlite"))
             if os.path.exists(db_path):
                 _knowledge_backend = MedicalKnowledgeBackend(db_path=db_path)
             else:

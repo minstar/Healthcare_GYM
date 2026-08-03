@@ -318,6 +318,13 @@ def train(config: BioAgentSFTConfig):
         save_total_limit=config.save_total_limit,
         seed=config.seed,
         max_length=config.max_length,
+        # Train on the agent's own turns only, never on the tool observations the
+        # environment wrote back. The RL arms mask those out, so without this the
+        # STaR baseline would be fit on a strictly harder target than the arms it
+        # is compared against — handicapping the control, which is the one thing a
+        # baseline must never be. Requires a chat template that marks assistant
+        # spans; build_sft_dataset emits conversational examples, so it applies.
+        assistant_only_loss=True,
         report_to="wandb" if config.use_wandb else "none",
         run_name=config.run_name,
         logging_dir=config.log_dir,
