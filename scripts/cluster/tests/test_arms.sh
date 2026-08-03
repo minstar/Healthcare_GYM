@@ -49,6 +49,7 @@ cosines(){ sed -n 's/^DRYRUN cosine //p' "$1" | sort; }   # sorted KEY=VALUE lin
 echo "=============================================================="
 echo "1. each arm resolves and reports"
 echo "=============================================================="
+ACC_ONLY='{"accuracy":1.0}'
 for arm in grpo grpo_cosine ttopd; do
     if run_arm "${WORK}/${arm}.txt" "$arm"; then
         if [ "$(field "${WORK}/${arm}.txt" ok)" = "" ] && grep -q '^DRYRUN ok$' "${WORK}/${arm}.txt"; then
@@ -66,12 +67,44 @@ done
 if run_arm "${WORK}/bogus.txt" "grpo_cosinne"; then
     bad "ARM=grpo_cosinne was accepted (typo would train a silent baseline)"
 else
-    if grep -q '\[fatal\] ARM must be grpo, grpo_cosine or ttopd' "${WORK}/bogus.txt"; then
+    if grep -q '\[fatal\] ARM must be grpo, grpo_cosine, grpo_composite or ttopd' "${WORK}/bogus.txt"; then
         ok "unknown arm rejected with a fatal error"
     else
         bad "unknown arm failed but not with the expected message"
     fi
 fi
+
+# grpo_composite is driven entirely by HCGYM_REWARD_WEIGHTS, so it is checked
+# separately: the arm must refuse to start without it, must report the weights
+# by value, and must not be reachable with cosine also on.
+if run_arm "${WORK}/composite.txt" "grpo_composite" "HCGYM_REWARD_WEIGHTS=${ACC_ONLY}"; then
+    check "grpo_composite reports its weights" \
+          "$(field "${WORK}/composite.txt" composite_weights)" "$ACC_ONLY"
+    check "grpo_composite sets no cosine vars" \
+          "$(field "${WORK}/composite.txt" cosine_count)" "0"
+    check "grpo_composite sets no distill vars" \
+          "$(field "${WORK}/composite.txt" distill_env_count)" "0"
+else
+    bad "ARM=grpo_composite dry-run exited non-zero"
+    cat "${WORK}/composite.txt"
+fi
+
+# Without weights the arm is undefined. It must fail rather than fall through to
+# the legacy reward, which would silently make it a duplicate of ARM=grpo.
+if run_arm "${WORK}/composite_noweights.txt" "grpo_composite"; then
+    bad "grpo_composite ran with no HCGYM_REWARD_WEIGHTS (would duplicate ARM=grpo)"
+else
+    ok "grpo_composite without weights is rejected"
+fi
+
+# The non-composite arms must actively CLEAR an inherited weights string.
+# autoretry.sh submits with --export=ALL, so a leftover from a previous composite
+# submission in the same shell would otherwise redefine the baseline's objective.
+for arm in grpo grpo_cosine ttopd; do
+    run_arm "${WORK}/${arm}_dirty.txt" "$arm" "HCGYM_REWARD_WEIGHTS=${ACC_ONLY}" || true
+    check "ARM=${arm} clears inherited composite weights" \
+          "$(field "${WORK}/${arm}_dirty.txt" composite_weights)" "unset"
+done
 
 echo
 echo "=============================================================="

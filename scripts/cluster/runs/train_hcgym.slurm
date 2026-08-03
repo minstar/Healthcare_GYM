@@ -140,6 +140,13 @@ if [ "$MISSING" -gt 0 ] && [ "$DRY_RUN" != "1" ]; then
 fi
 
 echo "[run] exp=${EXP} arm=${ARM} backbone=${BACKBONE}"
+# Printed unconditionally, not only under DRY_RUN. The reward composition arrives
+# through the ENVIRONMENT (--export=ALL), not through this script, so it is the
+# one part of an arm's identity that leaves no trace in the submitted file. Two
+# composite arms differ in nothing else, and this whole line of work exists
+# because a reward that was described was not the reward that ran -- so each log
+# records the objective it was actually trained against.
+echo "[run] reward_weights=${HCGYM_REWARD_WEIGHTS:-legacy(accuracy+0.1*format-0.2*invalid)}"
 echo "[run] data=${DATA_DIR} tool_format=${TOOL_FORMAT} student_gpus=${STUDENT_GPUS} enable_thinking=${THINK_FLAG}"
 
 # ── Reward shaping ────────────────────────────────────────────────────────────
@@ -183,6 +190,46 @@ cosine_reward_on() {
 
 cosine_reward_off() {
     unset "${COSINE_VAR_NAMES[@]}"
+}
+
+# Multi-dimensional clinical reward, selected as the TRAINING objective.
+#
+# The paper presents the reward as multi-dimensional (accuracy, format, process,
+# safety, coherence, assertion) and `bioagents.evaluation.rewards.
+# compute_composite_reward` implements it. No published run optimized it:
+# `scripts/verl/reward_fn.py:compute_score`, the function verl calls, never
+# referenced that composite, so every reported number came from
+# `accuracy + 0.1*format_bonus - 0.2*n_invalid` plus the degenerate filter.
+#
+# These arms make the composite selectable so its dimensions can be ablated by
+# intervention rather than argued about. The composite REPLACES the base credit
+# at the same point cosine does; the invalid-tool penalty and degenerate filter
+# stay on for every arm, so arms differ only in reward composition. `acc` stays
+# unshaped, which is what the arms are compared on.
+#
+# Which dimensions are worth an arm was decided by measurement, not by guess.
+# Healthcare_GYM/scripts/rebuttal/decompose_reward_signal.py decomposes the
+# within-group variance of the reward on stored rollouts — the only part of a
+# reward GRPO can see, since its advantage is centred per prompt group — and on
+# q4b_grpo rollouts reports, for the composite at paper weights:
+#
+#     accuracy 94.7% of variance | process 2.6% | coherence 2.3%
+#     safety 0.4% | format 0.0% (constant in 100% of groups)
+#     assertion 0.0% (constant in 100% of groups)
+#
+# format is pinned because format_reward_composite with is_final=True returns
+# 1.0 for any response over 10 characters, and assertion is pinned because the
+# training parquet has no nl_assertions column. A constant dimension contributes
+# exactly zero to the GRPO gradient at ANY weight, so leave-one-out arms for
+# those two would be identical runs by construction and are not submitted.
+COMPOSITE_VAR_NAMES=(HCGYM_REWARD_WEIGHTS)
+
+composite_reward_on() {
+    export HCGYM_REWARD_WEIGHTS="${HCGYM_REWARD_WEIGHTS:?composite arms must set HCGYM_REWARD_WEIGHTS}"
+}
+
+composite_reward_off() {
+    unset "${COMPOSITE_VAR_NAMES[@]}"
 }
 
 # EMA teacher + outcome-conditioned privileged hints + turn-level truncation.
@@ -273,17 +320,29 @@ case "$ARM" in
     grpo)
         cosine_reward_off
         distillation_off
+        composite_reward_off
         ;;
     grpo_cosine)
         cosine_reward_on
         distillation_off
+        composite_reward_off
         ;;
     ttopd)
         cosine_reward_on
         distillation_on
+        composite_reward_off
+        ;;
+    grpo_composite)
+        # GRPO with the multi-dimensional reward as the objective. The caller
+        # supplies HCGYM_REWARD_WEIGHTS, which is what distinguishes one
+        # composite ablation arm from another; cosine stays OFF because both
+        # replace the base credit and reward_fn refuses the combination.
+        cosine_reward_off
+        distillation_off
+        composite_reward_on
         ;;
     *)
-        echo "[fatal] ARM must be grpo, grpo_cosine or ttopd, got '${ARM}'"; exit 1
+        echo "[fatal] ARM must be grpo, grpo_cosine, grpo_composite or ttopd, got '${ARM}'"; exit 1
         ;;
 esac
 
@@ -312,6 +371,10 @@ if [ "$DRY_RUN" = "1" ]; then
         n_cos=$((n_cos + 1))
     done < <(compgen -e | grep -E '^COSINE_' | sort || true)
     echo "DRYRUN cosine_count=${n_cos}"
+
+    # Printed by VALUE, not just by name: two composite arms differ ONLY in this
+    # string, so a dry run that reported merely "set" could not tell them apart.
+    echo "DRYRUN composite_weights=${HCGYM_REWARD_WEIGHTS:-unset}"
 
     n_dist=0
     while IFS= read -r name; do

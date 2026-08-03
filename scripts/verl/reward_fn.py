@@ -162,10 +162,108 @@ def is_degenerate_response(text: str) -> bool:
 
     return False
 
+# ── Multi-dimensional clinical reward (composite) ────────────────────
+# The paper describes the environment's reward as multi-dimensional --
+# accuracy, format, process, safety, coherence, assertion -- and
+# `bioagents.evaluation.rewards.compute_composite_reward` implements exactly
+# that.  Until this knob existed nothing in the RL path called it: every
+# published run optimized `accuracy + 0.1*format_bonus - 0.2*n_invalid`, so the
+# composite was an evaluation-time quantity only.  This makes it selectable as
+# a TRAINING objective so its dimensions can be ablated by intervention.
+#
+# Set HCGYM_REWARD_WEIGHTS to a JSON object, e.g.
+#   HCGYM_REWARD_WEIGHTS='{"accuracy":0.25,"format":0.10,"process":0.20,
+#                          "safety":0.20,"coherence":0.10,"assertion":0.15}'
+# Omitted dimensions get weight 0.0 and contribute nothing (compute_composite_
+# reward falls back symmetrically), so a leave-one-out arm is expressed by
+# dropping a key.
+#
+# What this replaces and what it does NOT: the composite substitutes for
+# `base_reward` at exactly the point the cosine reward substitutes for it.  The
+# invalid-tool penalty and the degenerate filter stay in force for every arm,
+# because they are shared safety rails rather than reward dimensions -- leaving
+# them on is what makes the arms differ ONLY in reward composition.  `acc` and
+# `acc_partial` are captured before this and remain unshaped, so cross-arm
+# comparison is still done on a quantity no arm's weights can move.
+_COMPOSITE_DIMS = ("accuracy", "format", "process", "safety", "coherence", "assertion")
+
+
+def _parse_reward_weights():
+    raw = os.environ.get("HCGYM_REWARD_WEIGHTS", "").strip()
+    if not raw:
+        return None
+    try:
+        w = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"HCGYM_REWARD_WEIGHTS is not valid JSON: {e}") from e
+    if not isinstance(w, dict) or not w:
+        raise ValueError("HCGYM_REWARD_WEIGHTS must be a non-empty JSON object")
+    # A typo in a slurm script would otherwise silently define a DIFFERENT arm
+    # than the one its name claims, and the run would look successful.
+    unknown = sorted(set(w) - set(_COMPOSITE_DIMS))
+    if unknown:
+        raise ValueError(f"HCGYM_REWARD_WEIGHTS has unknown dimensions {unknown}; known: {list(_COMPOSITE_DIMS)}")
+    bad = {k: v for k, v in w.items() if not isinstance(v, (int, float)) or isinstance(v, bool)}
+    if bad:
+        raise ValueError(f"HCGYM_REWARD_WEIGHTS values must be numbers, got {bad}")
+    return {k: float(v) for k, v in w.items()}
+
+
+COMPOSITE_WEIGHTS = _parse_reward_weights()
+COMPOSITE_REWARD_ENABLED = COMPOSITE_WEIGHTS is not None
+
+if COMPOSITE_REWARD_ENABLED:
+    # Resolve the import NOW rather than on the first scored rollout. The
+    # composite lives in the `bioagents` package, which reaches the verl workers
+    # only through PYTHONPATH; if that is wrong the lazy import would not fail
+    # until step 1, i.e. after the whole cluster job has spent its setup time,
+    # and it would surface as a ray ActorDiedError rather than an ImportError.
+    from bioagents.evaluation.rewards import compute_composite_reward as _  # noqa: F401
+
+
+def _composite_base_reward(solution_str: str, ground_truth: str, extra_info: dict) -> float:
+    """The composite total, for use in place of base_reward.
+
+    Scored once over the whole trajectory, which is the only thing verl hands
+    the reward function.  `expected_actions` and `nl_assertions` are absent from
+    the training parquet -- its extra_info carries only correct_answer, domain,
+    has_options, index, options, raw_answer, split, task_id -- so those inputs
+    are empty here.  That is the real condition inside training, not a
+    simplification, and it is why the assertion dimension sits at its neutral
+    value and the tool half of the process dimension has nothing to compare
+    against.  Both facts are measured in
+    scripts/rebuttal/decompose_reward_signal.py.
+    """
+    from bioagents.evaluation.rewards import compute_composite_reward
+
+    result = compute_composite_reward(
+        response=solution_str,
+        correct_answer=ground_truth or "",
+        reference_text=extra_info.get("raw_answer", "") or "",
+        tool_call_log=[],
+        expected_actions=[],
+        nl_assertions=None,
+        turn_idx=0,
+        is_final=True,
+        weights=COMPOSITE_WEIGHTS,
+        task_domain=extra_info.get("domain", "") or "",
+    )
+    return float(result["total"])
+
+
 # ── Cosine length-scaling reward (arXiv:2502.03373) ──────────────────
 # CosFn(t, T, η_min, η_max) = η_min + ½(η_max − η_min)(1 + cos(tπ/T))
 # Goes from η_max at t=0 to η_min at t=T.
 COSINE_REWARD_ENABLED = os.environ.get("COSINE_REWARD", "") == "1"
+
+# Both of these REPLACE base_reward.  Whichever ran second would silently win
+# and the arm would not be the one its name claims, so refuse the combination
+# at import time rather than resolve it by precedence.
+if COSINE_REWARD_ENABLED and COMPOSITE_REWARD_ENABLED:
+    raise ValueError(
+        "COSINE_REWARD=1 and HCGYM_REWARD_WEIGHTS are mutually exclusive: both replace "
+        "the base reward. Pick one per arm."
+    )
 
 # Max response length in tokens (must match data.max_response_length)
 COSINE_L_MAX = int(os.environ.get("COSINE_L_MAX", "12288"))
@@ -492,6 +590,13 @@ def compute_score(
         acc = 1.0 if is_correct else 0.0
         answer_found = predicted is not None
 
+        # Multi-dimensional composite (replaces base_reward when enabled).
+        # No format bonus is re-added on top: `format` is one of the composite's
+        # own dimensions, and adding the flat +0.1 as well would double-count it
+        # and make the leave-one-out format arm not actually leave it out.
+        if COMPOSITE_REWARD_ENABLED:
+            base_reward = _composite_base_reward(solution_str, ground_truth, extra_info)
+
         # Cosine length-scaling reward (replaces base_reward when enabled)
         if COSINE_REWARD_ENABLED:
             base_reward = cosine_length_reward(is_correct, len(solution_str))
@@ -565,6 +670,12 @@ def compute_score(
         # overlap score (0.0-0.5) instead of the cosine wrong-answer schedule,
         # which produces persistent negative signal on ~27% of data and makes
         # the model overly cautious / non-answering.
+        # Composite applies to the open-ended branch on the same terms as the
+        # MCQA one: it replaces the base credit (here the token-F1 overlap) and
+        # leaves acc / acc_partial, the penalty and the degenerate filter alone.
+        if COMPOSITE_REWARD_ENABLED:
+            base_reward = _composite_base_reward(solution_str, ground_truth, extra_info)
+
         if COSINE_REWARD_ENABLED:
             if is_correct:
                 # Good answer → reward with length efficiency bonus
