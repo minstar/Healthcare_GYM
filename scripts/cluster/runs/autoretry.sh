@@ -41,8 +41,36 @@ fi
 # DRY_RUN and exits in seconds without touching a GPU, so ask it once, here.
 #
 # PREFLIGHT=0 skips this, for a template whose dry run needs something absent.
+#
+# EXTRA is applied to the preflight too. sbatch passes it to the job, so a
+# preflight that omitted it would resolve a DIFFERENT configuration than the one
+# about to be submitted -- and for any arm whose identity comes from EXTRA, the
+# preflight would fail on a variable the real job would have had.
+#
+# Note the shape of --export: it is a COMMA-separated list, so a value that
+# itself contains a comma cannot be carried in EXTRA at all -- sbatch would read
+# the tail of it as another variable name. Such values must be exported in the
+# calling shell instead, where --export=ALL carries them through verbatim, and
+# the preflight below inherits them for the same reason. The check is here
+# rather than in a comment only because the failure is otherwise silent: the
+# job starts, with a truncated value.
+if [ -n "$EXTRA" ]; then
+    for _kv in ${EXTRA//,/ }; do
+        case "$_kv" in
+            *=*) ;;
+            *) echo "[autoretry] EXTRA entry '${_kv}' is not K=V." >&2
+               echo "[autoretry] A value containing a comma cannot be passed here;" >&2
+               echo "[autoretry] export it in the calling shell instead (--export=ALL carries it)." >&2
+               exit 2 ;;
+        esac
+    done
+fi
+
 if [ "${PREFLIGHT:-1}" = "1" ]; then
-    if ! _pf=$(DRY_RUN=1 BACKBONE="$BACKBONE" ARM="$ARM" EXP="$EXP" timeout 90 bash "$SCRIPT" 2>&1); then
+    if ! _pf=$(
+            for _kv in ${EXTRA//,/ }; do export "${_kv?}"; done
+            DRY_RUN=1 BACKBONE="$BACKBONE" ARM="$ARM" EXP="$EXP" timeout 90 bash "$SCRIPT" 2>&1
+        ); then
         echo "[autoretry] preflight FAILED — $(basename "$SCRIPT") cannot run ARM=${ARM}." >&2
         echo "$_pf" | grep -E "^\[fatal\]|^\[warn\]" | head -5 >&2
         echo "[autoretry] refusing to submit; nothing has been queued." >&2
