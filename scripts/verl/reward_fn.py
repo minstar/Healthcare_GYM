@@ -225,14 +225,33 @@ def _composite_base_reward(solution_str: str, ground_truth: str, extra_info: dic
     """The composite total, for use in place of base_reward.
 
     Scored once over the whole trajectory, which is the only thing verl hands
-    the reward function.  `expected_actions` and `nl_assertions` are absent from
-    the training parquet -- its extra_info carries only correct_answer, domain,
-    has_options, index, options, raw_answer, split, task_id -- so those inputs
-    are empty here.  That is the real condition inside training, not a
-    simplification, and it is why the assertion dimension sits at its neutral
-    value and the tool half of the process dimension has nothing to compare
-    against.  Both facts are measured in
+    the reward function.  `expected_actions` and `nl_assertions` are empty here
+    because the training parquet has no such columns -- its extra_info carries
+    only correct_answer, domain, has_options, index, options, raw_answer, split,
+    task_id.  That is the real condition inside training, and it is why the
+    assertion dimension sits at its neutral value and the tool half of the
+    process dimension has nothing to compare against; both are measured in
     scripts/rebuttal/decompose_reward_signal.py.
+
+    The underlying data is NOT missing, though, and the distinction matters to
+    anyone deciding whether to wire it up.  `evaluation_criteria` in the source
+    task pool carries `actions` on 2,467 train tasks and `nl_assertions` or
+    `assertions` on 2,003; convert_tasks_to_parquet simply does not forward them.
+    Neither is forwarded here, and each was left out for its own measured reason:
+
+      * expected_actions would make the process dimension WORSE. verl returns
+        only the final string, so tool_call_log is necessarily empty, and
+        process_reward_tool_usage([], []) is 0.5 while
+        process_reward_tool_usage([], non_empty) is 0.0. Forwarding it converts
+        a constant 0.5 into a constant 0.0: still zero variance, so still no
+        gradient, but now with a -0.25*w_process offset on every rollout.
+      * nl_assertions does carry real variance -- on real assertions scored
+        against real stored rollouts, 82% are non-zero across 19 distinct values.
+        It is left out because the assertions are templated and the template
+        states the answer ("The agent selected option D as the correct answer"),
+        so optimising it would teach the model to reproduce the assertion's
+        phrasing rather than to be correct. That is a reward-hacking channel, not
+        a clinical signal.
     """
     from bioagents.evaluation.rewards import compute_composite_reward
 
