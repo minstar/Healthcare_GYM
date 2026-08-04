@@ -851,6 +851,40 @@ def _safe(v) -> float:
     return f if f == f else -1e9
 
 
+def _rollout_filename(record: dict) -> str:
+    """One rollout's filename, safe to use no matter what the task id contains.
+
+    Six of the 4,777 task ids in the pool carry a path separator
+    (``tri_bal_overdose/ingestion_1_092``), so interpolating the id straight into
+    a filename produced a path into a directory that was never created:
+
+        FileNotFoundError: .../rollouts/task_tri_bal_overdose/ingestion_1_092__k0.json
+
+    Generation dies at the write, after every rollout has already been sampled,
+    and the retry loop then re-runs the whole iteration into the same wall. It
+    cost this arm 45 of its 60 attempts.
+
+    Substituting the separator alone would be a worse bug than the crash. A file
+    whose write fails is loud; two tasks silently sharing a filename is not, and
+    ``a/b`` and ``a_b`` both map to ``a_b`` under naive replacement, so one
+    rollout would quietly overwrite the other. Any id that had to be rewritten
+    therefore also carries a hash of the ORIGINAL, which distinct ids cannot
+    share. Ids that are already safe keep their exact historical filename, so
+    nothing on disk is renamed.
+    """
+    import hashlib
+    import re
+
+    task_id = str(record["task_id"])
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", task_id).strip("._")
+    # Leave room for the "task_" prefix, "__k<idx>" suffix and ".json" inside the
+    # 255-byte filename limit.
+    if not safe or safe != task_id or len(safe) > 120:
+        digest = hashlib.sha1(task_id.encode("utf-8")).hexdigest()[:8]
+        safe = f"{(safe or 'task')[:120]}-{digest}"
+    return f"task_{safe}__k{record['star']['sample_idx']}.json"
+
+
 def write_outputs(records: list[dict], selected: list[dict], stats: dict,
                   out_dir: Path, cfg: GenConfig) -> dict:
     """Write the trajectory dir, the SFT jsonl, the score log and the stats."""
@@ -879,7 +913,7 @@ def write_outputs(records: list[dict], selected: list[dict], stats: dict,
         for r in records:
             body = {k: v for k, v in r.items() if k != "_sft_messages"}
             body["_sft_messages"] = r.get("_sft_messages", [])
-            (raw_dir / f"task_{r['task_id']}__k{r['star']['sample_idx']}.json").write_text(
+            (raw_dir / _rollout_filename(r)).write_text(
                 json.dumps(body, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
         paths["rollouts"] = str(raw_dir)
 
@@ -889,7 +923,7 @@ def write_outputs(records: list[dict], selected: list[dict], stats: dict,
         traj_dir.mkdir(parents=True, exist_ok=True)
         for r in selected:
             body = {k: v for k, v in r.items() if k != "_sft_messages"}
-            (traj_dir / f"task_{r['task_id']}__k{r['star']['sample_idx']}.json").write_text(
+            (traj_dir / _rollout_filename(r)).write_text(
                 json.dumps(body, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
         paths["trajectory_dir"] = str(traj_dir)
 
