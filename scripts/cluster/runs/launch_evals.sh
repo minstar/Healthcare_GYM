@@ -109,6 +109,11 @@ BEST=(
   "q4b_grpo_s1370|${RUN_ROOT}/checkpoints/q4b_grpo/global_step_1370"
   "q4b_grpo_golddrop_s480|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_480"
   "q4b_grpo_golddrop_s524|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_524"
+  # The composite-reward arm, finished 2026-08-08. Its two highest raw scores are
+  # steps 390 and 420 (0.2729), and the gate rejects both -- degeneracy 0.20 and
+  # 0.25. 330 gives up 0.11 pp for a tenfold cleaner output rate (0.02).
+  "q4b_compacc_s330|${RUN_ROOT}/checkpoints/q4b_compacc/global_step_330"
+  "q4b_compacc_s484|${RUN_ROOT}/checkpoints/q4b_compacc/global_step_484"
   # Controls. q9b_grpo_cosine is the ONLY correct control for a TT-OPD arm --
   # ARM=ttopd turns on cosine_reward AND distillation, so differencing it against
   # plain grpo attributes the cosine reward to distillation.
