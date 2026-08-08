@@ -149,6 +149,44 @@ SLURM_JOB_ID=1001 prune_stale_scratch "$ROOT"
 check "exit status on empty root"     0 "$?"
 
 echo
+echo "12. the function must not abort a caller running under 'set -e'"
+# Scenarios 1-11 call prune_stale_scratch from THIS script, which sets
+# `set -uo pipefail` -- no -e. Every real caller (train_hcgym.slurm and friends)
+# sets `set -euo pipefail`, and that difference is not cosmetic: under -e a bare
+# `x=$(pipeline)` whose pipeline exits non-zero terminates the script AT THAT
+# LINE, so the two guards immediately below each assignment -- the ones that
+# exist to handle precisely that failure -- were unreachable.
+#
+# What that cost: `squeue` answering with an empty list is normal on a login node.
+# It killed common_env.sh mid-source, so train_hcgym.slurm's DRY_RUN produced zero
+# bytes and exited 1; autoretry.sh read that as "this arm cannot run", printed
+# `preflight FAILED`, and refused to submit. Every arm in the campaign silently
+# became unresubmittable, with no error naming the real cause.
+#
+# So this scenario runs the function under the CALLER's flags, in a subshell, and
+# only checks that control reaches the line after the call.
+# $1 = what squeue prints, $2 = what squeue exits with. The stub runs in a child
+# process, so the two values go in as a prefix assignment on `bash` itself, which
+# bash exports for the duration of that command.
+CHILD="$ROOT/under_set_e.sh"
+cat > "$CHILD" <<'CHILD_EOF'
+set -euo pipefail
+squeue() { printf '%s' "$FAKE_OUT"; return "$FAKE_RC"; }
+eval "$(sed -n '/^prune_stale_scratch() {/,/^}/p' "$1")"
+prune_stale_scratch "$2"
+echo SURVIVED
+CHILD_EOF
+run_under_set_e() {
+    FAKE_OUT="$1" FAKE_RC="$2" bash "$CHILD" \
+        "$SELF_DIR/../runs/common_env.sh" "$ROOT" 2>/dev/null
+}
+mkdir -p "$ROOT/hcgym_1001"
+check "survives an EMPTY squeue answer"      SURVIVED "$(run_under_set_e ''            0)"
+check "survives a squeue that FAILED"        SURVIVED "$(run_under_set_e ''            1)"
+check "survives a squeue with no numeric id" SURVIVED "$(run_under_set_e 'CLUSTER_DOWN' 0)"
+check "still works on a normal answer"       SURVIVED "$(run_under_set_e '1001'        0)"
+
+echo
 echo "================================================"
 if [ "$FAIL" -eq 0 ]; then
     echo "ALL $PASS CHECKS PASSED"

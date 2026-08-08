@@ -53,11 +53,19 @@ prune_stale_scratch() {
     # deleted underneath it. ray spills into TMPDIR, so that corrupts live runs and
     # looks like a random cluster fault. launch_evals.sh already fails closed on
     # this exact question; the pruner has more to lose and must too.
-    raw=$(squeue -u "$USER" -h -o '%i' 2>/dev/null)
-    rc=$?
+    # Both guards below are written `cmd || fallback` rather than as a bare
+    # assignment. The callers run under `set -euo pipefail`, and a bare
+    # `x=$(failing-pipeline)` aborts the whole script at that line -- so the two
+    # checks that exist to handle exactly that failure would never be reached.
+    # That is not hypothetical: it silently killed every autoretry preflight the
+    # moment `squeue` answered with an empty list, which made the harness refuse
+    # to resubmit any arm at all, with no error printed anywhere.
+    raw=$(squeue -u "$USER" -h -o '%i' 2>/dev/null) && rc=0 || rc=$?
     [ "$rc" -eq 0 ] || return 0
 
-    live=$(printf '%s\n' "$raw" | tr '_' '\n' | grep -x '[0-9]\+' | sort -u)
+    # `grep` exits 1 when nothing matches, and under `pipefail` that is the
+    # pipeline's status, so this one needs the `|| true` for the empty-list case.
+    live=$(printf '%s\n' "$raw" | tr '_' '\n' | grep -x '[0-9]\+' | sort -u) || true
     # An empty list means squeue answered but listed nothing, which cannot be true
     # from inside a running job -- this job is always in its own output. Treat it
     # as no information rather than as "nothing is running".
