@@ -436,7 +436,21 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
             turns.append(turn)
 
             if tool_name == "submit_answer":
-                submitted_answer = tool_call.get("arguments", {}).get("answer", "")
+                # str(), because the model writes this field and nothing upstream
+                # constrains its JSON type. `submit_answer({"answer": 2})` parses
+                # to an int, and every consumer downstream assumes text:
+                # _check_answer does submitted.strip(), _compute_rouge_l does
+                # .lower(). The AttributeError is caught by the per-task handler,
+                # which records the task as incorrect with turns=0 -- so a model
+                # that answered gets scored wrong, silently, and the zero lands in
+                # both the accuracy numerator and avg_turns.
+                #
+                # It does not cancel between conditions: on the same 1061-item
+                # slake set base_strong_tool hit it 15 times and base_react never,
+                # which is up to ~1.4 pp of arm-specific loss. Coerce here, at the
+                # single point where the model's answer enters, rather than at
+                # each consumer.
+                submitted_answer = str(tool_call.get("arguments", {}).get("answer", ""))
                 break
 
             if terminated or truncated:

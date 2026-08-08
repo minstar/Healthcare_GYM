@@ -191,14 +191,23 @@ for entry in "${CONDITIONS[@]}"; do
     # 27B needs tensor parallelism; everything else fits on one card. The count
     # goes on the command line AND in EVAL_GPUS because Slurm does not expand
     # variables inside #SBATCH directives.
+    #
+    # Host RAM is sized for the FSDP merge, not for serving. verl's merger loads
+    # all 7 shards concurrently and then builds bf16 copies before freeing the
+    # fp32 list, so a 27B step needs roughly 102 GiB (fp32 shards) + 51 GiB
+    # (bf16) resident at once -- about 153 GiB against the script's 200 GiB
+    # default. That is arithmetic from the shard sizes, not a measurement, and
+    # the merge has never actually been run in this tree, so give 27B headroom
+    # rather than discover the OOM after a multi-hour load.
     case "$tag" in
-        q27b_*) gpus=4 ;;
-        *)      gpus=1 ;;
+        q27b_*) gpus=4; mem=360G ;;
+        *)      gpus=1; mem=200G ;;
     esac
 
-    echo "[submit] ${tag}  model=${model}  gpus=${gpus}  prompt_mode=${mode}"
+    echo "[submit] ${tag}  model=${model}  gpus=${gpus}  mem=${mem}  prompt_mode=${mode}"
     sbatch -J "hcgym-eval-${tag}" \
            --gres="gpu:${gpus}" \
+           --mem="${mem}" \
            --export="ALL,EVAL_GPUS=${gpus},MODEL=${model},TAG=${tag},BENCH=${BENCH},MAX_TURNS=${MAX_TURNS},PROMPT_MODE=${mode},REFLEXION=${reflex}" \
            "$SCRIPT"
     submitted=$((submitted + 1))
