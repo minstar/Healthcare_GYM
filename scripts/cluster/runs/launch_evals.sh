@@ -13,6 +13,8 @@
 #   ./launch_evals.sh base            # the untrained Base+AR reference
 #   PLAN=1 ./launch_evals.sh          # print, submit nothing
 #   BENCH="medqa" ./launch_evals.sh   # narrow the benchmark list (smoke)
+#   SUITE=best ./launch_evals.sh      # the SELECTED step per arm, not the latest
+#                                     # one — see the BEST array below for the rule
 #
 # Base (text) is NOT here: it is a single-turn log-probability condition and runs
 # through scripts/eval_benchmark_logprob.py, not the AgentRunner.
@@ -79,6 +81,52 @@ CONDITIONS=(
   "glm9b_grpo|${RUN_ROOT}/checkpoints/glm9b_grpo"
   "glm9b_ttopd|${RUN_ROOT}/checkpoints/glm9b_ttopd"
 )
+
+# ── SUITE=best: evaluate a SELECTED step, not the latest one ──────────────────
+#
+# The entries above name a run root, so resolve_ckpt.sh serves whatever step that
+# run reached last. For a run still training that is what you want. For a number
+# in the table it is not: the step is chosen from the measured validation curve,
+# and the two are far apart -- q9b_grpo peaks at 670 and trains on to 1452,
+# q4b_ttopd peaks at 90 and is BELOW its own step-0 by 980.
+#
+# Selection rule, applied to the val curve reconstructed from every wandb run
+# (val_files is the same 850-row file for all four-modality arms, so the arms are
+# comparable; q9btxt_* validate on the 788-row text-only file and are not):
+#   * peak val-core acc, but only where it sits on a plateau rather than a spike,
+#   * degenerate/mean@1 <= 0.10 -- q9b_grpo hits 0.2847 at steps 670/680/1270/1370
+#     with degeneracy 0.07/0.17/0.30/0.31, and only 670 is a usable model,
+#   * plus each arm's FINAL step, because the gap between peak and final is the
+#     evidence for whether the arm was still improving or already degrading.
+# Read every number against the ceiling: 355/850 = 0.4176 (textonly 293/788 =
+# 0.3718), and against a 2.71pp re-validation spread measured on the base model.
+BEST=(
+  # arm_step                    | path                                                        | mode
+  "q27b_grpo_s180|${RUN_ROOT}/checkpoints/q27b_grpo/global_step_180"
+  "q27b_grpo_s380|${RUN_ROOT}/checkpoints/q27b_grpo/global_step_380"
+  "q9btxt_grpo_s340|${RUN_ROOT}/checkpoints/q9btxt_grpo/global_step_340"
+  "q9b_grpo_s670|${RUN_ROOT}/checkpoints/q9b_grpo/global_step_670"
+  "q4b_grpo_s1370|${RUN_ROOT}/checkpoints/q4b_grpo/global_step_1370"
+  "q4b_grpo_golddrop_s480|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_480"
+  "q4b_grpo_golddrop_s524|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_524"
+  # Controls. q9b_grpo_cosine is the ONLY correct control for a TT-OPD arm --
+  # ARM=ttopd turns on cosine_reward AND distillation, so differencing it against
+  # plain grpo attributes the cosine reward to distillation.
+  "q9b_grpo_cosine_s40|${RUN_ROOT}/checkpoints/q9b_grpo_cosine/global_step_40"
+  "q4b_ttopd_s90|${RUN_ROOT}/checkpoints/q4b_ttopd/global_step_90"
+  "q4b_ttopd_s980|${RUN_ROOT}/checkpoints/q4b_ttopd/global_step_980"
+  "q9btxt_ttopd_s50|${RUN_ROOT}/checkpoints/q9btxt_ttopd/global_step_50"
+  "q9btxt_ttopd_s660|${RUN_ROOT}/checkpoints/q9btxt_ttopd/global_step_660"
+  "q9b_ttopd_s730|${RUN_ROOT}/checkpoints/q9b_ttopd/global_step_730"
+)
+
+SUITE="${SUITE:-latest}"
+case "$SUITE" in
+    latest) ;;
+    best)   CONDITIONS=("${BEST[@]}") ;;
+    *)      echo "[fatal] SUITE must be 'latest' (run roots) or 'best' (selected steps), got '${SUITE}'" >&2
+            exit 1 ;;
+esac
 
 WANT="${1:-all}"
 

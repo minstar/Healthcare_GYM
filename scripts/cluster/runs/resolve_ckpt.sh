@@ -30,17 +30,35 @@ has_weights() {
 
 [ -d "$CKPT_ROOT" ] || { log "no such directory: ${CKPT_ROOT}"; exit 1; }
 
-# Newest global_step_* first, so a preempted run evaluates its latest complete step.
-mapfile -t STEPS < <(find "$CKPT_ROOT" -maxdepth 1 -type d -name 'global_step_*' \
-                     | sed 's/.*global_step_//' | sort -rn | head -20)
-if [ "${#STEPS[@]}" -eq 0 ]; then
+# A specific step may be named directly:
+#
+#   ./resolve_ckpt.sh checkpoints/q9b_grpo                   # latest step
+#   ./resolve_ckpt.sh checkpoints/q9b_grpo/global_step_670   # exactly this one
+#
+# The two are not interchangeable. "Latest" is the right default for a preempted
+# run that is still training, but a checkpoint chosen for evaluation is chosen by
+# a measured validation curve, not by recency -- q9b_grpo peaks at 670 and trains
+# on to 1452. So when a step is named it is the ONLY candidate: falling back to a
+# neighbour would publish a number under the wrong step's label, which is worse
+# than failing.
+SINGLE=0
+if [[ "$(basename "$CKPT_ROOT")" == global_step_* ]]; then
+    STEP_DIRS=("$CKPT_ROOT")
+    SINGLE=1
+else
+    # Newest first, so a preempted run evaluates its latest complete step.
+    mapfile -t STEP_DIRS < <(find "$CKPT_ROOT" -maxdepth 1 -type d -name 'global_step_*' \
+                             | sed 's/.*global_step_//' | sort -rn | head -20 \
+                             | sed "s|^|${CKPT_ROOT}/global_step_|")
+fi
+if [ "${#STEP_DIRS[@]}" -eq 0 ]; then
     if has_weights "$CKPT_ROOT"; then echo "$CKPT_ROOT"; exit 0; fi
     log "no global_step_* under ${CKPT_ROOT} and no weights at its root"
     exit 1
 fi
 
-for step in "${STEPS[@]}"; do
-    STEP_DIR="${CKPT_ROOT}/global_step_${step}"
+for STEP_DIR in "${STEP_DIRS[@]}"; do
+    step="${STEP_DIR##*/global_step_}"
     ACTOR="${STEP_DIR}/actor"
     [ -d "$ACTOR" ] || ACTOR="$STEP_DIR"
 
@@ -50,6 +68,10 @@ for step in "${STEPS[@]}"; do
 
     SHARDS=$(ls "${ACTOR}"/model_world_size_*_rank_*.pt 2>/dev/null | wc -l)
     if [ "$SHARDS" -eq 0 ]; then
+        if [ "$SINGLE" = "1" ]; then
+            log "step ${step} was named explicitly but has no shards and no merged weights"
+            exit 1
+        fi
         log "step ${step}: no shards and no merged weights, skipping"
         continue
     fi
@@ -71,7 +93,12 @@ for step in "${STEPS[@]}"; do
         log "step ${step}: merge failed"
     fi
     # Fall through and try an older step rather than giving up: a step can be
-    # half-written when preemption lands mid-save.
+    # half-written when preemption lands mid-save. Not when the caller named the
+    # step -- see SINGLE above.
+    if [ "$SINGLE" = "1" ]; then
+        log "step ${step} was named explicitly; not substituting another step"
+        exit 1
+    fi
 done
 
 log "no loadable checkpoint under ${CKPT_ROOT}"
