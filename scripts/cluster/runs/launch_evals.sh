@@ -204,11 +204,28 @@ for entry in "${CONDITIONS[@]}"; do
         *)      gpus=1; mem=200G ;;
     esac
 
+    # The backbone this arm was trained from, used ONLY as a dtype reference for
+    # the FSDP merge. FSDP holds master weights in fp32, so the shards say nothing
+    # about which tensors the architecture wants left in fp32 -- for Qwen3.5 that
+    # is linear_attn.A_log and linear_attn.norm.weight, and getting it wrong kills
+    # sglang in the Mamba conv kernel after the model is already loaded.
+    case "$tag" in
+        q4b_*)   dtype_ref="/data/project/public/checkpoints/Qwen3.5-4B" ;;
+        q9b_*|q9btxt_*) dtype_ref="${RUN_ROOT}/models/Qwen3.5-9B" ;;
+        q27b_*)  dtype_ref="/data/project/public/checkpoints/Qwen3.5-27B" ;;
+        glm9b_*) dtype_ref="${RUN_ROOT}/models/GLM-4-9B-0414" ;;
+        *)       dtype_ref="" ;;
+    esac
+    if [ -n "$dtype_ref" ] && ! ls "${dtype_ref}"/*.safetensors >/dev/null 2>&1; then
+        echo "[skip] ${tag} — dtype reference ${dtype_ref} has no safetensors; a merge here would repeat the bf16 bug"
+        continue
+    fi
+
     echo "[submit] ${tag}  model=${model}  gpus=${gpus}  mem=${mem}  prompt_mode=${mode}"
     sbatch -J "hcgym-eval-${tag}" \
            --gres="gpu:${gpus}" \
            --mem="${mem}" \
-           --export="ALL,EVAL_GPUS=${gpus},MODEL=${model},TAG=${tag},BENCH=${BENCH},MAX_TURNS=${MAX_TURNS},PROMPT_MODE=${mode},REFLEXION=${reflex}" \
+           --export="ALL,EVAL_GPUS=${gpus},MODEL=${model},TAG=${tag},BENCH=${BENCH},MAX_TURNS=${MAX_TURNS},PROMPT_MODE=${mode},REFLEXION=${reflex},DTYPE_REFERENCE=${dtype_ref}" \
            "$SCRIPT"
     submitted=$((submitted + 1))
     sleep 2

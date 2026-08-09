@@ -28,6 +28,44 @@ has_weights() {
     return 1
 }
 
+# Does a merged directory carry the dtypes the architecture needs?
+#
+# verl's FSDP merger used to cast every tensor to bf16. FSDP keeps master weights
+# in fp32, so the shards look uniform and carry no record of what the model
+# wanted -- and Qwen3.5 wants `linear_attn.A_log` and `linear_attn.norm.weight`
+# in fp32, because sglang sizes the Mamba conv-state cache from them. A bf16
+# merge loads, then dies in the kernel with
+#   Expected conv_states_.scalar_type() == input_type to be true, but got false
+# after the model is already on the GPU. That is a slow, expensive way to find out.
+#
+# So compare against the reference before serving. No DTYPE_REFERENCE means no
+# opinion: accept whatever is there, as before.
+dtypes_ok() {
+    local merged="$1" ref="${DTYPE_REFERENCE:-}"
+    [ -n "$ref" ] || return 0
+    "$PY" - "$merged" "$ref" <<'EOF' 2>/dev/null
+import sys, glob
+from safetensors import safe_open
+
+def dtypes(d):
+    out = {}
+    for f in sorted(glob.glob(d + "/*.safetensors")):
+        with safe_open(f, framework="pt") as g:
+            for k in g.keys():
+                out[k] = g.get_slice(k).get_dtype()
+    return out
+
+merged, ref = dtypes(sys.argv[1]), dtypes(sys.argv[2])
+if not merged or not ref:
+    sys.exit(0)                     # nothing to compare; do not block
+bad = [k for k, v in ref.items() if k in merged and merged[k] != v]
+if bad:
+    print(f"{len(bad)} tensor(s) differ from the reference, e.g. "
+          f"{bad[0]}: {merged[bad[0]]} vs {ref[bad[0]]}", file=sys.stderr)
+    sys.exit(1)
+EOF
+}
+
 [ -d "$CKPT_ROOT" ] || { log "no such directory: ${CKPT_ROOT}"; exit 1; }
 
 # A specific step may be named directly:
@@ -64,7 +102,24 @@ for STEP_DIR in "${STEP_DIRS[@]}"; do
 
     # Already merged by a previous call?
     if has_weights "${ACTOR}/huggingface"; then echo "${ACTOR}/huggingface"; exit 0; fi
-    if has_weights "${ACTOR}/merged"; then echo "${ACTOR}/merged"; exit 0; fi
+    if has_weights "${ACTOR}/merged"; then
+        if dtypes_ok "${ACTOR}/merged"; then
+            echo "${ACTOR}/merged"; exit 0
+        fi
+        # --check is called from the login node by launch_evals.sh's submission
+        # guard, and it promises to report without changing anything. Say the
+        # merge is needed; let the compute node do the moving.
+        if [ "$MODE" = "--check" ]; then
+            log "step ${step}: merged/ has the wrong dtypes for this architecture and will be rebuilt in the job"
+            exit 2
+        fi
+        # Renamed, not removed: it is hours of compute, it is the only evidence of
+        # what the old merger produced, and re-merging needs only the shards, which
+        # are untouched. Whoever wants the space back can take it deliberately.
+        STALE="${ACTOR}/merged.stale-$(date +%Y%m%d_%H%M%S)"
+        log "step ${step}: merged/ has the wrong dtypes for this architecture; moving it to $(basename "$STALE") and re-merging"
+        mv "${ACTOR}/merged" "$STALE" || { log "step ${step}: could not move the stale merge aside"; exit 1; }
+    fi
 
     SHARDS=$(ls "${ACTOR}"/model_world_size_*_rank_*.pt 2>/dev/null | wc -l)
     if [ "$SHARDS" -eq 0 ]; then
