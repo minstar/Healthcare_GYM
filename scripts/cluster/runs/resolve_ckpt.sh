@@ -42,22 +42,65 @@ has_weights() {
 # opinion: accept whatever is there, as before.
 dtypes_ok() {
     local merged="$1" ref="${DTYPE_REFERENCE:-}"
-    [ -n "$ref" ] || return 0
-    "$PY" - "$merged" "$ref" <<'EOF' 2>/dev/null
-import sys, glob
+    # The config check needs no reference; the tensor check does.
+    # stdout is this script's return channel -- it carries the resolved path and
+    # nothing else. The probe's diagnostics go to stderr; its own stdout is
+    # discarded so a stray print can never be mistaken for a model directory.
+    "$PY" - "$merged" "$ref" >/dev/null <<'EOF'
+import sys, glob, json, collections, os
 from safetensors import safe_open
 
+NAME = {"BF16": "bfloat16", "F32": "float32", "F16": "float16", "F64": "float64"}
+
 def dtypes(d):
+    """Header-only dtype map. An unreadable file yields no opinion.
+
+    A truncated or corrupt safetensors is a different problem than a wrong
+    dtype, and re-merging on top of it would hide it. Returning {} lets the
+    caller fall through to the loader, which reports it properly.
+    """
     out = {}
     for f in sorted(glob.glob(d + "/*.safetensors")):
-        with safe_open(f, framework="pt") as g:
-            for k in g.keys():
-                out[k] = g.get_slice(k).get_dtype()
+        try:
+            with safe_open(f, framework="pt") as g:
+                for k in g.keys():
+                    out[k] = g.get_slice(k).get_dtype()
+        except Exception:  # noqa: BLE001
+            return {}
     return out
 
-merged, ref = dtypes(sys.argv[1]), dtypes(sys.argv[2])
-if not merged or not ref:
-    sys.exit(0)                     # nothing to compare; do not block
+merged_dir, ref_dir = sys.argv[1], sys.argv[2]
+merged = dtypes(merged_dir)
+if not merged:
+    sys.exit(0)                     # nothing to inspect; do not block
+
+# 1. config.json must DECLARE the dtype the weights actually are. sglang sizes
+#    the Qwen3.5 Mamba conv-state cache from the declared value, so a config
+#    saying float32 over bf16 weights loads onto the GPU and then aborts in
+#    causal_conv1d_fwd. The declaration is what broke fifteen jobs, and only the
+#    tensors were being checked here, which is why it got through twice.
+declared_wrong = []
+cfg_path = os.path.join(merged_dir, "config.json")
+if os.path.exists(cfg_path):
+    cfg = json.load(open(cfg_path))
+    dominant = NAME.get(collections.Counter(merged.values()).most_common(1)[0][0])
+    for scope in ("", "text_config", "vision_config"):
+        node = cfg.get(scope) if scope else cfg
+        if not isinstance(node, dict):
+            continue
+        got = node.get("dtype", node.get("torch_dtype"))
+        if got is not None and dominant is not None and got != dominant:
+            declared_wrong.append(f"{scope or '<root>'}.dtype={got} but the weights are {dominant}")
+if declared_wrong:
+    print("config.json misdeclares dtype: " + "; ".join(declared_wrong), file=sys.stderr)
+    sys.exit(1)
+
+# 2. individual tensors must match the reference, where one is given.
+if not ref_dir:
+    sys.exit(0)
+ref = dtypes(ref_dir)
+if not ref:
+    sys.exit(0)
 bad = [k for k, v in ref.items() if k in merged and merged[k] != v]
 if bad:
     print(f"{len(bad)} tensor(s) differ from the reference, e.g. "

@@ -134,6 +134,55 @@ check "exit 1"                               1   "$RC"
 check "says which path"                      yes "$(grep -q 'no such directory' <<< "$ERR" && echo yes || echo no)"
 
 echo
+echo "9. a merged dir whose config MISDECLARES its dtype is rebuilt, not served"
+# The failure this scenario exists for: verl's merger writes bf16 weights but
+# records dtype float32 in config.json (transformers 5 renamed from_config's
+# `torch_dtype` argument, so the bf16 request is dropped). sglang sizes the
+# Qwen3.5 Mamba conv-state cache from the DECLARED dtype, loads the model onto
+# the GPU, and only then aborts in causal_conv1d_fwd. Fifteen jobs died that way,
+# and an earlier version of this check looked only at the tensors, so it passed
+# the broken directory through a second time.
+#
+# Real safetensors here, not the empty placeholder the scenarios above use --
+# the check reads headers, and a header it cannot parse is deliberately treated
+# as "no opinion" rather than "wrong".
+PY_BIN="$SELF_DIR/../.venv/bin/python"
+make_real_merged() {   # $1 = step dir, $2 = dtype to DECLARE in config.json
+    local d="$1/actor/merged"
+    mkdir -p "$d"
+    "$PY_BIN" - "$d" "$2" <<'PY' 2>/dev/null
+import json, sys, torch
+from safetensors.torch import save_file
+d, declared = sys.argv[1], sys.argv[2]
+save_file({"w": torch.zeros(4, dtype=torch.bfloat16)}, f"{d}/model.safetensors")
+json.dump({"architectures": ["Qwen3_5ForConditionalGeneration"],
+           "dtype": declared, "text_config": {"dtype": declared}},
+          open(f"{d}/config.json", "w"))
+PY
+}
+
+if [ ! -x "$PY_BIN" ]; then
+    echo "  SKIP — no venv python at $PY_BIN"
+elif ! "$PY_BIN" -c "import safetensors, torch" 2>/dev/null; then
+    echo "  SKIP — safetensors/torch unavailable in the venv"
+else
+    RUN_E="$ROOT/run_e"
+    make_sharded "$RUN_E/global_step_50"          # shards, so a rebuild is possible
+    make_real_merged "$RUN_E/global_step_50" float32
+    run "$RUN_E/global_step_50" --check
+    check "misdeclared dtype is not served"     2   "$RC"
+    check "stdout empty (no path handed back)"  yes "$([ -z "$OUT" ] && echo yes || echo no)"
+    check "the message says what is wrong"      yes "$(grep -q 'misdeclares dtype' <<< "$ERR" && echo yes || echo no)"
+    check "--check left the directory alone"    yes "$([ -d "$RUN_E/global_step_50/actor/merged" ] && echo yes || echo no)"
+
+    # ...and the same directory with a truthful config is served immediately.
+    make_real_merged "$RUN_E/global_step_50" bfloat16
+    run "$RUN_E/global_step_50" --check
+    check "truthful dtype is served"            0      "$RC"
+    check "and it returns the merged dir"       merged "$(basename "$OUT")"
+fi
+
+echo
 echo "================================================"
 if [ "$FAIL" -eq 0 ]; then
     echo "ALL $PASS CHECKS PASSED"
