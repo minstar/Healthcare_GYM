@@ -107,6 +107,14 @@ BEST=(
   "q9btxt_grpo_s340|${RUN_ROOT}/checkpoints/q9btxt_grpo/global_step_340"
   "q9b_grpo_s670|${RUN_ROOT}/checkpoints/q9b_grpo/global_step_670"
   "q4b_grpo_s1370|${RUN_ROOT}/checkpoints/q4b_grpo/global_step_1370"
+  # Step-matched controls for the gold-drop claim. golddrop is 524 steps over
+  # 1,834 gold-complete rows; q4b_grpo is 1,452 steps over all 3,390. Comparing
+  # their best checkpoints confounds "dropped the ungradeable rows" with "trained
+  # a different number of steps on a different LR schedule", so q4b_grpo is also
+  # evaluated at 480 and 520 -- 480 is an exact step match for golddrop's own
+  # peak, and 520 is the closest step to its final 524.
+  "q4b_grpo_s480|${RUN_ROOT}/checkpoints/q4b_grpo/global_step_480"
+  "q4b_grpo_s520|${RUN_ROOT}/checkpoints/q4b_grpo/global_step_520"
   "q4b_grpo_golddrop_s480|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_480"
   "q4b_grpo_golddrop_s524|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_524"
   # The composite-reward arm, finished 2026-08-08. Its two highest raw scores are
@@ -199,8 +207,15 @@ for entry in "${CONDITIONS[@]}"; do
     # default. That is arithmetic from the shard sizes, not a measurement, and
     # the merge has never actually been run in this tree, so give 27B headroom
     # rather than discover the OOM after a multi-hour load.
+    # 27B runs TP=1 like everything else. It was on TP=4 for capacity, and that
+    # silently produced whitespace: probe job 65960 served the same weights three
+    # ways and got '\n\n' at tp=4 but real text at tp=1 -- and the UNTRAINED
+    # Qwen3.5-27B release gave '\n\n' at tp=4 too, so this is the serving path in
+    # this sglang build, not the checkpoint. It cost two eval jobs that returned
+    # 0.0000 on all six benchmarks and looked like a broken merge.
+    # 27B in bf16 is ~54 GB against a 180 GB card, so one GPU is enough.
     case "$tag" in
-        q27b_*) gpus=4; mem=360G ;;
+        q27b_*) gpus=1; mem=360G ;;
         *)      gpus=1; mem=200G ;;
     esac
 
