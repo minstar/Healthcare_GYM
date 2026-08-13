@@ -115,6 +115,15 @@ BEST=(
   # peak, and 520 is the closest step to its final 524.
   "q4b_grpo_s480|${RUN_ROOT}/checkpoints/q4b_grpo/global_step_480"
   "q4b_grpo_s520|${RUN_ROOT}/checkpoints/q4b_grpo/global_step_520"
+  # The control that decides what the gold-drop result means. Same 1,834 rows,
+  # same 70.6% multiple-choice profile and the same 1,294 MCQA rows as golddrop;
+  # the 540 open-ended rows carry NO ground truth instead of gold. Same 524
+  # steps, 2 epochs, backbone and test.parquet. Evaluated at golddrop's own two
+  # steps so the reading is a straight substitution:
+  #   near golddrop (0.7785 / 0.7800) -> the recovery was an answer-format effect
+  #   near the full split (0.65-0.71) -> gradeability is the cause
+  "q4b_grpo_fmtmatch_s480|${RUN_ROOT}/checkpoints/q4b_grpo_fmtmatch/global_step_480"
+  "q4b_grpo_fmtmatch_s524|${RUN_ROOT}/checkpoints/q4b_grpo_fmtmatch/global_step_524"
   "q4b_grpo_golddrop_s480|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_480"
   "q4b_grpo_golddrop_s524|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_524"
   # The composite-reward arm, finished 2026-08-08. Its two highest raw scores are
