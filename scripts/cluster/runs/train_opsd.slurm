@@ -120,6 +120,17 @@ DISTILL_ARGS=(
     distillation.teacher_model.inference.enforce_eager=True
     distillation.teacher_model.inference.free_cache_engine=True
     +distillation.teacher_model.inference.engine_kwargs.sglang.attention_backend=triton
+    # The standalone-HTTP-server path hardcodes mm_attention_backend="fa3"
+    # (async_sglang_server.py:299), fatal on Blackwell for any VLM backbone.
+    # OPSD attempts 64749/64812 died at 3m40s in TEACHER vision-tower init with
+    # "The 'fa3' backend is not supported on Blackwell GPUs"; with only the
+    # teacher overridden, 67607 then died the same way in the seven STUDENT
+    # rollout servers -- with distillation enabled the student rollout ALSO
+    # goes through launch_servers, not the embedded-engine path the plain GRPO
+    # arms use. So the override is needed on BOTH sides (student side is added
+    # to the main args below). engine_kwargs is spread AFTER the hardcoded
+    # dict, so these win.
+    +distillation.teacher_model.inference.engine_kwargs.sglang.mm_attention_backend=triton_attn
     distillation.distillation_loss.loss_mode=opsd
     # OPSD backpropagates the divergence directly as a supervised loss (their
     # generalized_jsd_loss path), not through a policy gradient, and its
@@ -195,6 +206,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.n="${ROLLOUT_N}" \
     +actor_rollout_ref.rollout.engine_kwargs.sglang.attention_backend=triton \
+    +actor_rollout_ref.rollout.engine_kwargs.sglang.mm_attention_backend=triton_attn \
     actor_rollout_ref.rollout.agent.default_agent_loop=tool_agent \
     actor_rollout_ref.rollout.agent.num_workers="${TRAIN_BATCH}" \
     actor_rollout_ref.rollout.multi_turn.enable=True \
