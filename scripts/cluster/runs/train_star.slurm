@@ -215,6 +215,14 @@ STAR_ARGS=(
 if [ -n "${ACCEPT_THRESHOLD}" ]; then
     STAR_ARGS+=(--accept-threshold "${ACCEPT_THRESHOLD}")
 fi
+# Extra star_iterate.py flags without editing this file — e.g. the smoke gate
+# (STAR_EXTRA_ARGS="--limit 200") that reads iteration-0 acceptance before a
+# full run is committed, or --allow-uninformative for a deliberate override.
+# Word-split on purpose; these are operator-supplied CLI flags.
+if [ -n "${STAR_EXTRA_ARGS:-}" ]; then
+    # shellcheck disable=SC2206
+    STAR_ARGS+=(${STAR_EXTRA_ARGS})
+fi
 
 if [ "$DRY_RUN" = "1" ]; then
     echo "DRYRUN arm=${ARM}"
