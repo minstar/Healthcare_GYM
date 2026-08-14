@@ -118,7 +118,7 @@ DISTILL_ARGS=(
     distillation.teacher_model.inference.tensor_model_parallel_size=1
     distillation.teacher_model.inference.gpu_memory_utilization=0.5
     distillation.teacher_model.inference.enforce_eager=True
-    distillation.teacher_model.inference.free_cache_engine=True
+    distillation.teacher_model.inference.free_cache_engine=False
     +distillation.teacher_model.inference.engine_kwargs.sglang.attention_backend=triton
     # The standalone-HTTP-server path hardcodes mm_attention_backend="fa3"
     # (async_sglang_server.py:299), fatal on Blackwell for any VLM backbone.
@@ -201,7 +201,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=True \
     actor_rollout_ref.rollout.name=sglang \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.3 \
-    actor_rollout_ref.rollout.free_cache_engine=True \
+    actor_rollout_ref.rollout.free_cache_engine=False \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.n="${ROLLOUT_N}" \
