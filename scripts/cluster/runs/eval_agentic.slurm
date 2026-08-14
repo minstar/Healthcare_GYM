@@ -63,6 +63,11 @@ BENCH="${BENCH:-medqa mmlu medmcqa}"
 MAX_TURNS="${MAX_TURNS:-5}"
 MAX_SAMPLES="${MAX_SAMPLES:-0}"
 TEMPERATURE="${TEMPERATURE:-0.1}"
+# Per-task raw turn dumps (<bench>_transcripts.jsonl). Default ON: rows keep
+# only the extracted `submitted` string, so without the dump the no-answer
+# class of a run can never be re-scored post-hoc -- the 2026-08 campaign had
+# to re-run every affected arm for exactly that reason. ~15MB per arm x bench.
+DUMP_TRANSCRIPTS="${DUMP_TRANSCRIPTS:-1}"
 # Eval-only prompting baselines: default | strong_tool | react.
 # "default" is the Base+AR condition and its prompt is byte-identical to HEAD, so
 # adding modes here cannot move the reference row.
@@ -299,6 +304,7 @@ python scripts/eval_benchmark_multiturn.py \
     --prompt-mode "$PROMPT_MODE" \
     --resume-from "$RESUME_FROM" \
     --vqa-scorer "$VQA_SCORER" \
+    $([ "$DUMP_TRANSCRIPTS" = "1" ] && echo --dump-transcripts) \
     --output-dir "$OUT"
 
 echo "[done] eval ${TAG} $(date '+%F %T')"
