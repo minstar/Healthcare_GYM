@@ -177,11 +177,23 @@ def load_textqa_benchmark(name: str) -> list[dict]:
                 question = instances.get("input", "")
                 answer = instances.get("output", "").strip()
 
-            # Extract options from question text
+            # Extract options from question text.
+            #
+            # The self-biorag export ends every MMLU question with a dangling
+            # "\nOption: " sentinel (1,089/1,089 rows). The lookahead below
+            # stops at "Option [A-E]:" or end-of-string, NEITHER of which
+            # matches the bare sentinel, so it was absorbed into the LAST
+            # option's text -- and any gold equal to that option could never
+            # match a letter again: 352/1,089 golds were unmappable for every
+            # arm, depressing MMLU accuracy 18-30pp arm-dependently.
+            # Strip it for OPTION PARSING ONLY: the prompt (`ticket`) keeps the
+            # original text, so pre-fix and post-fix runs stay prompt-identical
+            # and stored runs can be rescored without re-inference.
+            opt_src = re.sub(r"Option\s*:\s*$", "", question.rstrip())
             options = {}
             for letter in "ABCDE":
                 pat = rf"Option {letter}:\s*(.+?)(?=Option [A-E]:|$)"
-                m = re.search(pat, question, re.DOTALL)
+                m = re.search(pat, opt_src, re.DOTALL)
                 if m:
                     options[letter] = m.group(1).strip()
 
