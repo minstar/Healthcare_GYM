@@ -463,6 +463,24 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
                 # single point where the model's answer enters, rather than at
                 # each consumer.
                 submitted_answer = str(tool_call.get("arguments", {}).get("answer", ""))
+                if not submitted_answer.strip():
+                    # A submit_answer whose <parameter=answer> block never
+                    # closes (missing </parameter>) parses to arguments={}:
+                    # the model DID answer and the letter was silently dropped,
+                    # then the fallback recorded the raw XML as the answer and
+                    # scored it wrong. 197 such rows in the stored campaign,
+                    # 165 of them correct once recovered -- and every one on a
+                    # single arm's side of a comparison, so it does not cancel.
+                    # Recover from the raw turn here, at the same single entry
+                    # point the str() coercion above guards. The caller records
+                    # answer_source="submit_answer_recovered" for these rows,
+                    # so the strict convention (malformed call = failure)
+                    # remains reportable from the same artifact.
+                    m = re.search(
+                        r"<parameter=answer>\s*(.*?)\s*(?:</parameter>|</function>|</tool_call>|\Z)",
+                        raw_output, re.DOTALL)
+                    if m and m.group(1).strip():
+                        submitted_answer = m.group(1).strip()
                 break
 
             if terminated or truncated:
