@@ -126,6 +126,14 @@ BEST=(
   "q4b_grpo_fmtmatch_s524|${RUN_ROOT}/checkpoints/q4b_grpo_fmtmatch/global_step_524"
   "q4b_grpo_golddrop_s480|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_480"
   "q4b_grpo_golddrop_s524|${RUN_ROOT}/checkpoints/q4b_grpo_golddrop/global_step_524"
+  # The same contrast on a second backbone, which is the single largest gap in
+  # the 4B result. q9b_grpo already has checkpoints at 480 and 520, so the
+  # gold-drop arm was trained for the same 524 steps on the same gold-complete
+  # split and reads against a step-matched control without any new baseline.
+  "q9b_grpo_golddrop_s480|${RUN_ROOT}/checkpoints/q9b_grpo_golddrop/global_step_480"
+  "q9b_grpo_golddrop_s524|${RUN_ROOT}/checkpoints/q9b_grpo_golddrop/global_step_524"
+  "q9b_grpo_s480|${RUN_ROOT}/checkpoints/q9b_grpo/global_step_480"
+  "q9b_grpo_s520|${RUN_ROOT}/checkpoints/q9b_grpo/global_step_520"
   # The composite-reward arm, finished 2026-08-08. Its two highest raw scores are
   # steps 390 and 420 (0.2729), and the gate rejects both -- degeneracy 0.20 and
   # 0.25. 330 gives up 0.11 pp for a tenfold cleaner output rate (0.02).

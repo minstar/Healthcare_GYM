@@ -185,7 +185,22 @@ for STEP_DIR in "${STEP_DIRS[@]}"; do
             --local_dir "$ACTOR" \
             --target_dir "${ACTOR}/merged" \
             --trust-remote-code >&2; then
-        if has_weights "${ACTOR}/merged"; then echo "${ACTOR}/merged"; exit 0; fi
+        if has_weights "${ACTOR}/merged"; then
+            # Hold a FRESH merge to the same standard as an existing one. Accepting
+            # it on has_weights alone made the gate unsatisfiable: a merger that
+            # cannot produce a passing config renames merged/ aside, re-merges for
+            # hours, accepts the byte-identical result, and the next job repeats it.
+            # That loop left 94 merged.stale-* directories and 2.2 TB on disk, and
+            # re-merged q27b_grpo/global_step_380 sixteen times. Failing loudly here
+            # costs one merge; passing costs every future job.
+            if dtypes_ok "${ACTOR}/merged"; then
+                echo "${ACTOR}/merged"; exit 0
+            fi
+            log "step ${step}: the FRESH merge still fails the dtype check — the merger"
+            log "  cannot produce a servable checkpoint here, so re-merging will not help."
+            log "  Fix verl/model_merger before retrying; nothing further is renamed."
+            exit 1
+        fi
         log "step ${step}: merge reported success but wrote no weights"
     else
         log "step ${step}: merge failed"

@@ -112,8 +112,21 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         sleep "$POLL"; continue
     fi
 
-    LATEST=$(ls -t "${LOGDIR}"/slurm_hcgym-${EXP}_*.log 2>/dev/null | head -1)
-    if [ -n "${LATEST:-}" ] && grep -q "^\[done\] ${EXP}" "$LATEST"; then
+    # Both of these are anchored on purpose. Arm names are prefixes of each other
+    # -- q9b_grpo of q9b_grpo_golddrop and q9b_grpo_cosine, q4b_grpo of
+    # q4b_grpo_fmtmatch, q9b_ttopd of q9b_ttopd_hints -- so `slurm_hcgym-q9b_grpo_*`
+    # matched a golddrop log, and `^\[done\] q9b_grpo` matched `[done]
+    # q9b_grpo_golddrop`. A sibling arm finishing therefore wrote this arm's
+    # `.done` marker, and line 95 then short-circuits every later invocation: the
+    # arm silently stops being retried on a REQUEUE partition, with a message
+    # claiming it finished.
+    #
+    # The filename filter requires the job id to follow EXP directly, and the
+    # sentinel match requires the trailing space that `[done] <exp> <timestamp>`
+    # always has.
+    LATEST=$(ls -t "${LOGDIR}"/slurm_hcgym-${EXP}_*.log 2>/dev/null \
+             | grep -E "/slurm_hcgym-${EXP}_[0-9]+\.log$" | head -1) || true
+    if [ -n "${LATEST:-}" ] && grep -q "^\[done\] ${EXP} " "$LATEST"; then
         touch "${STATE}.done"
         echo "[autoretry] ${EXP} finished — sentinel found in $(basename "$LATEST")"
         exit 0
