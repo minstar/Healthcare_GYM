@@ -63,13 +63,17 @@ def refuses(label, fn, must_mention):
     FAIL += 1
 
 
-def rows(n, start=0, benchmark="vqa_rad", correct_every=2):
+def rows(n, start=0, benchmark="vqa_rad", correct_every=2, answer_source="submit_answer"):
     return [
         {
             "task_id": f"{benchmark}_{i}",
             "gold": "yes",
             "submitted": "yes",
             "correct": (i % correct_every == 0),
+            # sentinel-v2 rows carry provenance; answer_source=None builds a
+            # pre-fix row for the guard test below.
+            **({"answer_source": answer_source, "capped": False}
+               if answer_source is not None else {}),
             "turns": 3,
             "latency": 1.0,
             "react_rate": 0.0,
@@ -203,6 +207,25 @@ def main():
     write_partial(textq, "medqa", rows(50, benchmark="medqa"))
     loaded = M._load_resume_partial("medqa", textq, 50, tasks(50, benchmark="medqa"), "cf_em")
     check("medqa resumes under any scorer", 50, len(loaded))
+
+    print("\n7. pre-sentinel text partials are not resumable; VQA ones are exempt")
+    oldx = tmp / "old_extraction"
+    oldx.mkdir()
+    # Text rows WITHOUT answer_source = written by the pre-2026-08-14 code that
+    # mined trailing tool-call XML as the answer. Resuming would mix two
+    # extraction rules inside one accuracy.
+    write_partial(oldx, "medqa", rows(50, benchmark="medqa", answer_source=None))
+    refuses("pre-sentinel medqa partial refused",
+            lambda: M._load_resume_partial("medqa", oldx, 50,
+                                           tasks(50, benchmark="medqa"), "cf_em"),
+            "sentinel")
+    # VQA rows are exempt: their capped episodes structurally end in a parsed
+    # submit_answer, so the old fallback never produced an artifact on them.
+    write_partial(oldx, "vqa_rad", rows(50, benchmark="vqa_rad", answer_source=None),
+                  rule="cf_em")
+    loaded = M._load_resume_partial("vqa_rad", oldx, 50,
+                                    tasks(50, benchmark="vqa_rad"), "cf_em")
+    check("pre-sentinel vqa_rad partial still resumes", 50, len(loaded))
 
     print("\n" + "=" * 74)
     if FAIL == 0:

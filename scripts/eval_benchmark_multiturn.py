@@ -339,9 +339,13 @@ def _load_vqa_from_datasets(name: str, data_dir: Path) -> list[dict]:
 def _run_single_task_multiturn(runner, task, env, max_turns):
     """Run a single task with multi-turn loop + forced submit on last turn.
 
-    Unlike AgentRunner.run_task(), this injects a nudge message on the
-    penultimate turn telling the model it MUST submit now, preventing
-    the model from exhausting all turns on search/think without submitting.
+    Unlike AgentRunner.run_task(), this injects a nudge message before the
+    LAST turn (turn_idx == max_turns-1) telling the model it MUST submit now.
+    Note the timing: the model gets exactly one generation after the nudge and
+    no turn in which to act if it ignores it, so at max_turns=5 the whole
+    commitment decision rides on a single generation at a hard cap. This is
+    arm-symmetric but makes the no_answer_rate metric maximally sensitive;
+    do not compare arms across different max_turns settings.
     """
     from bioagents.evaluation.agent_runner import (
         TurnRecord, TaskResult, build_system_prompt,
@@ -541,6 +545,7 @@ def run_benchmark_multiturn(
     resume_from: int = 0,
     vqa_scorer: str = "cf_em",
     prior_results: list[dict] | None = None,
+    dump_transcripts: bool = False,
 ):
     """Run a benchmark through multi-turn AgentRunner loop.
 
@@ -633,9 +638,44 @@ def run_benchmark_multiturn(
             adherence = summarize_format_adherence(turns)
             adherence_per_task.append(adherence)
 
-            # If no submit_answer was called, extract from last turn output
-            if not submitted and turns:
+            if dump_transcripts:
+                # raw_output lives only in the in-memory TurnRecord; without
+                # this dump an unanswered episode can never be re-scored after
+                # the fact -- the entire no-answer class of the 2026-08-14
+                # campaign had to be re-run for exactly that reason. Appended
+                # per task so a preempted job keeps what it paid for.
+                with open(output_dir / f"{benchmark_name}_transcripts.jsonl",
+                          "a", encoding="utf-8") as tf:
+                    tf.write(json.dumps({
+                        "task_id": task["id"],
+                        "turns": [{
+                            "turn_idx": t.turn_idx,
+                            "raw_output": t.raw_output,
+                            "tool": (t.parsed_tool_call or {}).get("name")
+                                    if t.parsed_tool_call else None,
+                            "is_final_answer": bool(getattr(t, "is_final_answer", False)),
+                        } for t in turns],
+                    }, ensure_ascii=False) + "\n")
+
+            # Where did the answer come from? Recorded per row so the strict
+            # convention (recovered/malformed = failure) and cap-exhaustion
+            # rates stay reportable from the artifact itself.
+            capped = len(turns) >= max_turns
+            answer_source = "none"
+            if submitted:
+                last_tc = turns[-1].parsed_tool_call if turns else None
+                if last_tc and last_tc.get("name") == "submit_answer" and \
+                        not str(last_tc.get("arguments", {}).get("answer", "")).strip():
+                    answer_source = "submit_answer_recovered"
+                else:
+                    answer_source = "submit_answer"
+            elif turns and getattr(turns[-1], "is_final_answer", False):
+                # Only salvage a plain-text final message. A budget exhausted
+                # on a non-submit tool call stays "" (no-answer sentinel) --
+                # the old behavior mined the trailing tool-call XML instead,
+                # which scored wrong automatically at an arm-dependent rate.
                 submitted = _extract_answer_fallback(turns[-1].raw_output)
+                answer_source = "final_text" if submitted else "none"
 
             gold = task["correct_answer"].strip()
             options = task.get("options", {})
@@ -692,6 +732,8 @@ def run_benchmark_multiturn(
                 "gold": gold,
                 "submitted": submitted,
                 "correct": is_correct,
+                "answer_source": answer_source,
+                "capped": capped,
                 "turns": len(turns),
                 "latency": latency,
                 "react_rate": round(adherence["react_rate"], 4),
@@ -759,6 +801,8 @@ def run_benchmark_multiturn(
                 "gold": task["correct_answer"],
                 "submitted": "",
                 "correct": False,
+                "answer_source": "error",
+                "capped": False,
                 "turns": 0,
                 "error": str(e),
                 "react_rate": 0.0,
@@ -819,6 +863,25 @@ def run_benchmark_multiturn(
         "avg_turns": sum(r.get("turns", 0) for r in results) / max(len(results), 1),
         "avg_reward": sum(r.get("reward", 0) for r in results) / max(len(results), 1),
         "avg_latency": sum(r.get("latency", 0) for r in results) / max(len(results), 1),
+        # Cap exhaustion and answer provenance as first-class metrics. The turn
+        # budget binds on 87-100% of items depending on benchmark, so an arm's
+        # score is inseparable from whether it commits an answer at the cap;
+        # comparisons are only clean when the two arms' no_answer_rate differ
+        # by <2pp (stat-gate reports CONFOUNDED otherwise). "extraction" tags
+        # which rule produced `submitted`; pre-tag files mined the trailing
+        # tool call on unanswered episodes and cannot be mixed with these.
+        "max_turns": max_turns,
+        "n_capped": sum(1 for r in results if r.get("capped")),
+        "n_no_answer": sum(1 for r in results
+                           if r.get("answer_source") in ("none", "error")),
+        "n_final_text": sum(1 for r in results
+                            if r.get("answer_source") == "final_text"),
+        "n_recovered": sum(1 for r in results
+                           if r.get("answer_source") == "submit_answer_recovered"),
+        "no_answer_rate": (sum(1 for r in results
+                               if r.get("answer_source") in ("none", "error"))
+                           / max(total, 1)),
+        "extraction": "sentinel-v2/2026-08-14",
         "total_time_seconds": elapsed,
         "timestamp": datetime.now().isoformat(),
         "results": results,
@@ -858,14 +921,26 @@ def run_benchmark_multiturn(
         summary["metric"] = (
             f"{scoring_rule} (see scripts/vqa_scoring.py)")
 
+    # Route the benchmark's primary metric explicitly. Consumers read
+    # summary["accuracy"] uniformly across benchmark types even where
+    # summary["metric"] says otherwise; primary_metric/primary_value give them
+    # a single field that is right for every type. "accuracy" itself is left
+    # untouched (for LFQA it is the rouge_l>=0.3 binary, as before).
     if is_ehr:
         summary["avg_action_score"] = action_score_sum / max(total, 1)
         summary["metric"] = "action_score (expected tool call coverage)"
+        summary["primary_metric"] = "avg_action_score"
+        summary["primary_value"] = summary["avg_action_score"]
     elif is_lfqa:
         summary["avg_rouge_l"] = rouge_l_sum / max(total, 1)
         summary["avg_hallucination"] = hall_sum / max(total, 1)
         summary["avg_comprehensiveness"] = comp_sum / max(total, 1)
         summary["metric"] = "rouge_l + hallucination + comprehensiveness"
+        summary["primary_metric"] = "avg_rouge_l"
+        summary["primary_value"] = summary["avg_rouge_l"]
+    else:
+        summary["primary_metric"] = "accuracy"
+        summary["primary_value"] = accuracy
 
     # Save final results
     out_path = output_dir / f"{benchmark_name}_multiturn_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -1026,6 +1101,14 @@ def _extract_answer_fallback(text: str) -> str:
     if m:
         return m.group(1).upper()
 
+    # Malformed tool-call XML that failed to parse reaches this function with
+    # the XML in hand. Mining its first 100 characters used to record the tool
+    # call ITSELF as the answer -- silently wrong on every affected row, at an
+    # arm-DEPENDENT rate (5-56% by arm/benchmark), which turned arm-vs-arm
+    # deltas into partial format-compliance contests. An episode that never
+    # produced an answer must stay visibly unanswered: return the "" sentinel.
+    if "<tool_call>" in text or "<function=" in text:
+        return ""
     return text[:100].strip()
 
 
@@ -1072,6 +1155,22 @@ def _load_resume_partial(benchmark_name, output_dir, resume_from, skipped_tasks,
             f"or a different benchmark file; it cannot be merged."
         )
 
+    # Pre-sentinel partials mined the trailing tool-call XML as the answer on
+    # unanswered episodes; rows produced under that rule cannot share an
+    # accuracy with sentinel-v2 rows -- the same one-number-two-measurements
+    # failure the vqa_scoring guard below already refuses. VQA rows are exempt:
+    # their capped episodes structurally end in a parsed submit_answer, so the
+    # fallback never fired on them (0 artifacts across all 190 stored files).
+    if prior and benchmark_name not in vqa_scoring.VQA_BENCHMARKS \
+            and any("answer_source" not in row for row in prior):
+        raise SystemExit(
+            f"[fatal] {path} was written before the sentinel-v2 extraction fix "
+            f"(rows carry no 'answer_source'). Mixing extraction rules inside one "
+            f"accuracy is not resumable; restart the benchmark, or finish it under "
+            f"the old code and rescore the artifact with "
+            f"scripts/rebuttal/rescore_extraction.py."
+        )
+
     # Old partials carry no vqa_scoring block, which is itself the tell that they
     # are substring-scored. Finishing one under cf_em would mix two rules in a
     # single accuracy; finish it under --vqa-scorer substring and rescore the
@@ -1097,6 +1196,9 @@ def _save_partial(benchmark_name, results, correct, total, output_dir,
         "accuracy": correct / max(total, 1),
         "correct": correct,
         "total": total,
+        # The resume guard keys on rows' answer_source; the tag here makes the
+        # partial's extraction rule readable without inspecting rows.
+        "extraction": "sentinel-v2/2026-08-14",
         "results": results,
     }
     if scoring_rule is not None:
@@ -1159,6 +1261,12 @@ def main():
                              "Never affects text QA, long-form QA, EHR, or the "
                              "open-vocabulary VQA sets. "
                              "See scripts/vqa_scoring.py for the rule and its limits.")
+    parser.add_argument("--dump-transcripts", action="store_true",
+                        help="Append every task's full turn-by-turn raw output to "
+                             "<benchmark>_transcripts.jsonl in the output dir. "
+                             "Without it, episodes that end without an answer "
+                             "cannot be re-scored post-hoc (only the extracted "
+                             "'submitted' string is stored in results).")
     parser.add_argument("--backend", default="transformers",
                         choices=["transformers", "vllm", "sglang"],
                         help="Inference backend (default: transformers)")
@@ -1250,6 +1358,7 @@ def main():
             resume_from=0,  # Already applied above
             vqa_scorer=args.vqa_scorer,
             prior_results=prior_results,
+            dump_transcripts=args.dump_transcripts,
         )
         all_summaries[bench_name] = {
             "accuracy": summary["accuracy"],
