@@ -7,7 +7,7 @@
 #SBATCH --exclusive
 #SBATCH --mem=0
 #SBATCH --cpus-per-task=64
-#SBATCH --time=4:00:00
+#SBATCH --time=24:00:00
 #SBATCH --output=/data/project/private/minstar/workspace/hcgym_rebuttal/logs/slurm_%x_%j.log
 # pt2_preemptible preempts with PreemptMode=REQUEUE and GraceTime=0, so a preempted
 # job restarts under the SAME job id and reopens this same file. Slurm's default open
