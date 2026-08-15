@@ -682,6 +682,10 @@ def run_benchmark_multiturn(
                             "tool": (t.parsed_tool_call or {}).get("name")
                                     if t.parsed_tool_call else None,
                             "is_final_answer": bool(getattr(t, "is_final_answer", False)),
+                            # A rejected/truncated tool call the loop retried
+                            # rather than accepting as an answer — without this
+                            # the transcript cannot distinguish that turn kind.
+                            "parse_error": bool(getattr(t, "parse_error", False)),
                         } for t in turns],
                     }, ensure_ascii=False) + "\n")
 
@@ -918,7 +922,7 @@ def run_benchmark_multiturn(
         "no_answer_rate": (sum(1 for r in results
                                if r.get("answer_source") in ("none", "error"))
                            / max(total, 1)),
-        "extraction": "sentinel-v2/2026-08-14",
+        "extraction": "sentinel-v3/2026-08-15",
         "total_time_seconds": elapsed,
         "timestamp": datetime.now().isoformat(),
         "results": results,
@@ -1259,7 +1263,7 @@ def _save_partial(benchmark_name, results, correct, total, output_dir,
         "total": total,
         # The resume guard keys on rows' answer_source; the tag here makes the
         # partial's extraction rule readable without inspecting rows.
-        "extraction": "sentinel-v2/2026-08-14",
+        "extraction": "sentinel-v3/2026-08-15",
         "results": results,
     }
     if scoring_rule is not None:
