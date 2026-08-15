@@ -629,9 +629,15 @@ def run_benchmark_multiturn(
     results = list(prior_results or [])
     correct = sum(1 for r in results if r.get("correct"))
     total = len(results)
-    rouge_l_sum = sum(r.get("rouge_l", 0.0) for r in results)
-    hall_sum = sum(r.get("hallucination", 0.0) for r in results)
-    comp_sum = sum(r.get("comprehensiveness", 0.0) for r in results)
+    rouge_l_sum = sum(r.get("rouge_l") or 0.0 for r in results)
+    # hallucination/comprehensiveness are None on unanswered rows -- they
+    # aggregate over ANSWERED rows only, so counts travel with the sums.
+    hall_sum = sum(r["hallucination"] for r in results
+                   if r.get("hallucination") is not None)
+    hall_n = sum(1 for r in results if r.get("hallucination") is not None)
+    comp_sum = sum(r["comprehensiveness"] for r in results
+                   if r.get("comprehensiveness") is not None)
+    comp_n = sum(1 for r in results if r.get("comprehensiveness") is not None)
     action_score_sum = sum(r.get("action_score", 0.0) for r in results)
     adherence_per_task.extend(
         r["format_adherence"] for r in results if isinstance(r.get("format_adherence"), dict)
@@ -728,8 +734,12 @@ def run_benchmark_multiturn(
                 nice_to_have = task.get("nice_to_have", [])
                 hall = _compute_hallucination(submitted, must_have, nice_to_have)
                 comp = _compute_comprehensiveness(submitted, must_have)
-                hall_sum += hall
-                comp_sum += comp
+                if hall is not None:
+                    hall_sum += hall
+                    hall_n += 1
+                if comp is not None:
+                    comp_sum += comp
+                    comp_n += 1
             elif cf_vocab is not None:
                 # Closed-vocabulary VQA: score the ANSWER, not the transcript.
                 # Both rules are computed on every row so the rebuttal table
@@ -768,8 +778,10 @@ def run_benchmark_multiturn(
                 result_entry["tools_called"] = called_names
             elif is_lfqa:
                 result_entry["rouge_l"] = round(rouge_l, 4)
-                result_entry["hallucination"] = round(hall, 2)
-                result_entry["comprehensiveness"] = round(comp, 2)
+                result_entry["hallucination"] = (None if hall is None
+                                                 else round(hall, 2))
+                result_entry["comprehensiveness"] = (None if comp is None
+                                                     else round(comp, 2))
             elif cf_vocab is not None:
                 # A VQA number that does not say how it was scored is worthless.
                 result_entry["scored_by"] = vqa_scoring.CF_EM_VERSION
@@ -795,8 +807,8 @@ def run_benchmark_multiturn(
                     )
                 elif is_lfqa:
                     avg_rl = rouge_l_sum / total
-                    avg_h = hall_sum / total
-                    avg_c = comp_sum / total
+                    avg_h = (hall_sum / hall_n) if hall_n else float("nan")
+                    avg_c = (comp_sum / comp_n) if comp_n else float("nan")
                     logger.info(
                         f"  [{benchmark_name}] {total}/{len(tasks)} "
                         f"rouge_l={avg_rl:.3f} hall={avg_h:.1f}% comp={avg_c:.1f}% "
@@ -836,10 +848,13 @@ def run_benchmark_multiturn(
                 result_entry["actions_hit"] = 0
                 result_entry["tools_called"] = []
             elif is_lfqa:
+                # An errored task produced no answer: rouge stays 0.0 (it
+                # feeds `accuracy`, whose unanswered-scores-wrong semantics
+                # are unchanged), but the answered-only quality metrics are
+                # None -- an error must not count as 100% hallucination.
                 result_entry["rouge_l"] = 0.0
-                result_entry["hallucination"] = 100.0
-                result_entry["comprehensiveness"] = 0.0
-                hall_sum += 100.0
+                result_entry["hallucination"] = None
+                result_entry["comprehensiveness"] = None
             elif cf_vocab is not None:
                 # An errored task is wrong under BOTH rules, and must still say
                 # which rule produced the number it contributes to.
@@ -955,8 +970,15 @@ def run_benchmark_multiturn(
         summary["primary_value"] = summary["avg_action_score"]
     elif is_lfqa:
         summary["avg_rouge_l"] = rouge_l_sum / max(total, 1)
-        summary["avg_hallucination"] = hall_sum / max(total, 1)
-        summary["avg_comprehensiveness"] = comp_sum / max(total, 1)
+        # Answered-only denominators. The old total denominator made the
+        # metric `100 x abstention + (1-abstention) x true hallucination`,
+        # i.e. mostly a re-encoding of abstention with the sign inverted.
+        # Abstention is not erased -- it lives in no_answer_rate, one key up.
+        # An arm with zero answered rows reports None, not a number.
+        summary["avg_hallucination"] = (hall_sum / hall_n) if hall_n else None
+        summary["avg_comprehensiveness"] = (comp_sum / comp_n) if comp_n else None
+        summary["hallucination_answered_n"] = hall_n
+        summary["comprehensiveness_answered_n"] = comp_n
         summary["metric"] = "rouge_l + hallucination + comprehensiveness"
         summary["primary_metric"] = "avg_rouge_l"
         summary["primary_value"] = summary["avg_rouge_l"]
@@ -989,10 +1011,14 @@ def run_benchmark_multiturn(
             f"{'='*60}"
         )
     elif is_lfqa:
+        _h = summary["avg_hallucination"]
+        _c = summary["avg_comprehensiveness"]
         logger.info(
             f"\n{'='*60}\n"
             f"  {benchmark_name}: rouge_l={summary['avg_rouge_l']:.3f} "
-            f"hall={summary['avg_hallucination']:.1f}% comp={summary['avg_comprehensiveness']:.1f}%\n"
+            f"hall={'n/a' if _h is None else f'{_h:.1f}%'}"
+            f" comp={'n/a' if _c is None else f'{_c:.1f}%'}"
+            f" (answered n={summary['hallucination_answered_n']})\n"
             f"  (correct@0.3={correct}/{total}, acc={accuracy:.3f})\n"
             f"  avg_turns={summary['avg_turns']:.1f}  avg_reward={summary['avg_reward']:.3f}\n"
             f"{fa_line}"
@@ -1089,19 +1115,32 @@ def _nli_cosine(text_a: str, text_b: str) -> float:
     return torch.nn.functional.cosine_similarity(pooled[0:1], pooled[1:2]).item()
 
 
-def _compute_hallucination(submitted: str, must_have: list, nice_to_have: list) -> float:
-    """Hallucination rate: % of statements with cosine < 0.5."""
+def _compute_hallucination(submitted: str, must_have: list, nice_to_have: list):
+    """Hallucination rate: % of statements with cosine < 0.5.
+
+    None (not 100.0) when there is nothing to score -- no submission, or no
+    reference statements. Scoring an EMPTY submission as 100% hallucination
+    re-encoded abstention as hallucination with the sign inverted: across 113
+    stored LFQA files, corr(no_answer_rate, avg_hallucination) = 0.82 and the
+    metric ranked arms backwards (an arm that answered nothing reported 100.00).
+    Unanswered belongs in no_answer_rate, which is reported alongside.
+    """
     all_stmts = must_have + nice_to_have
-    if not all_stmts or not submitted:
-        return 100.0
+    if not all_stmts or not submitted or not submitted.strip():
+        return None
     hall = sum(1 for s in all_stmts if _nli_cosine(submitted, s) < 0.5)
     return hall / len(all_stmts) * 100
 
 
-def _compute_comprehensiveness(submitted: str, must_have: list) -> float:
-    """Comprehensiveness: % of must-have statements with cosine >= 0.5."""
-    if not must_have or not submitted:
-        return 0.0
+def _compute_comprehensiveness(submitted: str, must_have: list):
+    """Comprehensiveness: % of must-have statements with cosine >= 0.5.
+
+    None when there is nothing to score (same convention and reason as
+    _compute_hallucination: it shares the total denominator and conflated
+    abstention with low coverage).
+    """
+    if not must_have or not submitted or not submitted.strip():
+        return None
     comp = sum(1 for s in must_have if _nli_cosine(submitted, s) >= 0.5)
     return comp / len(must_have) * 100
 

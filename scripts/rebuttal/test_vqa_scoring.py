@@ -269,16 +269,24 @@ def main():
         "mmlu": "evaluations/self-biorag/data/benchmark/mmlu_test.jsonl",
     }
 
-    def mc_options(bench):
+    def mc_options(bench, era):
         """Rebuild the per-row `options` dict exactly as load_textqa_benchmark
-        does -- `_check_answer` needs it to map a submitted letter onto a text
-        gold, so a replay without it is not a faithful replay."""
+        did FOR THAT FILE'S ERA -- `_check_answer` needs it to map a submitted
+        letter onto a text gold, so a replay without it is not a faithful
+        replay. Two eras exist on disk: pre-sentinel-v2 partials were scored
+        with the option parser that absorbed the export's trailing
+        '\\nOption: ' into the last option (the S1 defect); sentinel-v2 files
+        (tagged via their 'extraction' key) were scored with the sentinel
+        stripped. Replaying either era under the other rule flags exactly the
+        S1-affected rows as mismatches, which is history, not a regression."""
         out = []
         with open(PROJECT_ROOT / MC_FILES[bench]) as f:
             for line in f:
                 if not line.strip():
                     continue
                 q = json.loads(line).get("instances", {}).get("input", "")
+                if era == "sentinel-v2":
+                    q = re.sub(r"Option\s*:\s*$", "", q.rstrip())
                 o = {}
                 for letter in "ABCDE":
                     m = re.search(rf"Option {letter}:\s*(.+?)(?=Option [A-E]:|$)",
@@ -293,21 +301,27 @@ def main():
     for bench in ("medqa", "mmlu", "kqa_golden", "medication_qa"):
         tot = bad = 0
         arms_seen = 0
-        if bench in MC_FILES and bench not in opts_cache:
-            opts_cache[bench] = mc_options(bench)
         for arm_dir in sorted(ROLLOUTS.iterdir()):
             p = arm_dir / f"{bench}_partial.json"
             if not (arm_dir.is_dir() and p.exists()):
                 continue
             arms_seen += 1
-            for r in json.load(open(p)).get("results", []):
+            doc = json.load(open(p))
+            # Era selection: sentinel-v2 partials carry an 'extraction' tag
+            # (and their rows carry answer_source); untagged files are
+            # pre-fix. Each era replays under its own option-parsing rule.
+            era = ("sentinel-v2" if str(doc.get("extraction", "")).startswith("sentinel")
+                   else "pre-fix")
+            if bench in MC_FILES and (bench, era) not in opts_cache:
+                opts_cache[(bench, era)] = mc_options(bench, era)
+            for r in doc.get("results", []):
                 if "correct" not in r:
                     continue
                 tot += 1
                 if bench in MC_FILES:
                     i = vqa_scoring.task_row_index(r["task_id"], bench)
-                    o = opts_cache[bench][i] if i is not None and i < len(
-                        opts_cache[bench]) else {}
+                    cache = opts_cache[(bench, era)]
+                    o = cache[i] if i is not None and i < len(cache) else {}
                     if check_answer_substring(r.get("submitted", ""),
                                               r["gold"], o) != r["correct"]:
                         bad += 1
