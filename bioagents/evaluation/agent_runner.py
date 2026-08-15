@@ -185,6 +185,12 @@ class TurnRecord:
     parsed_tool_call: Optional[dict] = None
     tool_response: Optional[str] = None
     is_final_answer: bool = False
+    # The turn contained tool-call XML that the parser REJECTED (typically a
+    # call truncated at the token cap, missing its </function></tool_call>
+    # terminator). Such a turn is neither an executed call nor a final answer;
+    # recording it as the latter ended episodes with the model's thinking
+    # scored as its submission, at arm-dependent rates (10x between arms).
+    parse_error: bool = False
     latency_seconds: float = 0.0
     # Which of parse_tool_call's branches actually accepted this turn (see
     # TOOL_CALL_FORMATS). Set from the parser itself rather than re-derived,

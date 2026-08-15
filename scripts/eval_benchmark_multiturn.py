@@ -505,6 +505,28 @@ def _run_single_task_multiturn(runner, task, env, max_turns):
                         ),
                     })
         else:
+            # A REJECTED tool call is not a final answer. The parser requires a
+            # closed `</function></tool_call>`; a call truncated at the token
+            # cap has no terminator, and treating it as plain-text ended the
+            # episode with the model's THINKING recorded as its submission --
+            # 321 such episodes across 40 pf transcript files, at 10x
+            # different rates per arm (fmtmatch 79-89/file vs 6-20 elsewhere),
+            # so the bias does not subtract out of arm comparisons. Give the
+            # model the same corrective the repetition guard gives, and let
+            # the episode continue; only XML-free prose is a final answer.
+            if "<tool_call>" in raw_output or "<function=" in raw_output:
+                turn.parse_error = True
+                messages.append({"role": "assistant", "content": raw_output})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "Your tool call was malformed or truncated and could not "
+                        "be executed. Emit ONE complete, well-formed tool call, "
+                        "or call submit_answer with your final answer."
+                    ),
+                })
+                turns.append(turn)
+                continue
             turn.is_final_answer = True
             messages.append({"role": "assistant", "content": raw_output})
             turns.append(turn)
