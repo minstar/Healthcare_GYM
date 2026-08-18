@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem=200G
 #SBATCH --cpus-per-task=16
-#SBATCH --time=12:00:00
+#SBATCH --time=20:00:00
 #SBATCH --output=/data/project/private/minstar/workspace/hcgym_rebuttal/logs/slurm_%x_%j.log
 # pt2_preemptible preempts with PreemptMode=REQUEUE and GraceTime=0, so a preempted
 # job restarts under the SAME job id and reopens this same file. Slurm's default open
@@ -15,6 +15,18 @@
 # identical config either side, but its validation curve survives only for steps
 # 10-190 and 390-600 -- the middle third was overwritten. Append instead.
 #SBATCH --open-mode=append
+#
+# 20h, not the 12h this used to request. Measured on job 60628: the four text
+# sets take 5:57:57 (medqa 2:43:57, mmlu 1:56:10, kqa_golden 0:15:10,
+# medication_qa 1:02:40) and the two visual sets 2:25:39 + 3:51:30, i.e. 12:15:06
+# for the suite -- over the old limit before a single FSDP shard is merged, and
+# the merge has never once been run in this tree.
+#
+# Those timings were all taken with 3-4 clients sharing one server (see the PORT
+# comment below), so a job that now gets its own server should be materially
+# faster; 20h is headroom for the case where it is not. The cost of guessing low
+# is a TIMEOUT that restarts the benchmark from row 0, because RESUME_FROM is
+# deliberately not auto-detected.
 #
 #
 # Sizing: one GPU. A 9B checkpoint serves comfortably in 192GB, and on a saturated
@@ -104,7 +116,31 @@ if [ "$RESUME_FROM" -gt 0 ] && [ "$(echo $BENCH | wc -w)" -gt 1 ]; then
     echo "        The offset applies to every benchmark listed; resume one per job." >&2
     exit 2
 fi
-PORT="${PORT:-31000}"
+# A PORT AND A SERVER NAME THAT BELONG TO THIS JOB.
+#
+# Both used to be constants -- port 31000, served-model-name `hcgym` -- and the
+# readiness gate below was satisfied by ANY server answering on that port with
+# that name. #SBATCH --gres=gpu:1 is not exclusive, so several eval jobs land on
+# one node routinely, and 12 of the 20 sglang logs in logs/ record
+# `[Errno 98] ... bind on address ('127.0.0.1', 31000): address already in use`.
+# Those jobs did not fail. They evaluated against a NEIGHBOUR's server: 61162,
+# 61163 and 61164 all ran on c36f-i08-3-gpu189 through 60755's server and lost
+# their backend within 88 ms of its SIGTERM.
+#
+# It was harmless only by luck -- every co-scheduled job so far served the same
+# Qwen3.5-9B path, so the weights were right by accident. Serving distinct
+# CHECKPOINTS under one constant name turns that into a results file that is
+# complete, error-free, plausible, and scored against another arm's weights.
+# There is no way to detect it afterwards.
+#
+# Three independent defences, because any one of them alone closes the hole and
+# the cost of a miss is a number that cannot be retracted:
+#   1. a port derived from the job id, so a collision is unlikely to begin with;
+#   2. a served-model-name carrying the tag, so a neighbour's server cannot
+#      satisfy this job's readiness check even on a shared port;
+#   3. an assertion that the socket we are about to use is ours (below).
+PORT="${PORT:-$((31000 + ${SLURM_JOB_ID:-$$} % 2000))}"
+SERVED_NAME="hcgym-${TAG}"
 OUT="${RUN_ROOT}/eval_results/${TAG}"
 mkdir -p "$OUT"
 
@@ -141,7 +177,7 @@ echo "[eval] benchmarks='${BENCH}' max_turns=${MAX_TURNS} temperature=${TEMPERAT
 
 python -m sglang.launch_server \
     --model-path "$MODEL" \
-    --served-model-name hcgym \
+    --served-model-name "$SERVED_NAME" \
     --host 127.0.0.1 --port "$PORT" \
     --trust-remote-code \
     --context-length 32768 \
@@ -156,7 +192,10 @@ trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
 # server looks identical to a slow one and the job burns its whole allocation.
 HEALTHY=0
 for i in $(seq 1 300); do
-    if curl -s -m 5 "http://127.0.0.1:${PORT}/v1/models" 2>/dev/null | grep -q hcgym; then
+    # Match the FULL served name, not the `hcgym` prefix. This is defence 2: a
+    # neighbour's server answering on this port advertises its own tag, so it
+    # cannot satisfy us, and we keep waiting for (or correctly fail on) our own.
+    if curl -s -m 5 "http://127.0.0.1:${PORT}/v1/models" 2>/dev/null | grep -q "\"${SERVED_NAME}\""; then
         HEALTHY=1; echo "[eval] server healthy after ~$((i * 10))s"; break
     fi
     if ! kill -0 $SERVER_PID 2>/dev/null; then
@@ -167,6 +206,41 @@ for i in $(seq 1 300); do
     sleep 10
 done
 [ "$HEALTHY" = 1 ] || { echo "[fatal] server never became healthy"; exit 1; }
+
+# Defence 3: the socket we are about to send 4,721 questions to must be ours.
+#
+# The name check above is already decisive against a neighbour, but only while
+# names stay distinct; this one holds regardless of what anyone else is called.
+# sglang serves from a CHILD of $SERVER_PID, so accept any descendant.
+#
+# ss is not on every image. A missing tool must not block an eval -- defences 1
+# and 2 already stand on their own -- so a failure to CHECK is a warning, while
+# a check that RUNS and finds a stranger is fatal.
+if command -v ss >/dev/null 2>&1; then
+    LISTEN_PIDS=$(ss -ltnpH "sport = :${PORT}" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+    if [ -z "$LISTEN_PIDS" ]; then
+        echo "[warn] could not read the owner of port ${PORT}; relying on the served-name check"
+    else
+        OWNED=0
+        for lp in $LISTEN_PIDS; do
+            p="$lp"
+            # Walk to init; stop if we meet our own server on the way up.
+            while [ -n "$p" ] && [ "$p" != "0" ] && [ "$p" != "1" ]; do
+                [ "$p" = "$SERVER_PID" ] && { OWNED=1; break; }
+                p=$(awk '/^PPid:/{print $2}' "/proc/$p/status" 2>/dev/null)
+            done
+            [ "$OWNED" = 1 ] && break
+        done
+        if [ "$OWNED" != 1 ]; then
+            echo "[fatal] port ${PORT} is held by pid(s) '${LISTEN_PIDS}', none descended from this job's server (${SERVER_PID})."
+            echo "        Refusing to evaluate ${TAG} through another job's weights."
+            exit 1
+        fi
+        echo "[eval] port ${PORT} confirmed owned by this job (server pid ${SERVER_PID})"
+    fi
+else
+    echo "[warn] ss unavailable; port ownership not asserted (served-name check still applies)"
+fi
 
 # A template/parser mismatch produces a silently meaningless agentic eval, so
 # confirm the model actually emits a parseable tool call before scoring anything.
